@@ -2,15 +2,37 @@ import sbt._
 
 object Dependencies {
 
-  val scalatest     = "org.scalatest"       %% "scalatest" % "3.0.7"
-  val machinist     = "org.typelevel"       %% "machinist" % "0.6.6"
-  val `cats-helper` = "com.evolutiongaming" %% "cats-helper" % "0.0.1"
+  val scalatest        = "org.scalatest"       %% "scalatest"      % "3.0.8"
+  val `cats-helper`    = "com.evolutiongaming" %% "cats-helper"    % "0.0.18"
+  val `executor-tools` = "com.evolutiongaming" %% "executor-tools" % "1.0.1"
 
   object Cats {
-    private val version = "1.6.0"
-    val core   = "org.typelevel" %% "cats-core" % version
+    private val version = "1.6.1"
+    val core   = "org.typelevel" %% "cats-core"   % version
     val kernel = "org.typelevel" %% "cats-kernel" % version
     val macros = "org.typelevel" %% "cats-macros" % version
-    val effect = "org.typelevel" %% "cats-effect" % "1.2.0"
+    val effect = "org.typelevel" %% "cats-effect" % "1.3.1"
+  }
+
+  object Akka {
+    private val version = "2.5.23"
+    val actor             = "com.typesafe.akka" %% "akka-actor"           % version
+    val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
+    val stream            = "com.typesafe.akka" %% "akka-stream"          % version
+    val persistence       = "com.typesafe.akka" %% "akka-persistence"     % version
+    val `persistence-tck` = "com.typesafe.akka" %% "akka-persistence-tck" % version
+    val slf4j             = "com.typesafe.akka" %% "akka-slf4j"           % version
+  }
+
+  object Logback {
+    private val version = "1.2.3"
+    val core    = "ch.qos.logback" % "logback-core"    % version
+    val classic = "ch.qos.logback" % "logback-classic" % version
+  }
+
+  object Slf4j {
+    private val version = "1.7.26"
+    val api                = "org.slf4j" % "slf4j-api"        % version
+    val `log4j-over-slf4j` = "org.slf4j" % "log4j-over-slf4j" % version
   }
 }
