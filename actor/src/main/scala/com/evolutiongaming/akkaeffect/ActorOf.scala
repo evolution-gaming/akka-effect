@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{Actor, ActorContext, ActorRef, Props}
+import akka.actor.{Actor, ActorContext, ActorRef}
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
@@ -64,23 +64,9 @@ object ActorOf {
           get(self) { context.child(name)  }
         }
 
-        val children = {
-          get(self) { context.children }
-        }
+        val children = get(self) { context.children }
 
-        def actorOf(props: Props, name: Option[String] = None) = {
-          Resource.make {
-            Sync[F].delay {
-              name.fold {
-                context.actorOf(props)
-              } { name =>
-                context.actorOf(props, name)
-              }
-            }
-          } { actorRef =>
-            Sync[F].delay { context.stop(actorRef) }
-          }
-        }
+        val actorOf = ActorRefOf[F](context)
       }
     }
 
@@ -104,7 +90,7 @@ object ActorOf {
 
       update { receive =>
         receive.fold(receive.pure[F]) { receive =>
-          val reply = Reply[F](to = sender, from = Some(self))
+          val reply = Reply.fromActorRef[F](to = sender, from = Some(self))
           for {
             result <- receive(a, reply).attempt
             state  <- result match {

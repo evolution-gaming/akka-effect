@@ -9,8 +9,7 @@ import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.{AsyncFunSuite, Matchers}
 
-
-class TellSpec extends AsyncFunSuite with ActorSuite with Matchers {
+class ReplySpec extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("toString") {
     `toString`[IO](actorSystem).run()
@@ -20,13 +19,14 @@ class TellSpec extends AsyncFunSuite with ActorSuite with Matchers {
     `apply`[IO](actorSystem).run()
   }
 
-  private def `toString`[F[_] : Sync](actorSystem: ActorSystem) = {
+  private def `toString`[F[_] : Concurrent](actorSystem: ActorSystem) = {
+
     val actorRefOf = ActorRefOf[F](actorSystem)
     val actorRef = actorRefOf(TestActors.blackholeProps)
-    actorRef.use { actorRef =>
-      val tell = Tell.fromActorRef[F](actorRef)
+    (actorRef, actorRef).tupled.use { case (to, from) =>
+      val reply = Reply.fromActorRef[F](to, from.some)
       Sync[F].delay {
-        tell.toString shouldEqual s"Tell(${ actorRef.path })"
+        reply.toString shouldEqual s"Reply(${ to.path }, ${ from.path })"
       }
     }
   }
@@ -34,23 +34,19 @@ class TellSpec extends AsyncFunSuite with ActorSuite with Matchers {
   private def `apply`[F[_] : Concurrent : ToFuture : FromFuture ](actorSystem: ActorSystem) = {
     val actorRefOf = ActorRefOf[F](actorSystem)
     val resources = for {
-      actorRef <- actorRefOf(TestActors.blackholeProps)
       probe    <- Probe.of[F](actorSystem)
+      actorRef <- actorRefOf(TestActors.blackholeProps)
     } yield {
-      (actorRef, probe)
+      (probe, actorRef)
     }
 
-    resources.use { case (actorRef, probe) =>
-      val tell = Tell.fromActorRef[F](probe.actorRef).mapK(FunctionK.id)
+    resources.use { case (probe, from) =>
+      val reply = Reply.fromActorRef[F](probe.actorRef, from.some).mapK(FunctionK.id)
       for {
-        envelope <- probe.expect
-        _        <- tell("msg0")
-        envelope <- envelope
-        _        <- Sync[F].delay { envelope shouldEqual Probe.Envelop("msg0", actorSystem.deadLetters) }
-        envelope <- probe.expect
-        _        <- tell("msg1", actorRef.some)
-        envelope <- envelope
-        _        <- Sync[F].delay { envelope shouldEqual Probe.Envelop("msg1", actorRef) }
+        a <- probe.expect
+        _ <- reply("msg")
+        a <- a
+        _ <- Sync[F].delay { a shouldEqual Probe.Envelop("msg", from) }
       } yield {}
     }
   }

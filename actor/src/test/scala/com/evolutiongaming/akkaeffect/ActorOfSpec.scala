@@ -63,9 +63,10 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       receiveTimeout <- Deferred[F, Unit]
       receive         = receiveOf(receiveTimeout.complete(()))
-      actorRef        = ActorRefF.of[F](actorSystem, receive)
+      actorRefOf      = ActorRefOf[F](actorSystem)
+      actorEffect     = ActorEffect.of[F](actorRefOf, receive)
       probe           = Probe.of[F](actorSystem)
-      resources       = (actorRef, probe).tupled
+      resources       = (actorEffect, probe).tupled
       result         <- resources.use { case (actorRef, probe) => `actorOf`[F](actorRef, probe, receiveTimeout.get) }
     } yield {
       result
@@ -73,7 +74,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
   def `actorOf`[F[_] : Async : ToFuture : FromFuture](
-    actorRef: ActorRefF[F, Any, Any],
+    actorRef: ActorEffect[F, Any, Any],
     probe: Probe[F],
     receiveTimeout: F[Unit]
   ): F[Unit] = {

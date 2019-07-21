@@ -1,10 +1,10 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{ActorPath, ActorRef, ActorRefFactory, Props}
+import akka.actor.{ActorPath, ActorRef, Props}
 import cats.effect.{Async, Resource, Sync}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
-trait ActorRefF[F[_], -A, B] { self =>
+trait ActorEffect[F[_], -A, B] { self =>
 
   def path: ActorPath
 
@@ -15,29 +15,19 @@ trait ActorRefF[F[_], -A, B] { self =>
   def toUnsafe: ActorRef
 }
 
-object ActorRefF {
+object ActorEffect {
 
   def of[F[_] : Async : ToFuture : FromFuture](
-    factory: ActorRefFactory,
+    actorRefOf: ActorRefOf[F],
     create: ActorCtx.Any[F] => F[Option[Receive.Any[F]]],
     name: Option[String] = None
-  ): Resource[F, ActorRefF[F, Any, Any]] = {
+  ): Resource[F, ActorEffect[F, Any, Any]] = {
 
     def actor = ActorOf[F](create)
 
     val props = Props(actor)
 
-    val actorRef = Resource.make {
-      Sync[F].delay {
-        name.fold {
-          factory.actorOf(props)
-        } { name =>
-          factory.actorOf(props, name)
-        }
-      }
-    } { actorRef =>
-      Sync[F].delay { factory.stop(actorRef) }
-    }
+    val actorRef = actorRefOf(props, name)
 
     for {
       actorRef <- actorRef
@@ -49,7 +39,7 @@ object ActorRefF {
 
   def fromActor[F[_] : Sync : FromFuture](
     actorRef: ActorRef
-  ): ActorRefF[F, Any, Any] = new ActorRefF[F, Any, Any] {
+  ): ActorEffect[F, Any, Any] = new ActorEffect[F, Any, Any] {
 
     def path = actorRef.path
 
@@ -66,8 +56,8 @@ object ActorRefF {
   }
 
 
-  implicit class ActorRefFOps[F[_], A, B](val self: ActorRefF[F, A, B]) extends AnyVal {
+  implicit class ActorRefFOps[F[_], A, B](val self: ActorEffect[F, A, B]) extends AnyVal {
 
-    def narrow[C <: A]: ActorRefF[F, C, B] = self
+    def narrow[C <: A]: ActorEffect[F, C, B] = self
   }
 }

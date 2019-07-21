@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{ActorRef, Props}
-import cats.effect.Resource
+import akka.actor.ActorRef
 
 import scala.collection.immutable.Iterable
 import scala.concurrent.ExecutionContextExecutor
@@ -21,7 +20,7 @@ trait ActorCtx[F[_], A, B] {
 
   def children: F[Iterable[ActorRef]]
 
-  def actorOf(props: Props, name: Option[String] = None): Resource[F, ActorRef]
+  def actorOf: ActorRefOf[F]
 }
 
 object ActorCtx {

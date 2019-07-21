@@ -21,7 +21,7 @@ object Reply {
   }
 
 
-  def apply[F[_] : Sync](
+  def fromActorRef[F[_] : Sync](
     to: ActorRef,
     from: Option[ActorRef],
   ): Reply[F, Any] = new Reply[F, Any] {

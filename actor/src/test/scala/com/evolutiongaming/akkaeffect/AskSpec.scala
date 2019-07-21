@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.ActorSystem
 import akka.testkit.TestActors
 import cats.arrow.FunctionK
-import cats.effect.{Concurrent, IO, Resource, Sync}
+import cats.effect.{Concurrent, IO, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
@@ -22,8 +22,8 @@ class AskSpec extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
   private def `toString`[F[_] : Sync : FromFuture](actorSystem: ActorSystem) = {
-    val actorRef = actorRefOf[F](actorSystem)
-    actorRef.use { actorRef =>
+    val actorRefOf = ActorRefOf[F](actorSystem)
+    actorRefOf(TestActors.echoActorProps).use { actorRef =>
       val ask = Ask.fromActorRef[F](actorRef)
       Sync[F].delay {
         ask.toString shouldEqual s"Ask(${ actorRef.path })"
@@ -33,8 +33,8 @@ class AskSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def `apply`[F[_] : Concurrent : ToFuture : FromFuture ](actorSystem: ActorSystem) = {
     val timeout = 1.second
-
-    actorRefOf[F](actorSystem).use { actorRef =>
+    val actorRefOf = ActorRefOf[F](actorSystem)
+    actorRefOf(TestActors.echoActorProps).use { actorRef =>
       val ask = Ask.fromActorRef[F](actorRef).mapK(FunctionK.id)
       for {
         reply <- ask("msg0", timeout)
@@ -42,15 +42,6 @@ class AskSpec extends AsyncFunSuite with ActorSuite with Matchers {
         reply <- ask("msg1", timeout, actorRef.some)
         _     <- Sync[F].delay { reply shouldEqual "msg1" }
       } yield {}
-    }
-  }
-
-  private def actorRefOf[F[_] : Sync](actorSystem: ActorSystem) = {
-    val props = TestActors.echoActorProps
-    Resource.make {
-      Sync[F].delay { actorSystem.actorOf(props) }
-    } { actorRef =>
-      Sync[F].delay { actorSystem.stop(actorRef) }
     }
   }
 }
