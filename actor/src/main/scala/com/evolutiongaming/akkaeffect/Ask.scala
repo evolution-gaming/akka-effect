@@ -17,6 +17,12 @@ object Ask {
   type Any[F[_]] = Ask[F, scala.Any, scala.Any]
 
 
+  def const[F[_], A, B](b: F[B]): Ask[F, A, B] = new Ask[F, A, B] {
+
+    def apply(a: A, timeout: FiniteDuration, sender: Option[ActorRef]) = b
+  }
+
+
   def fromActorRef[F[_] : FromFuture](actorRef: ActorRef): Any[F] = {
     new Any[F] {
 

@@ -2,7 +2,8 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorRef
 import cats.effect.Sync
-import cats.~>
+import cats.implicits._
+import cats.{Applicative, ~>}
 
 trait Tell[F[_], -A] {
 
@@ -10,6 +11,15 @@ trait Tell[F[_], -A] {
 }
 
 object Tell {
+
+  def empty[F[_] : Applicative, A]: Tell[F, A] = const(().pure[F])
+
+
+  def const[F[_], A](unit: F[Unit]): Tell[F, A] = new Tell[F, A] {
+
+    def apply(a: A, sender: Option[ActorRef]) = unit
+  }
+
 
   def fromActorRef[F[_] : Sync](actorRef: ActorRef): Tell[F, Any] = new Tell[F, Any] {
 

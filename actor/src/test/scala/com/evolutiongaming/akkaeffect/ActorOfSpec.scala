@@ -2,6 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, ReceiveTimeout}
 import akka.testkit.TestActors
+import cats.arrow.FunctionK
 import cats.effect.concurrent.Deferred
 import cats.effect.{Async, Concurrent, IO, Sync}
 import cats.implicits._
@@ -57,7 +58,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
         def postStop = ().pure[F]
       }
 
-      receive.some.pure[F]
+      receive.mapK(FunctionK.id, FunctionK.id).some.pure[F]
     }
 
     for {
