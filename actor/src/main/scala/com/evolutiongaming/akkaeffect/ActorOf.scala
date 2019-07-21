@@ -96,17 +96,17 @@ object ActorOf {
       }
     }
 
-    def onMsg(msg: Any, sender: ActorRef, context: ActorContext): Unit = {
+    def onAny(a: Any, sender: ActorRef, context: ActorContext): Unit = {
 
       val self = context.self
 
-      def fail(error: Throwable) = run(self) { throw error }
+      def fail(error: Throwable) = run(self) { throw error } // TODO test
 
       update { receive =>
         receive.fold(receive.pure[F]) { receive =>
           val reply = Reply[F](to = sender, from = Some(self))
           for {
-            result <- receive(msg, reply).attempt
+            result <- receive(a, reply).attempt
             state  <- result match {
               case Right(false) => receive.some.pure[F]
               case Right(true)  => stopSelf(context).as(none[S])
@@ -127,12 +127,12 @@ object ActorOf {
 
       override def preStart(): Unit = {
         super.preStart()
-        onPreStart(context)
+        onPreStart(context) // TODO test immediate stop
       }
 
       def receive: Receive = {
         case Run(f) => f()
-        case msg    => onMsg(msg, sender(), context)
+        case msg    => onAny(msg, sender(), context)
       }
 
       override def postStop(): Unit = {

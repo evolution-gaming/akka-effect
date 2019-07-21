@@ -41,7 +41,7 @@ object Reply {
   }
 
 
-  implicit class TellOps[F[_], A](val self: Reply[F, A]) extends AnyVal {
+  implicit class ReplyOps[F[_], A](val self: Reply[F, A]) extends AnyVal {
 
     def mapK[G[_]](f: F ~> G): Reply[G, A] = new Reply[G, A] {
 

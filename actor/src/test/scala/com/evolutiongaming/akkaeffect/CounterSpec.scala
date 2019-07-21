@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.ActorRef
-import akka.testkit.TestProbe
+import akka.actor.ActorSystem
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, IO, Sync, Timer}
 import cats.implicits._
@@ -9,11 +8,11 @@ import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.{AsyncFunSuite, Matchers}
 
-class CounterSpec extends AsyncFunSuite with Matchers {
+class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import CounterSpec._
 
   test("counter actor") {
-    testCounterActor[IO].run()
+    testCounterActor[IO](actorSystem).run()
   }
 
   test("counter rcv") {
@@ -68,9 +67,11 @@ class CounterSpec extends AsyncFunSuite with Matchers {
     }
   }
 
-  private def testCounterActor[F[_] : Concurrent : ToFuture : FromFuture : Timer] = {
-
-    TestActorSystem[F](getClass.getSimpleName).use { actorSystem =>
+  private def testCounterActor[F[_] : Concurrent : ToFuture : FromFuture : Timer](
+    actorSystem: ActorSystem
+  ) = {
+    val probe = Probe.of[F](actorSystem)
+    probe.use { probe =>
 
       def rcv(onStop: F[Unit]) = {
         for {
@@ -84,24 +85,36 @@ class CounterSpec extends AsyncFunSuite with Matchers {
         }
       }
 
+      val onStop   = probe.tell(PostStop)
+      val actorRef = ActorRefF.of[F](actorSystem, _ => rcv(onStop))
       for {
-        probe    <- Sync[F].delay { TestProbe()(actorSystem) }
-        onStop    = Sync[F].delay { probe.ref.tell(PostStop, ActorRef.noSender) }
-        actorRef  = ActorRefF.of[F](actorSystem, _ => rcv(onStop))
+
         result   <- actorRef.use { actorRef0 =>
           val ref    = actorRef0.narrow[Msg]
-          val tell   = (msg: Msg) => ref.tell(msg, probe.ref.some)
+          val tell   = (msg: Msg) => ref.tell(msg, probe.actorRef.some)
           val inc    = tell(Msg.Inc)
-          val expect = (n: Int) => Sync[F].delay { probe.expectMsg(n) }
+          val expect = (n: Int) => {
+            for {
+              a <- probe.expect
+            } yield for {
+              a <- a
+            } yield {
+              a.msg shouldEqual n
+            }
+          }
           for {
-            _      <- inc
-            _      <- expect(1)
-            _      <- inc
-            _      <- expect(2)
-            _      <- inc
-            _      <- expect(3)
-            _      <- tell(Msg.Stop)
-            _      <- expect(3)
+            a <- expect(1)
+            _ <- inc
+            _ <- a
+            a <- expect(2)
+            _ <- inc
+            _ <- a
+            a <- expect(3)
+            _ <- inc
+            _ <- a
+            a <- expect(3)
+            _ <- tell(Msg.Stop)
+            _ <- a
           } yield {}
         }
       } yield result
