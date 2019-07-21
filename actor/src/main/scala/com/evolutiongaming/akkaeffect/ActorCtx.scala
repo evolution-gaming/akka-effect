@@ -8,9 +8,7 @@ import scala.concurrent.duration.Duration
 
 trait ActorCtx[F[_], A, B] {
 
-  def tell: Tell[F, A]
-
-  def ask: Ask[F, A, B]
+  def self: ActorEffect[F, A, B]
 
   def dispatcher: ExecutionContextExecutor
 

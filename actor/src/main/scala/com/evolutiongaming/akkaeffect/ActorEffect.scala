@@ -51,7 +51,7 @@ object ActorEffect {
 
     override def toString = {
       val path = actorRef.path
-      s"ActorRefF($path)"
+      s"ActorEffect($path)"
     }
   }
 

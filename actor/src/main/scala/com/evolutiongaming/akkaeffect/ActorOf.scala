@@ -46,25 +46,21 @@ object ActorOf {
 
     def actorCtxOf(context: ActorContext): ActorCtx.Any[F] = {
 
-      val self = context.self
-
       new ActorCtx.Any[F] {
 
-        val tell = Tell.fromActorRef(self)
-
-        val ask = Ask.fromActorRef(self)
+        val self = ActorEffect.fromActor(context.self)
 
         def dispatcher = context.dispatcher
 
         def setReceiveTimeout(timeout: Duration) = {
-          run(self) { context.setReceiveTimeout(timeout) }
+          run(context.self) { context.setReceiveTimeout(timeout) }
         }
 
         def child(name: String) = {
-          get(self) { context.child(name)  }
+          get(context.self) { context.child(name)  }
         }
 
-        val children = get(self) { context.children }
+        val children = get(context.self) { context.children }
 
         val actorOf = ActorRefOf[F](context)
       }
