@@ -82,7 +82,7 @@ object ActorOf {
 
       val self = context.self
 
-      def fail(error: Throwable) = run(self) { throw error } // TODO test
+      def fail(error: Throwable) = run(self) { throw error }
 
       update { receive =>
         receive.fold(receive.pure[F]) { receive =>
@@ -109,7 +109,7 @@ object ActorOf {
 
       override def preStart(): Unit = {
         super.preStart()
-        onPreStart(context) // TODO test immediate stop
+        onPreStart(context)
       }
 
       def receive: Receive = {

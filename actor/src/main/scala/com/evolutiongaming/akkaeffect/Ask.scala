@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, ActorSelection}
 import akka.util.Timeout
 import cats.~>
 import com.evolutiongaming.catshelper.FromFuture
@@ -34,6 +34,23 @@ object Ask {
 
       override def toString = {
         val path = actorRef.path
+        s"Ask($path)"
+      }
+    }
+  }
+
+
+  def fromActorSelection[F[_] : FromFuture](actorSelection: ActorSelection): Any[F] = {
+    new Any[F] {
+
+      def apply(a: scala.Any, timeout: FiniteDuration, sender: Option[ActorRef]) = {
+        val timeout1 = Timeout(timeout)
+        val sender1 = sender getOrElse ActorRef.noSender
+        FromFuture[F].apply { akka.pattern.ask(actorSelection, a, sender1)(timeout1) }
+      }
+
+      override def toString = {
+        val path = actorSelection.pathString
         s"Ask($path)"
       }
     }

@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import cats.implicits._
-import cats.{Monad, ~>}
+import cats.{Applicative, Monad, ~>}
 
 trait Receive[F[_], A, B] {
 
@@ -21,6 +21,14 @@ object Receive {
   type Any[F[_]] = Receive[F, scala.Any, scala.Any]
 
   type Stop = Boolean
+
+
+  def empty[F[_] : Applicative, A, B]: Receive[F, A, B] = new Receive[F, A, B] {
+
+    def apply(a: A, reply: Reply[F, B]) = false.pure[F]
+
+    def postStop = ().pure[F]
+  }
 
 
   implicit class ReceiveOps[F[_], A, B](val self: Receive[F, A, B]) extends AnyVal {

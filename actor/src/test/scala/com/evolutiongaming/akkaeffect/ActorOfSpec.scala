@@ -1,22 +1,36 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, ReceiveTimeout}
+import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, PoisonPill, Props, ReceiveTimeout}
 import akka.testkit.TestActors
 import cats.arrow.FunctionK
-import cats.effect.concurrent.Deferred
-import cats.effect.{Async, Concurrent, IO, Sync}
+import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.{Async, Concurrent, IO, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.{AsyncFunSuite, Matchers}
 
 import scala.concurrent.duration._
+import scala.reflect.ClassTag
+import scala.util.control.NoStackTrace
 
 class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import ActorOfSpec._
 
   test("ActorOf") {
     `actorOf`[IO](actorSystem).run()
+  }
+
+  test("stop during start") {
+    `stop during start`[IO](actorSystem).run()
+  }
+
+  test("fail actor") {
+    `fail actor`[IO](actorSystem).run()
+  }
+
+  test("postStop") {
+    `postStop`[IO](actorSystem).run()
   }
 
   def `actorOf`[F[_] : Concurrent : ToFuture : FromFuture](
@@ -83,7 +97,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     val timeout = 1.second
 
 
-    def withCtx[A](f: ActorCtx.Any[F] => F[A]): F[A] = {
+    def withCtx[A : ClassTag](f: ActorCtx.Any[F] => F[A]): F[A] = {
       for {
         a <- actorRef.ask(WithCtx(f), timeout)
         a <- a.cast[F, A]
@@ -116,8 +130,130 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
       _           <- Sync[F].delay { identity shouldEqual ActorIdentity("id", actorRef.toUnsafe.some) }
       a           <- actorRef.ask("stop", timeout)
       _           <- Sync[F].delay { a shouldEqual "stopping" }
-      _           <-terminated0
+      _           <- terminated0
     } yield {}
+  }
+
+
+  private def `stop during start`[F[_] : Async : ToFuture : FromFuture : Timer](
+    actorSystem: ActorSystem
+  ) = {
+    val actorRefOf = ActorRefOf[F](actorSystem)
+    val receive = (_: ActorCtx.Any[F]) => none[Receive.Any[F]].pure[F]
+    def actor = ActorOf[F](receive)
+    val props = Props(actor)
+
+    actorRefOf(props).use { actorRef =>
+      val path = actorRef.path
+      val timeout = 1.minute
+      for {
+        actorSelection <- Sync[F].delay { actorSystem.actorSelection(path) }
+        _ = println(s"actorSelection: $actorSelection")
+        ask             = Ask.fromActorSelection[F](actorSelection)
+        a              <- ask(Identify("messageId"), timeout)
+      } yield {
+        a shouldEqual ActorIdentity("messageId", none[ActorRef])
+      }
+    }
+  }
+
+  private def `fail actor`[F[_] : Concurrent : ToFuture : FromFuture](
+    actorSystem: ActorSystem
+  ) = {
+
+    val actorRefOf = ActorRefOf[F](actorSystem)
+
+    def receiveOf(started: F[Unit]) = (_: ActorCtx.Any[F]) => {
+      for {
+        _ <- started
+      } yield {
+        val receive = new Receive.Any[F] {
+
+          def apply(a: Any, reply: Reply[F, Any]) = {
+            a match {
+              case "fail" =>
+                for {
+                  _ <- reply("ok")
+                  a <- (new RuntimeException("test") with NoStackTrace).raiseError[F, Stop]
+                } yield a
+
+              case "ping" =>
+                for {
+                  _ <- reply("pong")
+                } yield {
+                  false
+                }
+
+              case _ => false.pure[F]
+            }
+          }
+
+          def postStop = ().pure[F]
+        }
+
+        receive.some
+      }
+    }
+
+    for {
+      started <- Deferred[F, Unit]
+      ref     <- Ref[F].of(started)
+      receive  = receiveOf(ref.get.flatMap(_.complete(())))
+      actor    = () => ActorOf[F](receive)
+      props    = Props(actor())
+      result  <- actorRefOf(props).use { actorRef =>
+        val ask = Ask.fromActorRef[F](actorRef)
+        val timeout = 1.minute
+        for {
+          a       <- ask("ping", timeout)
+          _       <- Sync[F].delay { a shouldEqual "pong" }
+          _       <- started.get
+          started <- Deferred[F, Unit]
+          _       <- ref.set(started)
+          a       <- ask("fail", timeout)
+          _       <- Sync[F].delay { a shouldEqual "ok" }
+          _       <- started.get
+          a       <- ask("ping", timeout)
+          _       <- Sync[F].delay { a shouldEqual "pong" }
+        } yield {}
+      }
+    } yield {
+      result
+    }
+  }
+
+  private def `postStop`[F[_] : Concurrent : ToFuture : FromFuture](
+    actorSystem: ActorSystem
+  ) = {
+
+    val actorRefOf = ActorRefOf[F](actorSystem)
+
+    def receiveOf(stopped: F[Unit]) = (_: ActorCtx.Any[F]) => {
+      val receive = new Receive.Any[F] {
+
+        def apply(a: Any, reply: Reply[F, Any]) = false.pure[F]
+
+        def postStop = stopped
+      }
+
+      receive.some.pure[F]
+    }
+
+    for {
+      stopped <- Deferred[F, Unit]
+      receive  = receiveOf(stopped.complete(()))
+      actor    = () => ActorOf[F](receive)
+      props    = Props(actor())
+      result  <- actorRefOf(props).use { actorRef =>
+        val tell = Tell.fromActorRef[F](actorRef)
+        for {
+          _ <- tell(PoisonPill)
+          _ <- stopped.get
+        } yield {}
+      }
+    } yield {
+      result
+    }
   }
 }
 
@@ -126,11 +262,11 @@ object ActorOfSpec {
 
   implicit class AnyOps[A](val self: A) extends AnyVal {
 
-    def cast[F[_] : Sync, B <: A]/*(implicit tag: ClassTag[B])*/: F[B] = {
-      try {
-        self.asInstanceOf[B].pure[F]
-      } catch {
-        case error: Throwable => error.raiseError[F, B]
+    def cast[F[_] : Sync, B <: A](implicit tag: ClassTag[B]): F[B] = {
+      def error = new ClassCastException(s"${self.getClass.getName} cannot be cast to ${tag.runtimeClass.getName}")
+      tag.unapply(self) match {
+        case Some(a) => a.pure[F]
+        case None    => error.raiseError[F, B]
       }
     }
   }
