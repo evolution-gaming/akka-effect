@@ -39,7 +39,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def counter[F[_] : Sync](onStop: F[Unit]) = {
     for {
-      ref <- Ref[F].of(0)
+      state <- Ref[F].of(0)
     } yield {
       new Receive[F, Msg, Any] {
 
@@ -47,7 +47,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
           msg match {
             case Msg.Inc =>
               for {
-                n <- ref.modify { n =>
+                n <- state.modify { n =>
                   val n1 = n + 1
                   (n1, n1)
                 }
@@ -56,7 +56,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
             case Msg.Stop =>
               for {
-                n <- ref.get
+                n <- state.get
                 _ <- reply(n)
               } yield true
           }
@@ -76,20 +76,20 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
     val probe = Probe.of[F](actorSystem)
     probe.use { probe =>
 
-      def rcv(onStop: F[Unit]) = {
+      def receive(onStop: F[Unit]) = {
         for {
-          rcv <- counter(onStop)
+          receive <- counter(onStop)
         } yield {
-          val rcvAny = rcv.mapA[Any] {
+          val receiveAny = receive.mapA[Any] {
             case msg: Msg => msg.some.pure[F]
             case _        => none[Msg].pure[F]
           }
-          rcvAny.some
+          receiveAny.some
         }
       }
 
       val onStop   = probe.tell(PostStop)
-      val actorRef = ActorEffect.of[F](actorRefOf, _ => rcv(onStop))
+      val actorRef = ActorEffect.of[F](actorRefOf, _ => receive(onStop))
       for {
 
         result   <- actorRef.use { actorRef0 =>
