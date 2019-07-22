@@ -148,7 +148,6 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
       val timeout = 1.minute
       for {
         actorSelection <- Sync[F].delay { actorSystem.actorSelection(path) }
-        _ = println(s"actorSelection: $actorSelection")
         ask             = Ask.fromActorSelection[F](actorSelection)
         a              <- ask(Identify("messageId"), timeout)
       } yield {
