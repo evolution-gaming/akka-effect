@@ -36,6 +36,22 @@ trait Reply[F[_], -A] {
 ```
 
 
+### Receive.scala
+
+This is what you need to implement instead of familiar `new Actor { ... }`  
+
+```scala
+trait Receive[F[_], A, B] {
+
+  type Stop = Boolean
+
+  def apply(a: A, reply: Reply[F, B]): F[Stop]
+
+  def postStop: F[Unit]
+}
+```
+
+
 ### ActorOf.scala
 
 Constructs `Actor.scala` out of `receive: ActorCtx.Any[F] => F[Option[Receive.Any[F]]]`
