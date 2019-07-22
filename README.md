@@ -26,7 +26,7 @@ trait Ask[F[_], -A, B] {
 
 ### Reply.scala
 
-Represents reply patter
+Represents reply pattern: `sender() ! reply`
 
 ```scala
 trait Reply[F[_], -A] {
