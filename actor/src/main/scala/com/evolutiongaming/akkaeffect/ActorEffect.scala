@@ -19,7 +19,7 @@ object ActorEffect {
 
   def of[F[_] : Async : ToFuture : FromFuture](
     actorRefOf: ActorRefOf[F],
-    create: ActorCtx.Any[F] => F[Option[Receive.Any[F]]],
+    create: ActorCtx[F, Any, Any] => F[Option[Receive[F, Any, Any]]],
     name: Option[String] = None
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 

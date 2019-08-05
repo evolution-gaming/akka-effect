@@ -37,9 +37,9 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     actorSystem: ActorSystem
   ): F[Unit] = {
 
-    def receiveOf(receiveTimeout: F[Unit]) = (ctx: ActorCtx.Any[F]) => {
+    def receiveOf(receiveTimeout: F[Unit]) = (ctx: ActorCtx[F, Any, Any]) => {
 
-      val receive = new Receive.Any[F] {
+      val receive = new Receive[F, Any, Any] {
 
         def apply(a: Any, reply: Reply[F, Any]) = {
           a match {
@@ -83,9 +83,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
       probe           = Probe.of[F](actorSystem)
       resources       = (actorEffect, probe).tupled
       result         <- resources.use { case (actorRef, probe) => `actorOf`[F](actorRef, probe, receiveTimeout.get) }
-    } yield {
-      result
-    }
+    } yield result
   }
 
   def `actorOf`[F[_] : Async : ToFuture : FromFuture](
@@ -96,14 +94,12 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
     val timeout = 1.second
 
-
-    def withCtx[A : ClassTag](f: ActorCtx.Any[F] => F[A]): F[A] = {
+    def withCtx[A : ClassTag](f: ActorCtx[F, Any, Any] => F[A]): F[A] = {
       for {
         a <- actorRef.ask(WithCtx(f), timeout)
         a <- a.cast[F, A]
       } yield a
     }
-
 
     for {
       terminated0 <- probe.watch(actorRef.toUnsafe)
@@ -139,7 +135,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     actorSystem: ActorSystem
   ) = {
     val actorRefOf = ActorRefOf[F](actorSystem)
-    val receive = (_: ActorCtx.Any[F]) => none[Receive.Any[F]].pure[F]
+    val receive = (_: ActorCtx[F, Any, Any]) => none[Receive[F, Any, Any]].pure[F]
     def actor = ActorOf[F](receive)
     val props = Props(actor)
 
@@ -162,11 +158,11 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
     val actorRefOf = ActorRefOf[F](actorSystem)
 
-    def receiveOf(started: F[Unit]) = (_: ActorCtx.Any[F]) => {
+    def receiveOf(started: F[Unit]) = (_: ActorCtx[F, Any, Any]) => {
       for {
         _ <- started
       } yield {
-        val receive = new Receive.Any[F] {
+        val receive = new Receive[F, Any, Any] {
 
           def apply(a: Any, reply: Reply[F, Any]) = {
             a match {
@@ -227,8 +223,8 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
     val actorRefOf = ActorRefOf[F](actorSystem)
 
-    def receiveOf(stopped: F[Unit]) = (_: ActorCtx.Any[F]) => {
-      val receive = new Receive.Any[F] {
+    def receiveOf(stopped: F[Unit]) = (_: ActorCtx[F, Any, Any]) => {
+      val receive = new Receive[F, Any, Any] {
 
         def apply(a: Any, reply: Reply[F, Any]) = false.pure[F]
 
@@ -261,6 +257,7 @@ object ActorOfSpec {
 
   implicit class AnyOps[A](val self: A) extends AnyVal {
 
+    // TODO move out
     def cast[F[_] : Sync, B <: A](implicit tag: ClassTag[B]): F[B] = {
       def error = new ClassCastException(s"${self.getClass.getName} cannot be cast to ${tag.runtimeClass.getName}")
       tag.unapply(self) match {
@@ -270,5 +267,5 @@ object ActorOfSpec {
     }
   }
 
-  final case class WithCtx[F[_], A](f: ActorCtx.Any[F] => F[A])
+  final case class WithCtx[F[_], A](f: ActorCtx[F, Any, Any] => F[A])
 }

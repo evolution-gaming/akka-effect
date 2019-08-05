@@ -2,9 +2,10 @@ import sbt._
 
 object Dependencies {
 
-  val scalatest        = "org.scalatest"       %% "scalatest"      % "3.0.8"
-  val `cats-helper`    = "com.evolutiongaming" %% "cats-helper"    % "0.0.18"
-  val `executor-tools` = "com.evolutiongaming" %% "executor-tools" % "1.0.1"
+  val scalatest                   = "org.scalatest"       %% "scalatest"                 % "3.0.8"
+  val `cats-helper`               = "com.evolutiongaming" %% "cats-helper"               % "0.0.18"
+  val `executor-tools`            = "com.evolutiongaming" %% "executor-tools"            % "1.0.1"
+  val `akka-persistence-inmemory` = "com.github.dnvriend" %% "akka-persistence-inmemory" % "2.5.15.2"
 
   object Cats {
     private val version = "1.6.1"
@@ -16,12 +17,13 @@ object Dependencies {
 
   object Akka {
     private val version = "2.5.23"
-    val actor             = "com.typesafe.akka" %% "akka-actor"           % version
-    val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
-    val stream            = "com.typesafe.akka" %% "akka-stream"          % version
-    val persistence       = "com.typesafe.akka" %% "akka-persistence"     % version
-    val `persistence-tck` = "com.typesafe.akka" %% "akka-persistence-tck" % version
-    val slf4j             = "com.typesafe.akka" %% "akka-slf4j"           % version
+    val actor               = "com.typesafe.akka" %% "akka-actor"             % version
+    val testkit             = "com.typesafe.akka" %% "akka-testkit"           % version
+    val stream              = "com.typesafe.akka" %% "akka-stream"            % version
+    val persistence         = "com.typesafe.akka" %% "akka-persistence"       % version
+    val `persistence-query` = "com.typesafe.akka" %% "akka-persistence-query" % version
+    val `persistence-tck`   = "com.typesafe.akka" %% "akka-persistence-tck"   % version
+    val slf4j               = "com.typesafe.akka" %% "akka-slf4j"             % version
   }
 
   object Logback {

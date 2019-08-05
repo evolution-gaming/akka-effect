@@ -14,19 +14,16 @@ trait Ask[F[_], -A, B] {
 
 object Ask {
 
-  type Any[F[_]] = Ask[F, scala.Any, scala.Any]
-
-
   def const[F[_], A, B](b: F[B]): Ask[F, A, B] = new Ask[F, A, B] {
 
     def apply(a: A, timeout: FiniteDuration, sender: Option[ActorRef]) = b
   }
 
 
-  def fromActorRef[F[_] : FromFuture](actorRef: ActorRef): Any[F] = {
-    new Any[F] {
+  def fromActorRef[F[_] : FromFuture](actorRef: ActorRef): Ask[F, Any, Any] = {
+    new Ask[F, Any, Any] {
 
-      def apply(a: scala.Any, timeout: FiniteDuration, sender: Option[ActorRef]) = {
+      def apply(a: Any, timeout: FiniteDuration, sender: Option[ActorRef]) = {
         val timeout1 = Timeout(timeout)
         val sender1 = sender getOrElse ActorRef.noSender
         FromFuture[F].apply { akka.pattern.ask(actorRef, a, sender1)(timeout1) }
@@ -40,10 +37,10 @@ object Ask {
   }
 
 
-  def fromActorSelection[F[_] : FromFuture](actorSelection: ActorSelection): Any[F] = {
-    new Any[F] {
+  def fromActorSelection[F[_] : FromFuture](actorSelection: ActorSelection): Ask[F, Any, Any] = {
+    new Ask[F, Any, Any] {
 
-      def apply(a: scala.Any, timeout: FiniteDuration, sender: Option[ActorRef]) = {
+      def apply(a: Any, timeout: FiniteDuration, sender: Option[ActorRef]) = {
         val timeout1 = Timeout(timeout)
         val sender1 = sender getOrElse ActorRef.noSender
         FromFuture[F].apply { akka.pattern.ask(actorSelection, a, sender1)(timeout1) }

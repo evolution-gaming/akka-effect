@@ -54,7 +54,7 @@ trait Receive[F[_], A, B] {
 
 ### ActorOf.scala
 
-Constructs `Actor.scala` out of `receive: ActorCtx.Any[F] => F[Option[Receive.Any[F]]]`
+Constructs `Actor.scala` out of `receive: ActorCtx[F, Any, Any] => F[Option[Receive[F, Any, Any]]]`
 
 
 ### ActorCtx.scala

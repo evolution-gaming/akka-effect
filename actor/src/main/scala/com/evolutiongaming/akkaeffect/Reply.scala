@@ -24,19 +24,21 @@ object Reply {
   def fromActorRef[F[_] : Sync](
     to: ActorRef,
     from: Option[ActorRef],
-  ): Reply[F, Any] = new Reply[F, Any] {
+  ): Reply[F, Any] = {
+    new Reply[F, Any] {
 
-    def apply(a: Any): F[Unit] = {
-      Sync[F].delay { to.tell(a, from.orNull) }
-    }
+      def apply(a: Any): F[Unit] = {
+        Sync[F].delay { to.tell(a, from.orNull) }
+      }
 
-    override def toString = {
+      override def toString = {
 
-      def str(actorRef: ActorRef) = actorRef.path.toString
+        def str(actorRef: ActorRef) = actorRef.path.toString
 
-      val fromStr = from.fold("")(from => s", ${ str(from) }")
-      val stStr = str(to)
-      s"Reply($stStr$fromStr)"
+        val fromStr = from.fold("")(from => s", ${ str(from) }")
+        val stStr = str(to)
+        s"Reply($stStr$fromStr)"
+      }
     }
   }
 

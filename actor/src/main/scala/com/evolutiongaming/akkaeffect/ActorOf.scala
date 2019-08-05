@@ -1,24 +1,21 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{Actor, ActorContext, ActorRef}
+import akka.actor.{Actor, ActorRef}
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 import scala.concurrent.Future
-import scala.concurrent.duration.Duration
 
 object ActorOf {
 
   def apply[F[_] : Async : ToFuture : FromFuture](
-    receive: ActorCtx.Any[F] => F[Option[Receive.Any[F]]]
+    receive: ActorCtx[F, Any, Any] => F[Option[Receive[F, Any, Any]]]
   ): Actor = {
 
-    type S = Receive.Any[F]
+    type S = Receive[F, Any, Any]
 
     var state = Future.successful(none[S])
-
-    final case class Run(f: () => Unit)
 
     def update(f: Option[S] => F[Option[S]]): Unit = {
       val fa = for {
@@ -28,61 +25,20 @@ object ActorOf {
       state = ToFuture[F].apply { fa }
     }
 
-    def stopSelf(context: ActorContext) = {
-      val self = context.self
-      Sync[F].delay { context.stop(self) }
-    }
-
-    def run(self: ActorRef)(f: => Unit): F[Unit] = {
-      val run = Run(() => f)
-      Sync[F].delay { self.tell(run, self) }
-    }
-
-    def get[A](self: ActorRef)(f: => A): F[A] = {
-      Async[F].asyncF[A] { callback =>
-        run(self) { callback(f.asRight) }
+    def onPreStart(adapter: ActorContextAdapter[F]): Unit = {
+      update {
+        case Some(_) => ActorError("onPreStart failed: unexpected state").raiseError[F, Option[S]]
+        case None    =>
+          for {
+            state <- receive(adapter.ctx)
+            _     <- state.fold(adapter.stop) { _ => ().pure[F] }
+          } yield state
       }
     }
 
-    def actorCtxOf(context: ActorContext): ActorCtx.Any[F] = {
+    def onAny(a: Any, adapter: ActorContextAdapter[F], self: ActorRef, sender: ActorRef): Unit = {
 
-      new ActorCtx.Any[F] {
-
-        val self = ActorEffect.fromActor(context.self)
-
-        def dispatcher = context.dispatcher
-
-        def setReceiveTimeout(timeout: Duration) = {
-          run(context.self) { context.setReceiveTimeout(timeout) }
-        }
-
-        def child(name: String) = {
-          get(context.self) { context.child(name)  }
-        }
-
-        val children = get(context.self) { context.children }
-
-        val actorOf = ActorRefOf[F](context)
-      }
-    }
-
-    def onPreStart(context: ActorContext): Unit = {
-
-      val ctx = actorCtxOf(context)
-
-      update { _ =>
-        for {
-          state <- receive(ctx)
-          _     <- state.fold(stopSelf(context)) { _ => ().pure[F] }
-        } yield state
-      }
-    }
-
-    def onAny(a: Any, sender: ActorRef, context: ActorContext): Unit = {
-
-      val self = context.self
-
-      def fail(error: Throwable) = run(self) { throw error }
+      def fail(error: Throwable) = adapter.run { throw error }
 
       update { receive =>
         receive.fold(receive.pure[F]) { receive =>
@@ -91,7 +47,7 @@ object ActorOf {
             result <- receive(a, reply).attempt
             state  <- result match {
               case Right(false) => receive.some.pure[F]
-              case Right(true)  => stopSelf(context).as(none[S])
+              case Right(true)  => adapter.stop.as(none[S])
               case Left(error)  => fail(error).as(none[S])
             }
           } yield state
@@ -107,14 +63,15 @@ object ActorOf {
 
     new Actor {
 
+      val adapter = ActorContextAdapter(context)
+
       override def preStart(): Unit = {
         super.preStart()
-        onPreStart(context)
+        onPreStart(adapter)
       }
 
-      def receive: Receive = {
-        case Run(f) => f()
-        case msg    => onAny(msg, sender(), context)
+      def receive: Receive = adapter.receive orElse {
+        case msg => onAny(msg, adapter, self = self, sender = sender())
       }
 
       override def postStop(): Unit = {

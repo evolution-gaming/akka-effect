@@ -1,7 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
 import cats.implicits._
-import cats.{Applicative, Monad, ~>}
+import cats.{Applicative, FlatMap, Monad, ~>}
+import com.evolutiongaming.akkaeffect.Conversion.implicits._
 
 trait Receive[F[_], A, B] {
 
@@ -17,8 +18,6 @@ trait Receive[F[_], A, B] {
 }
 
 object Receive {
-
-  type Any[F[_]] = Receive[F, scala.Any, scala.Any]
 
   type Stop = Boolean
 
@@ -43,9 +42,9 @@ object Receive {
     }
 
 
-    def mapA[C](f: C => F[Option[A]])(implicit F: Monad[F]): Receive[F, C, B] = new Receive[F, C, B] {
+    def mapA[AA](f: AA => F[Option[A]])(implicit F: Monad[F]): Receive[F, AA, B] = new Receive[F, AA, B] {
 
-      def apply(msg: C, reply: Reply[F, B]) = {
+      def apply(msg: AA, reply: Reply[F, B]) = {
         for {
           msg  <- f(msg)
           stop <- msg.fold(false.pure[F]) { msg => self(msg, reply) }
@@ -53,6 +52,22 @@ object Receive {
       }
 
       def postStop = self.postStop
+    }
+
+
+    def untype(implicit F: FlatMap[F], anyToA: Conversion[F, Any, A]): Receive[F, Any, Any] = {
+
+      new Receive[F, Any, Any] {
+
+        def apply(a: Any, reply: Reply[F, Any]) = {
+          for {
+            a    <- a.convert[F, A]
+            stop <- self(a, reply)
+          } yield stop
+        }
+
+        def postStop = self.postStop
+      }
     }
   }
 }

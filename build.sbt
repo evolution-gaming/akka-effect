@@ -13,7 +13,8 @@ lazy val commonSettings = Seq(
   scalacOptions in(Compile, doc) ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   resolvers += Resolver.bintrayRepo("evolutiongaming", "maven"),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
-  releaseCrossBuild := true/*,
+  releaseCrossBuild := true,
+  scalacOptsFailOnWarn := Some(false)/*TODO*/ /*,
   testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))*/)
 
 
@@ -45,9 +46,16 @@ lazy val actor = (project in file("actor")
 lazy val persistence = (project in file("persistence")
   settings (name := "akka-effect-persistence")
   settings commonSettings
-  dependsOn actor
+  dependsOn actor % "test->test;compile->compile"
   settings (libraryDependencies ++= Seq(
+    Akka.actor,
+    Akka.stream,
+    Akka.persistence,
+    Akka.`persistence-query`,
+    Akka.slf4j   % Test,
+    Akka.testkit % Test,
     Cats.core,
     Cats.effect,
     `cats-helper`,
-    scalatest % Test)))
+    scalatest % Test,
+    `akka-persistence-inmemory` % Test)))

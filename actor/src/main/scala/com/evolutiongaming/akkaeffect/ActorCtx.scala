@@ -21,6 +21,29 @@ trait ActorCtx[F[_], A, B] {
   def actorOf: ActorRefOf[F]
 }
 
+
 object ActorCtx {
-  type Any[F[_]] = ActorCtx[F, scala.Any, scala.Any]
+
+  /*implicit class ActorCtxOps[F[_], A, B](val self: ActorCtx[F, A, B]) extends AnyVal {
+
+    def untype: ActorCtx[F, Any, Any] = {
+
+      val self1 = self
+
+      new ActorCtx[F, Any, Any] {
+
+        def self = ???
+
+        def dispatcher = self1.dispatcher
+
+        def setReceiveTimeout(timeout: Duration) = self1.setReceiveTimeout(timeout)
+
+        def child(name: String) = self1.child(name)
+
+        def children = self1.children
+
+        def actorOf = ???
+      }
+    }
+  }*/
 }
