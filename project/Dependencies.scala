@@ -3,20 +3,20 @@ import sbt._
 object Dependencies {
 
   val scalatest                   = "org.scalatest"       %% "scalatest"                 % "3.0.8"
-  val `cats-helper`               = "com.evolutiongaming" %% "cats-helper"               % "0.0.18"
-  val `executor-tools`            = "com.evolutiongaming" %% "executor-tools"            % "1.0.1"
+  val `cats-helper`               = "com.evolutiongaming" %% "cats-helper"               % "1.0.0"
+  val `executor-tools`            = "com.evolutiongaming" %% "executor-tools"            % "1.0.2"
   val `akka-persistence-inmemory` = "com.github.dnvriend" %% "akka-persistence-inmemory" % "2.5.15.2"
 
   object Cats {
-    private val version = "1.6.1"
+    private val version = "2.0.0"
     val core   = "org.typelevel" %% "cats-core"   % version
     val kernel = "org.typelevel" %% "cats-kernel" % version
     val macros = "org.typelevel" %% "cats-macros" % version
-    val effect = "org.typelevel" %% "cats-effect" % "1.3.1"
+    val effect = "org.typelevel" %% "cats-effect" % "2.0.0"
   }
 
   object Akka {
-    private val version = "2.5.23"
+    private val version = "2.5.25"
     val actor               = "com.typesafe.akka" %% "akka-actor"             % version
     val testkit             = "com.typesafe.akka" %% "akka-testkit"           % version
     val stream              = "com.typesafe.akka" %% "akka-stream"            % version
