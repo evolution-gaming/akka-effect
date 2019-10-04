@@ -3,7 +3,7 @@ import sbt._
 object Dependencies {
 
   val scalatest                   = "org.scalatest"       %% "scalatest"                 % "3.0.8"
-  val `cats-helper`               = "com.evolutiongaming" %% "cats-helper"               % "1.0.0"
+  val `cats-helper`               = "com.evolutiongaming" %% "cats-helper"               % "1.0.4"
   val `executor-tools`            = "com.evolutiongaming" %% "executor-tools"            % "1.0.2"
   val `akka-persistence-inmemory` = "com.github.dnvriend" %% "akka-persistence-inmemory" % "2.5.15.2"
 
