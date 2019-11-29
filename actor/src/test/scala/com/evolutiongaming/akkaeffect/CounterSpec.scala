@@ -6,7 +6,8 @@ import cats.effect.{Concurrent, IO, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
-import org.scalatest.{AsyncFunSuite, Matchers}
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import CounterSpec._
