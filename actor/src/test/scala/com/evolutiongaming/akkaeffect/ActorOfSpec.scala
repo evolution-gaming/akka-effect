@@ -8,11 +8,12 @@ import cats.effect.{Async, Concurrent, IO, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
-import org.scalatest.{AsyncFunSuite, Matchers}
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.control.NoStackTrace
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import ActorOfSpec._

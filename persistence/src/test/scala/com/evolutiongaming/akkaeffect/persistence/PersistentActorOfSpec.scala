@@ -9,11 +9,12 @@ import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
-import org.scalatest.{AsyncFunSuite, Matchers}
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.control.NoStackTrace
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import PersistentActorOfSpec._

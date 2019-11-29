@@ -7,8 +7,9 @@ import cats.effect.{Concurrent, IO, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
-import org.scalatest.{AsyncFunSuite, Matchers}
 import scala.concurrent.duration._
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 
 class AskSpec extends AsyncFunSuite with ActorSuite with Matchers {
