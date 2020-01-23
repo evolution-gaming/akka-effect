@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.Actor
-import akka.persistence._
+import akka.persistence.{Snapshotter => _, _}
 import com.evolutiongaming.akkaeffect.ActorContextAdapter
 import com.evolutiongaming.catshelper.FromFuture
 

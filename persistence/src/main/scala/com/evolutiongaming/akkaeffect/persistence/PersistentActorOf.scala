@@ -50,13 +50,11 @@ object PersistentActorOf {
 
         def update(f: Option[Phase[S, C, E]] => F[Option[Phase[S, C, E]]]): Unit = {
 
-          def fail(error: Throwable) = adapter.run { throw error }
-
           val fa = for {
             phase <- FromFuture[F].apply { phase }
             phase <- f(phase).attempt
             phase <- phase.fold(
-              error => fail(error).as(none[Phase[S, C, E]]),
+              error => adapter.fail(error).as(none[Phase[S, C, E]]),
               phase => phase.fold(adapter.stop.as(none[Phase[S, C, E]])) { _.some.pure[F] } )
           } yield phase
           phase = ToFuture[F].apply { fa }
@@ -312,8 +310,6 @@ object PersistentActorOf {
       }
 
       override def recovery = setup1.recovery
-
-//      override def snapshotterId = super.snapshotterId
 
       override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]) = {
         super.onRecoveryFailure(cause, event)

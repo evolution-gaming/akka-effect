@@ -8,11 +8,11 @@ import com.evolutiongaming.catshelper.FromFuture
 import scala.concurrent.duration.Duration
 
 
-trait ActorContextAdapter[F[_]] {
-
-  def run(f: => Unit): F[Unit]
+private[akkaeffect] trait ActorContextAdapter[F[_]] {
 
   def get[A](f: => A): F[A]
+
+  def fail(error: Throwable): F[Unit]
 
   def receive: Actor.Receive
 
@@ -21,7 +21,7 @@ trait ActorContextAdapter[F[_]] {
   def ctx: ActorCtx[F, Any, Any]
 }
 
-object ActorContextAdapter {
+private[akkaeffect] object ActorContextAdapter {
 
   def apply[F[_] : Async : FromFuture](context: ActorContext): ActorContextAdapter[F] = {
 
@@ -29,12 +29,14 @@ object ActorContextAdapter {
 
     val self = context.self
 
+    def run(f: => Unit): F[Unit] = {
+      val run = Run(() => f)
+      Sync[F].delay { self.tell(run, self) }
+    }
+
     new ActorContextAdapter[F] {
 
-      def run(f: => Unit): F[Unit] = {
-        val run = Run(() => f)
-        Sync[F].delay { self.tell(run, self) }
-      }
+      def fail(error: Throwable) = run { throw error }
 
       def get[A](f: => A): F[A] = {
         Async[F].asyncF[A] { callback =>

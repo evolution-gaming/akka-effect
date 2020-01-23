@@ -14,7 +14,7 @@ trait Receive[F[_], A, B] {
   /**
     * Called if stop was triggered externally only
     */
-  def postStop: F[Unit]
+  def postStop: F[Unit] // TODO remove and switch to using Resource
 }
 
 object Receive {

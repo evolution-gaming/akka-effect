@@ -16,7 +16,7 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.25"
+    private val version = "2.5.27"
     val actor               = "com.typesafe.akka" %% "akka-actor"             % version
     val testkit             = "com.typesafe.akka" %% "akka-testkit"           % version
     val stream              = "com.typesafe.akka" %% "akka-stream"            % version
@@ -33,7 +33,7 @@ object Dependencies {
   }
 
   object Slf4j {
-    private val version = "1.7.26"
+    private val version = "1.7.30"
     val api                = "org.slf4j" % "slf4j-api"        % version
     val `log4j-over-slf4j` = "org.slf4j" % "log4j-over-slf4j" % version
   }
