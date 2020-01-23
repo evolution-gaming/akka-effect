@@ -286,8 +286,6 @@ object PersistentActorOfSpec {
             case _ => Error(s"unexpected $cmd").raiseError[F, Boolean]
           }
         }
-
-        def postStop = ().pure[F]
       }
     }
   }

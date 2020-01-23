@@ -15,12 +15,12 @@ import scala.util.control.NoStackTrace
 
 class StateVarTest extends AsyncFunSuite with Matchers {
 
-  test("success") {
+  test("update success") {
     val state = StateVar[IO].of(0)
 
     def increment() = {
       val promise = Promise[Int]
-      state { a =>
+      state.update { a =>
         val b = a + 1
         IO { promise.success(b) }.as(b)
       }
@@ -35,14 +35,14 @@ class StateVarTest extends AsyncFunSuite with Matchers {
       .map { _ => Succeeded }
   }
 
-  test("failure") {
+  test("update failure") {
     val error = new RuntimeException with NoStackTrace
     val state = StateVar[IO].of(())
 
-    state { _ => error.raiseError[IO, Unit] }
+    state.update { _ => error.raiseError[IO, Unit] }
 
     val promise = Promise[Unit]
-    state { _ => IO { promise.success(()) } }
+    state.update { _ => IO { promise.success(()) } }
 
     FromFuture[IO]
       .apply { promise.future }

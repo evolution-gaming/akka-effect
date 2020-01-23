@@ -116,8 +116,8 @@ object Probe {
 
       val state = StateVar[F].of(())
 
-      def onAny(a: Any, sender: ActorRef) = {
-        state { _ => receive(Envelop(a, sender)) }
+      def onAny(a: Any, sender: ActorRef): Unit = {
+        state.update { _ => receive(Envelop(a, sender)) }
       }
 
       new Actor {
@@ -129,17 +129,15 @@ object Probe {
     }
 
     val props = Props(actor)
-    val actorRef = Resource.make {
-      Sync[F].delay { actorRefFactory.actorOf(props) }
-    } { actorRef =>
-      Sync[F].delay { actorRefFactory.stop(actorRef) }
-    }
-
-    for {
-      actorRef <- actorRef
-    } yield {
-      val run = (f: ActorContext => F[Unit]) => Sync[F].delay { actorRef.tell(Run(f), ActorRef.noSender) }
-      (actorRef, run)
-    }
+    Resource
+      .make {
+        Sync[F].delay { actorRefFactory.actorOf(props) }
+      } { actorRef =>
+        Sync[F].delay { actorRefFactory.stop(actorRef) }
+      }
+      .map { actorRef =>
+        val run = (f: ActorContext => F[Unit]) => Sync[F].delay { actorRef.tell(Run(f), ActorRef.noSender) }
+        (actorRef, run)
+      }
   }
 }

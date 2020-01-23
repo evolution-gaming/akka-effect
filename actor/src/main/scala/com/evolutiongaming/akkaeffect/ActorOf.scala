@@ -8,45 +8,68 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 object ActorOf {
 
   def apply[F[_] : Async : ToFuture : FromFuture](
-    receive: ActorCtx[F, Any, Any] => F[Option[Receive[F, Any, Any]]]
+    receiveOf: ReceiveOf[F, Any, Any]
   ): Actor = {
 
     type Rcv = Receive[F, Any, Any]
 
-    val state = StateVar[F].of(none[Rcv])
+    type PostStop = F[Unit]
+
+    type State = (Rcv, PostStop)
+
+    val state = StateVar[F].of(none[State])
+
+    def fail[A](msg: String, cause: Option[Throwable]) = ActorError(msg, cause).raiseError[F, A]
+
+    def update(adapter: ActorContextAdapter[F])(f: Option[State] => F[Option[State]]): Unit = {
+      state.update { state =>
+        f(state).handleErrorWith { error => adapter.fail(error).as(none[State]) }
+      }
+    }
 
     def onPreStart(adapter: ActorContextAdapter[F], self: ActorRef): Unit = {
-      state {
-        case Some(_) => ActorError(s"$self.onPreStart failed: unexpected state").raiseError[F, Option[Rcv]]
+      update(adapter) {
         case None    =>
-          for {
-            state <- receive(adapter.ctx)
-            _     <- state.fold { adapter.stop } { _ => ().pure[F] }
-          } yield state
+          receiveOf(adapter.ctx)
+            .allocated
+            .handleErrorWith { cause =>
+              fail[(Option[Rcv], PostStop)](s"$self.onPreStart failed: cannot allocate receive", cause.some)
+            }
+            .flatMap {
+              case (Some(receive), release) =>
+                (receive, release).some.pure[F]
+
+              case (None, release) =>
+                release
+                  .attempt
+                  .productR {
+                    adapter
+                      .stop
+                      .as(none[State])
+                  }
+            }
+        case Some(_) =>
+          fail[Option[State]](s"$self.onPreStart failed: unexpected state", none)
       }
     }
 
     def onAny(a: Any, adapter: ActorContextAdapter[F], self: ActorRef, sender: ActorRef): Unit = {
-      state {
-        case Some(receive) =>
-          val reply = Reply.fromActorRef[F](to = sender, from = Some(self))
-          for {
-            result <- receive(a, reply).attempt
-            state  <- result match {
-              case Right(false) => receive.some.pure[F]
-              case Right(true)  => adapter.stop.as(none[Rcv])
-              case Left(error)  => adapter.fail(error).as(none[Rcv])
-            }
-          } yield state
-        case receive       => receive.pure[F]
+      update(adapter) {
+        case Some(state @ (receive, _)) =>
+          val reply = Reply.fromActorRef[F](to = sender, from = self.some)
+          receive(a, reply).flatMap {
+            case false => state.some.pure[F]
+            case true  => adapter.stop.as(none[State])
+          }
+        case receive                    =>
+          receive.pure[F]
       }
     }
 
     def onPostStop(): Unit = {
-      state { receive =>
-        receive
-          .foldMapM { _.postStop }
-          .as(none[Rcv])
+      state.update {
+        case Some((_, release)) => release.as(none[State])
+        case None               => none[State].pure[F]
       }
     }
 

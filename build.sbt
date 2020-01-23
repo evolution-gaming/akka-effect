@@ -41,7 +41,8 @@ lazy val actor = (project in file("actor")
     Slf4j.`log4j-over-slf4j` % Test,
     `cats-helper`,
     `executor-tools`,
-    scalatest % Test)))
+    scalatest % Test,
+    compilerPlugin(`kind-projector` cross CrossVersion.full))))
 
 lazy val persistence = (project in file("persistence")
   settings (name := "akka-effect-persistence")

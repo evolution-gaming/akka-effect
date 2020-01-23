@@ -2,18 +2,17 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, PoisonPill, Props, ReceiveTimeout}
 import akka.testkit.TestActors
-import cats.arrow.FunctionK
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Async, Concurrent, IO, Sync, Timer}
+import cats.effect.{Async, Concurrent, IO, Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.control.NoStackTrace
-import org.scalatest.funsuite.AsyncFunSuite
-import org.scalatest.matchers.should.Matchers
 
 class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import ActorOfSpec._
@@ -30,6 +29,10 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     `fail actor`[IO](actorSystem).run()
   }
 
+  test("fail during start") {
+    `fail during start`[IO](actorSystem).run()
+  }
+
   test("postStop") {
     `postStop`[IO](actorSystem).run()
   }
@@ -38,20 +41,18 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     actorSystem: ActorSystem
   ): F[Unit] = {
 
-    def receiveOf(receiveTimeout: F[Unit]) = (ctx: ActorCtx[F, Any, Any]) => {
+    def receiveOf(receiveTimeout: F[Unit]): ReceiveOf[F, Any, Any] = (ctx: ActorCtx[F, Any, Any]) => {
 
-      val receive = new Receive[F, Any, Any] {
+      val receive: Receive[F, Any, Any] = {
 
-        def apply(a: Any, reply: Reply[F, Any]) = {
+        (a: Any, reply: Reply[F, Any]) =>{
           a match {
             case a: WithCtx[_, _] =>
               val f = a.asInstanceOf[WithCtx[F, Any]].f
               for {
                 a <- f(ctx)
                 _ <- reply(a)
-              } yield {
-                false
-              }
+              } yield false
 
             case ReceiveTimeout =>
               for {
@@ -59,21 +60,14 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
                 _ <- receiveTimeout
               } yield false
 
-            case "stop" =>
-              for {
-                _ <- reply("stopping")
-              } yield {
-                true
-              }
+            case "stop" => reply("stopping").as(true)
 
             case _      => false.pure[F]
           }
         }
-
-        def postStop = ().pure[F]
       }
 
-      receive.mapK(FunctionK.id, FunctionK.id).some.pure[F]
+      Resource.liftF(receive.some.pure[F])
     }
 
     for {
@@ -136,7 +130,8 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     actorSystem: ActorSystem
   ) = {
     val actorRefOf = ActorRefOf[F](actorSystem)
-    val receive = (_: ActorCtx[F, Any, Any]) => none[Receive[F, Any, Any]].pure[F]
+
+    val receive = (_: ActorCtx[F, Any, Any]) => Resource.liftF(none[Receive[F, Any, Any]].pure[F])// TODO
     def actor = ActorOf[F](receive)
     val props = Props(actor)
 
@@ -159,35 +154,27 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
     val actorRefOf = ActorRefOf[F](actorSystem)
 
-    def receiveOf(started: F[Unit]) = (_: ActorCtx[F, Any, Any]) => {
-      for {
-        _ <- started
-      } yield {
-        val receive = new Receive[F, Any, Any] {
+    def receiveOf(started: F[Unit]): ReceiveOf[F, Any, Any] = {
+      (_: ActorCtx[F, Any, Any]) => {
+        Resource
+          .liftF(started)
+          .as {
+            val receive: Receive[F, Any, Any] = {
+              (a: Any, reply: Reply[F, Any]) => {
+                a match {
+                  case "fail" =>
+                    for {
+                      _ <- reply("ok")
+                      a <- error.raiseError[F, Receive.Stop]
+                    } yield a
 
-          def apply(a: Any, reply: Reply[F, Any]) = {
-            a match {
-              case "fail" =>
-                for {
-                  _ <- reply("ok")
-                  a <- (new RuntimeException("test") with NoStackTrace).raiseError[F, Stop]
-                } yield a
-
-              case "ping" =>
-                for {
-                  _ <- reply("pong")
-                } yield {
-                  false
+                  case "ping" => reply("pong").as(false)
+                  case _      => false.pure[F]
                 }
-
-              case _ => false.pure[F]
+              }
             }
+            receive.some
           }
-
-          def postStop = ().pure[F]
-        }
-
-        receive.some
       }
     }
 
@@ -208,14 +195,26 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
           _       <- ref.set(started)
           a       <- ask("fail", timeout)
           _       <- Sync[F].delay { a shouldEqual "ok" }
-          _       <- started.get
-          a       <- ask("ping", timeout)
-          _       <- Sync[F].delay { a shouldEqual "pong" }
         } yield {}
       }
-    } yield {
-      result
-    }
+    } yield result
+  }
+
+  private def `fail during start`[F[_] : Concurrent : ToFuture : FromFuture](
+    actorSystem: ActorSystem
+  ) = {
+    val actorRefOf = ActorRefOf[F](actorSystem)
+
+    val actor = () => ActorOf[F] { _ => Resource.liftF(error.raiseError[F, Option[Receive[F, Any, Any]]]) }
+    val props = Props(actor())
+
+    val result = for {
+      actorRef <- actorRefOf(props)
+      probe    <- Probe.of[F](actorSystem)
+      result   <- Resource.liftF { probe.watch(actorRef).flatten }
+    } yield result
+
+    result.use { _.pure[F] }
   }
 
   private def `postStop`[F[_] : Concurrent : ToFuture : FromFuture](
@@ -224,15 +223,16 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
     val actorRefOf = ActorRefOf[F](actorSystem)
 
-    def receiveOf(stopped: F[Unit]) = (_: ActorCtx[F, Any, Any]) => {
-      val receive = new Receive[F, Any, Any] {
-
-        def apply(a: Any, reply: Reply[F, Any]) = false.pure[F]
-
-        def postStop = stopped
+    def receiveOf(stopped: F[Unit]): ReceiveOf[F, Any, Any] = {
+      (_: ActorCtx[F, Any, Any]) => {
+        Resource
+          .make {
+            val receive: Receive[F, Any, Any] = (_: Any, _: Reply[F, Any]) => false.pure[F]
+            receive.some.pure[F]
+          } { _ =>
+            stopped
+          }
       }
-
-      receive.some.pure[F]
     }
 
     for {
@@ -255,6 +255,8 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
 
 object ActorOfSpec {
+
+  val error: Throwable = new RuntimeException("test") with NoStackTrace
 
   implicit class AnyOps[A](val self: A) extends AnyVal {
 

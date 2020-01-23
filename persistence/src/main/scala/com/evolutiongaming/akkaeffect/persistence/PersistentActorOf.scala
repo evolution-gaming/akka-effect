@@ -49,7 +49,7 @@ object PersistentActorOf {
         val state = StateVar[F].of(none[Phase[S, C, E]])
 
         def update(f: Option[Phase[S, C, E]] => F[Option[Phase[S, C, E]]]): Unit = {
-          state { phase =>
+          state.update { phase =>
             for {
               phase <- f(phase).attempt
               phase <- phase.fold(

@@ -9,7 +9,7 @@ import scala.concurrent.Future
 
 trait StateVar[F[_], A] {
 
-  def apply(f: A => F[A]): Unit
+  def update(f: A => F[A]): Unit
 }
 
 object StateVar {

@@ -19,21 +19,15 @@ object ActorEffect {
 
   def of[F[_] : Async : ToFuture : FromFuture](
     actorRefOf: ActorRefOf[F],
-    create: ActorCtx[F, Any, Any] => F[Option[Receive[F, Any, Any]]],
+    receiveOf: ReceiveOf[F, Any, Any],
     name: Option[String] = None
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 
-    def actor = ActorOf[F](create)
+    def actor = ActorOf[F](receiveOf)
 
     val props = Props(actor)
 
-    val actorRef = actorRefOf(props, name)
-
-    for {
-      actorRef <- actorRef
-    } yield {
-      fromActor(actorRef)
-    }
+    actorRefOf(props, name).map { actorRef => fromActor(actorRef) }
   }
 
 
