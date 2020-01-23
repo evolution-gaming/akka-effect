@@ -46,18 +46,17 @@ object PersistentActorOf {
         snapshotter: Snapshotter[F, S]
       ): Router[S, C, E] = {
 
-        var phase = Future.successful(none[Phase[S, C, E]])
+        val state = StateVar[F].of(none[Phase[S, C, E]])
 
         def update(f: Option[Phase[S, C, E]] => F[Option[Phase[S, C, E]]]): Unit = {
-
-          val fa = for {
-            phase <- FromFuture[F].apply { phase }
-            phase <- f(phase).attempt
-            phase <- phase.fold(
-              error => adapter.fail(error).as(none[Phase[S, C, E]]),
-              phase => phase.fold(adapter.stop.as(none[Phase[S, C, E]])) { _.some.pure[F] } )
-          } yield phase
-          phase = ToFuture[F].apply { fa }
+          state { phase =>
+            for {
+              phase <- f(phase).attempt
+              phase <- phase.fold(
+                error => adapter.fail(error).as(none[Phase[S, C, E]]),
+                phase => phase.fold(adapter.stop.as(none[Phase[S, C, E]])) { _.some.pure[F] })
+            } yield phase
+          }
         }
 
         def updateSome(f: Phase[S, C, E] => F[Option[Phase[S, C, E]]]): Unit = {

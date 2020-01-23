@@ -7,7 +7,6 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, SerialRef, ToFuture}
 
-import scala.concurrent.Future
 
 trait Probe[F[_]] {
   import Probe._
@@ -115,14 +114,10 @@ object Probe {
         }
       }
 
-      var state = Future.successful(())
+      val state = StateVar[F].of(())
 
       def onAny(a: Any, sender: ActorRef) = {
-        val fa = for {
-          _ <- FromFuture[F].apply { state }
-          _ <- receive(Envelop(a, sender))
-        } yield {}
-        state = fa.toFuture
+        state { _ => receive(Envelop(a, sender)) }
       }
 
       new Actor {
