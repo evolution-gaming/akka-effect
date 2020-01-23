@@ -1,4 +1,10 @@
-# Akka-Effect [![Build Status](https://travis-ci.org/evolution-gaming/akka-effect.svg)](https://travis-ci.org/evolution-gaming/akka-effect) [![Coverage Status](https://coveralls.io/repos/evolution-gaming/akka-effect/badge.svg)](https://coveralls.io/r/evolution-gaming/akka-effect) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/bd019acfc1f04f7aae90beee7e59e15d)](https://www.codacy.com/app/evolution-gaming/akka-effect?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=evolution-gaming/akka-effect&amp;utm_campaign=Badge_Grade) [ ![version](https://api.bintray.com/packages/evolutiongaming/maven/akka-effect/images/download.svg) ](https://bintray.com/evolutiongaming/maven/akka-effect/_latestVersion) [![License: MIT](https://img.shields.io/badge/License-MIT-yellowgreen.svg)](https://opensource.org/licenses/MIT)
+# Akka-Effect
+[![Build Status](https://github.com/evolution-gaming/akka-effect/workflows/CI/badge.svg)](https://github.com/evolution-gaming/akka-effect/actions?query=workflow%3ACI) 
+[![Build Status](https://travis-ci.org/evolution-gaming/akka-effect.svg)](https://travis-ci.org/evolution-gaming/akka-effect)
+[![Coverage Status](https://coveralls.io/repos/evolution-gaming/akka-effect/badge.svg)](https://coveralls.io/r/evolution-gaming/akka-effect)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/bd019acfc1f04f7aae90beee7e59e15d)](https://www.codacy.com/app/evolution-gaming/akka-effect?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=evolution-gaming/akka-effect&amp;utm_campaign=Badge_Grade)
+[![Version](https://api.bintray.com/packages/evolutiongaming/maven/akka-effect/images/download.svg)](https://bintray.com/evolutiongaming/maven/akka-effect/_latestVersion)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellowgreen.svg)](https://opensource.org/licenses/MIT)
 
 ### Tell.scala
 
