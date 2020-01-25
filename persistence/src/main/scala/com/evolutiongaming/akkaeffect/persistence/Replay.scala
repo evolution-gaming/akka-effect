@@ -12,18 +12,9 @@ trait Replay[F[_], S, E] {
 
 object Replay {
 
-  def const[F[_], S, E](state: F[S]): Replay[F, S, E] = {
-    val state1 = state
-    new Replay[F, S, E] {
-      def apply(state: S, event: E, seqNr: SeqNr) = state1
-    }
-  }
+  def const[F[_], S, E](state: F[S]): Replay[F, S, E] = (_: S, _: E, _: SeqNr) => state
 
-  def empty[F[_] : Applicative, S, E]: Replay[F, S, E] = {
-    new Replay[F, S, E] {
-      def apply(state: S, event: E, seqNr: SeqNr) = state.pure[F]
-    }
-  }
+  def empty[F[_] : Applicative, S, E]: Replay[F, S, E] = (state: S, _: E, _: SeqNr) => state.pure[F]
 
 
   implicit class ReplayOps[F[_], S, E](val self: Replay[F, S, E]) extends AnyVal {

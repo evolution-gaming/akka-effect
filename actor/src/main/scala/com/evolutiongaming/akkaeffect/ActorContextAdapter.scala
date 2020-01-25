@@ -60,7 +60,7 @@ private[akkaeffect] object ActorContextAdapter {
 
         val children = get { context.children }
 
-        val actorOf = ActorRefOf[F](context)
+        val actorRefOf = ActorRefOf[F](context)
       }
 
       val receive = { case Run(f) => f() }

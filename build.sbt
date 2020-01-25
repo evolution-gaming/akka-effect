@@ -36,8 +36,8 @@ lazy val actor = (project in file("actor")
     Cats.core,
     Cats.effect,
     Logback.classic % Test,
-    Logback.core    % Test,
-    Slf4j.api                % Test,
+    Logback.core % Test,
+    Slf4j.api % Test,
     Slf4j.`log4j-over-slf4j` % Test,
     `cats-helper`,
     `executor-tools`,
@@ -59,4 +59,5 @@ lazy val persistence = (project in file("persistence")
     Cats.effect,
     `cats-helper`,
     scalatest % Test,
-    `akka-persistence-inmemory` % Test)))
+    `akka-persistence-inmemory` % Test,
+    compilerPlugin(`kind-projector` cross CrossVersion.full))))

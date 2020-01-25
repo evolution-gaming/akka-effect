@@ -7,16 +7,15 @@ import cats.effect.Async
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import com.evolutiongaming.akkaeffect._
-import com.evolutiongaming.catshelper.EffectHelper._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
-import scala.concurrent.Future
 import scala.util.Failure
 
 object PersistentActorOf {
 
   def apply[F[_] : Async : ToFuture : FromFuture : ToTry](
-    setup: ActorCtx[F, Any, Any] => F[PersistenceSetup[F, Any, Any, Any]]
+    persistenceSetupOf: PersistenceSetupOf[F, Any, Any, Any, Any]
   ): PersistentActor = {
 
 
@@ -284,10 +283,10 @@ object PersistentActorOf {
         eventsourcedAdapter.journaller,
         snapshotterAdapter.snapshotter)
 
-      lazy val setup1 = {
+      lazy val (persistenceSetup, persistenceSetupRelease) = {
         println("setup")
-
-        setup(actorContextAdapter.ctx)
+        persistenceSetupOf(actorContextAdapter.ctx)
+          .allocated
           .toTry // TODO blocking
           .recoverWith { case a => Failure(PersistentActorError(s"failed to start $self", a)) }
           .get
@@ -295,20 +294,20 @@ object PersistentActorOf {
 
       override def preStart(): Unit = {
         super.preStart()
-        router.onPreStart(setup1)
+        router.onPreStart(persistenceSetup)
       }
 
-      def persistenceId = setup1.persistenceId
+      def persistenceId = persistenceSetup.persistenceId
 
       override def journalPluginId = {
-        setup1.pluginIds.journal getOrElse super.journalPluginId
+        persistenceSetup.pluginIds.journal getOrElse super.journalPluginId
       }
 
       override def snapshotPluginId = {
-        setup1.pluginIds.snapshot getOrElse super.snapshotPluginId
+        persistenceSetup.pluginIds.snapshot getOrElse super.snapshotPluginId
       }
 
-      override def recovery = setup1.recovery
+      override def recovery = persistenceSetup.recovery
 
       override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]) = {
         super.onRecoveryFailure(cause, event)
@@ -351,7 +350,9 @@ object PersistentActorOf {
       }
 
       override def postStop() = {
+        // TODO refactor and chain
         router.onPostStop(lastSeqNr())
+        persistenceSetupRelease.toFuture
         super.postStop()
       }
 

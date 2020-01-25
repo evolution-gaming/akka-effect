@@ -17,21 +17,18 @@ object ActorRefOf {
     factory: ActorRefFactory
   ): ActorRefOf[F] = {
 
-    new ActorRefOf[F] {
-      
-      def apply(props: Props, name: Option[String]) = {
+    (props: Props, name: Option[String]) => {
 
-        Resource.make {
-          Sync[F].delay {
-            name.fold {
-              factory.actorOf(props)
-            } { name =>
-              factory.actorOf(props, name)
-            }
+      Resource.make {
+        Sync[F].delay {
+          name.fold {
+            factory.actorOf(props)
+          } { name =>
+            factory.actorOf(props, name)
           }
-        } { actorRef =>
-          Sync[F].delay { factory.stop(actorRef) }
         }
+      } { actorRef =>
+        Sync[F].delay { factory.stop(actorRef) }
       }
     }
   }

@@ -100,7 +100,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
       terminated0 <- probe.watch(actorRef.toUnsafe)
       dispatcher  <- withCtx { _.dispatcher.pure[F] }
       _           <- Sync[F].delay { dispatcher.toString shouldEqual "Dispatcher[akka.actor.default-dispatcher]" }
-      a           <- withCtx { _.actorOf(TestActors.blackholeProps, "child".some).allocated }
+      a           <- withCtx { _.actorRefOf(TestActors.blackholeProps, "child".some).allocated }
       (child0, childRelease) = a
       terminated1 <- probe.watch(child0)
       children    <- withCtx { _.children }

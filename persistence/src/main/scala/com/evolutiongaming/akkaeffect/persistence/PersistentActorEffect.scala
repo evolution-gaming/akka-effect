@@ -10,11 +10,11 @@ object PersistentActorEffect {
 
   def of[F[_] : Async : ToFuture : FromFuture : ToTry](
     actorRefOf: ActorRefOf[F],
-    setup: ActorCtx[F, Any, Any] => F[PersistenceSetup[F, Any, Any, Any]],
+    persistenceSetupOf: PersistenceSetupOf[F, Any, Any, Any, Any],
     name: Option[String] = None
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 
-    def actor = PersistentActorOf[F](setup)
+    def actor = PersistentActorOf[F](persistenceSetupOf)
 
     val props = Props(actor)
 

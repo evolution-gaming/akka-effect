@@ -4,17 +4,17 @@ import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, ReceiveTimeou
 import akka.testkit.TestActors
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, IO, Sync}
+import cats.effect.{Concurrent, IO, Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.control.NoStackTrace
-import org.scalatest.funsuite.AsyncFunSuite
-import org.scalatest.matchers.should.Matchers
 
 class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import PersistentActorOfSpec._
@@ -27,60 +27,62 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     actorSystem: ActorSystem
   ): F[Unit] = {
 
-    def setupOf(receiveTimeout: F[Unit]) = (ctx: ActorCtx[F, Any, Any]) => {
+    def persistenceSetupOf(receiveTimeout: F[Unit]): PersistenceSetupOf[F, Any, Any, Any, Any] = {
+      (ctx: ActorCtx[F, Any, Any]) => {
 
-      val setup = new PersistenceSetup[F, State, Any, Event] {
+        val persistenceSetup = new PersistenceSetup[F, State, Any, Event] {
 
-        def persistenceId = "persistenceId"
+          def persistenceId = "persistenceId"
 
-        def onRecoveryStarted(
-          offer: Option[SnapshotOffer[State]],
-          journaller: Journaller[F, Event],
-          snapshotter: Snapshotter[F, State]
-        ) = {
+          def onRecoveryStarted(
+            offer: Option[SnapshotOffer[State]],
+            journaller: Journaller[F, Event],
+            snapshotter: Snapshotter[F, State]
+          ) = {
 
-          val recovering: Recovering[F, State, Any, Event] = new Recovering[F, State, Any, Event] {
+            val recovering: Recovering[F, State, Any, Event] = new Recovering[F, State, Any, Event] {
 
-            def initial = 0
+              def initial = 0
 
-            val replay = new Replay[F, State, Event] {
+              val replay = new Replay[F, State, Event] {
 
-              def apply(state: State, event: Event, seqNr: SeqNr) = {
-                println(s"replay state: $state, event: $event, seqNr: $seqNr")
-                state.pure[F]
+                def apply(state: State, event: Event, seqNr: SeqNr) = {
+                  println(s"replay state: $state, event: $event, seqNr: $seqNr")
+                  state.pure[F]
+                }
+              }
+
+              def onRecoveryCompleted(state: State, seqNr: SeqNr) = {
+                println(s"onRecoveryCompleted state: $state, seqNr: $seqNr")
+
+                receive(ctx, state, receiveTimeout, journaller, snapshotter)
               }
             }
-
-            def onRecoveryCompleted(state: State, seqNr: SeqNr) = {
-              println(s"onRecoveryCompleted state: $state, seqNr: $seqNr")
-
-              receive(ctx, state, receiveTimeout, journaller, snapshotter)
-            }
+            recovering.pure[F]
           }
-          recovering.pure[F]
         }
+
+        implicit val anyToEvent = Conversion.cast[F, Any, Event]
+
+        implicit val anyToState = Conversion.cast[F, Any, State]
+
+        persistenceSetup.untype.pure[Resource[F, *]]
       }
-
-      implicit val anyToEvent = Conversion.cast[F, Any, Event]
-
-      implicit val anyToState = Conversion.cast[F, Any, State]
-
-      setup.untype.pure[F]
     }
 
 
     for {
-      receiveTimeout <- Deferred[F, Unit]
-      setup           = setupOf(receiveTimeout.complete(()))
-      actorRefOf      = ActorRefOf[F](actorSystem)
-      probe           = Probe.of[F](actorSystem)
-      actorEffect     = PersistentActorEffect.of[F](actorRefOf, setup)
-      resources       = (actorEffect, probe).tupled
-      result         <- resources.use { case (actorEffect, probe) => `persistentActorOf`(actorEffect, probe, receiveTimeout.get, actorRefOf) }
+      receiveTimeout     <- Deferred[F, Unit]
+      persistenceSetupOf <- persistenceSetupOf(receiveTimeout.complete(())).pure[F]
+      actorRefOf          = ActorRefOf[F](actorSystem)
+      probe               = Probe.of[F](actorSystem)
+      actorEffect         = PersistentActorEffect.of[F](actorRefOf, persistenceSetupOf)
+      resources           = (actorEffect, probe).tupled
+      result             <- resources.use { case (actorEffect, probe) => persistentActorOf(actorEffect, probe, receiveTimeout.get, actorRefOf) }
     } yield result
   }
 
-  def `persistentActorOf`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  def persistentActorOf[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
     actorRef: ActorEffect[F, Any, Any],
     probe: Probe[F],
     receiveTimeout: F[Unit],
@@ -89,70 +91,70 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
     def snapshotAndEvents: F[(Option[State], List[Event])] = {
 
-      def setupOf(
+      def persistenceSetupOf(
         eventsDeferred: Deferred[F, List[Event]],
         snapshotDeferred: Deferred[F, Option[State]]
-      ) = (_: ActorCtx[F, Any, Any]) => {
+      ): PersistenceSetupOf[F, Any, Any, Any, Any] = {
+        (_: ActorCtx[F, Any, Any]) => {
 
-        val setup = new PersistenceSetup[F, State, Any, Event] {
+          val setup = new PersistenceSetup[F, State, Any, Event] {
 
-          def persistenceId = "persistenceId"
+            def persistenceId = "persistenceId"
 
-          def onRecoveryStarted(
-            offer: Option[SnapshotOffer[State]],
-            journaller: Journaller[F, Event],
-            snapshotter: Snapshotter[F, State]
-          ): F[Recovering[F, State, Any, Event]] = {
+            def onRecoveryStarted(
+              offer: Option[SnapshotOffer[State]],
+              journaller: Journaller[F, Event],
+              snapshotter: Snapshotter[F, State]
+            ): F[Recovering[F, State, Any, Event]] = {
 
-            val snapshot = for {offer <- offer} yield offer.snapshot
+              val snapshot = for {offer <- offer} yield offer.snapshot
 
-            for {
-              _      <- snapshotDeferred.complete(snapshot)
-              events <- Ref[F].of(List.empty[Event])
-            } yield {
-              new Recovering[F, State, Any, Event] {
+              for {
+                _      <- snapshotDeferred.complete(snapshot)
+                events <- Ref[F].of(List.empty[Event])
+              } yield {
+                new Recovering[F, State, Any, Event] {
 
-                def initial = 0
+                  def initial = 0
 
-                val replay = new Replay[F, State, Event] {
+                  val replay = new Replay[F, State, Event] {
 
-                  def apply(state: State, event: Event, seqNr: SeqNr) = {
-                    println(s"replay state: $state, event: $event, seqNr: $seqNr")
-                    for {
-                      _ <- events.update { event :: _ }
-                    } yield state
+                    def apply(state: State, event: Event, seqNr: SeqNr) = {
+                      println(s"replay state: $state, event: $event, seqNr: $seqNr")
+                      events.update { event :: _ }.as(state)
+                    }
                   }
-                }
 
-                def onRecoveryCompleted(state: State, seqNr: SeqNr) = {
-                  println(s"onRecoveryCompleted state: $state, seqNr: $seqNr")
+                  def onRecoveryCompleted(state: State, seqNr: SeqNr) = {
+                    println(s"onRecoveryCompleted state: $state, seqNr: $seqNr")
 
-                  // TODO stop actor ?
-                  for {
-                    events <- events.get
-                    _      <- eventsDeferred.complete(events)
-                  } yield {
-                    Receive.empty[F, Any, Any]
+                    // TODO stop actor ?
+                    for {
+                      events <- events.get
+                      _      <- eventsDeferred.complete(events)
+                    } yield {
+                      Receive.empty[F, Any, Any]
+                    }
                   }
                 }
               }
             }
           }
+
+          implicit val anyToEvent = Conversion.cast[F, Any, Event]
+
+          implicit val anyToState = Conversion.cast[F, Any, State]
+
+          setup.untype.pure[Resource[F, *]]
         }
-
-        implicit val anyToEvent = Conversion.cast[F, Any, Event]
-
-        implicit val anyToState = Conversion.cast[F, Any, State]
-
-        setup.untype.pure[F]
       }
 
       for {
-        events   <- Deferred[F, List[Event]]
-        snapshot <- Deferred[F, Option[State]]
-        setup     = setupOf(events, snapshot)
-        events   <- PersistentActorEffect.of[F](actorRefOf, setup).use { _ => events.get }
-        snapshot <- snapshot.get
+        events             <- Deferred[F, List[Event]]
+        snapshot           <- Deferred[F, Option[State]]
+        persistenceSetupOf <- persistenceSetupOf(events, snapshot).pure[F]
+        events             <- PersistentActorEffect.of[F](actorRefOf, persistenceSetupOf).use { _ => events.get }
+        snapshot           <- snapshot.get
       } yield {
         (snapshot, events)
       }
@@ -171,7 +173,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       terminated0 <- probe.watch(actorRef.toUnsafe)
       dispatcher  <- withCtx { _.dispatcher.pure[F] }
       _           <- Sync[F].delay { dispatcher.toString shouldEqual "Dispatcher[akka.actor.default-dispatcher]" }
-      a           <- withCtx { _.actorOf(TestActors.blackholeProps, "child".some).allocated }
+      a           <- withCtx { _.actorRefOf(TestActors.blackholeProps, "child".some).allocated }
       (child0, childRelease) = a
       terminated1 <- probe.watch(child0)
       children    <- withCtx { _.children }
