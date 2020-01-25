@@ -41,33 +41,35 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     actorSystem: ActorSystem
   ): F[Unit] = {
 
-    def receiveOf(receiveTimeout: F[Unit]): ReceiveOf[F, Any, Any] = (ctx: ActorCtx[F, Any, Any]) => {
+    def receiveOf(receiveTimeout: F[Unit]): ReceiveOf[F, Any, Any] = {
+      (ctx: ActorCtx[F, Any, Any]) => {
 
-      val receive: Receive[F, Any, Any] = {
+        val receive: Receive[F, Any, Any] = {
 
-        (a: Any, reply: Reply[F, Any]) =>{
-          a match {
-            case a: WithCtx[_, _] =>
-              val f = a.asInstanceOf[WithCtx[F, Any]].f
-              for {
-                a <- f(ctx)
-                _ <- reply(a)
-              } yield false
+          (a: Any, reply: Reply[F, Any]) => {
+            a match {
+              case a: WithCtx[_, _] =>
+                val f = a.asInstanceOf[WithCtx[F, Any]].f
+                for {
+                  a <- f(ctx)
+                  _ <- reply(a)
+                } yield false
 
-            case ReceiveTimeout =>
-              for {
-                _ <- ctx.setReceiveTimeout(Duration.Inf)
-                _ <- receiveTimeout
-              } yield false
+              case ReceiveTimeout =>
+                for {
+                  _ <- ctx.setReceiveTimeout(Duration.Inf)
+                  _ <- receiveTimeout
+                } yield false
 
-            case "stop" => reply("stopping").as(true)
+              case "stop" => reply("stopping").as(true)
 
-            case _      => false.pure[F]
+              case _ => false.pure[F]
+            }
           }
         }
-      }
 
-      Resource.liftF(receive.some.pure[F])
+        Resource.liftF(receive.some.pure[F])
+      }
     }
 
     for {
@@ -131,8 +133,8 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
   ) = {
     val actorRefOf = ActorRefOf[F](actorSystem)
 
-    val receive = (_: ActorCtx[F, Any, Any]) => Resource.liftF(none[Receive[F, Any, Any]].pure[F])// TODO
-    def actor = ActorOf[F](receive)
+    val receiveOf = ReceiveOf.empty[F, Any, Any]
+    def actor = ActorOf[F](receiveOf)
     val props = Props(actor)
 
     actorRefOf(props).use { actorRef =>
