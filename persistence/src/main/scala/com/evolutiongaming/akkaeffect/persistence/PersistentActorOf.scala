@@ -10,8 +10,6 @@ import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
-import scala.util.Failure
-
 object PersistentActorOf {
 
   def apply[F[_] : Async : ToFuture : FromFuture : ToTry](
@@ -48,18 +46,27 @@ object PersistentActorOf {
         val state = StateVar[F].of(none[Phase[S, C, E]])
 
         def update(f: Option[Phase[S, C, E]] => F[Option[Phase[S, C, E]]]): Unit = {
-          state.update { phase =>
+          /*state.update { phase =>
+            f(phase)
+              .attempt.flatMap {
+              case Right(phase) => phase.fold(adapter.stop.as(none[Phase[S, C, E]]))  
+              case Left(error) => adapter.fail(error).as(none[Phase[S, C, E]])
+            }
             for {
               phase <- f(phase).attempt
               phase <- phase.fold(
                 error => adapter.fail(error).as(none[Phase[S, C, E]]),
                 phase => phase.fold(adapter.stop.as(none[Phase[S, C, E]])) { _.some.pure[F] })
             } yield phase
-          }
+          }*/
+          ???
         }
 
         def updateSome(f: Phase[S, C, E] => F[Option[Phase[S, C, E]]]): Unit = {
-          update { phase => phase.fold(phase.pure[F])(f) }
+          update {
+            case Some(value) => f(value)
+            case phase       => phase.pure[F]
+          }
         }
 
         new Router[S, C, E] {
@@ -72,19 +79,23 @@ object PersistentActorOf {
           }
 
           def onSnapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
-            updateSome { _.onSnapshotOffer(snapshotOffer) }
+//            updateSome { _.onSnapshotOffer(snapshotOffer) }
+            ???
           }
 
           def onEvent(event: E, seqNr: SeqNr) = {
             updateSome { _.onEvent(event, seqNr) }
+            ???
           }
 
           def onRecoveryCompleted(seqNr: SeqNr) = {
             updateSome { _.onRecoveryCompleted(seqNr) }
+            ???
           }
 
           def onCommand(cmd: C, adapter: ActorContextAdapter[F], seqNr: SeqNr, ref: ActorRef, sender: ActorRef) = {
             updateSome { _.onCommand(cmd, adapter, seqNr, ref = ref, sender = sender) }
+            ???
           }
 
           def onPostStop(seqNr: SeqNr) = {
@@ -122,33 +133,36 @@ object PersistentActorOf {
 
           def onSnapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
             println(s"onSnapshotOffer: $snapshotOffer")
-            for {
+            /*for {
               recovering <- setup.onRecoveryStarted(snapshotOffer.some, journaller, snapshotter)
               phase      <- receiveEvents[S, C, E](recovering, adapter)
             } yield {
               phase.some // TODO some ?
-            }
+            }*/
+            ???
           }
 
           def onEvent(event: E, seqNr: SeqNr) = {
             println(s"onEvent event: $event, seqNr: $seqNr")
-            for {
+            /*for {
               recovering <- setup.onRecoveryStarted(none, journaller, snapshotter)
               phase      <- receiveEvents[S, C, E](recovering, adapter)
               phase      <- phase.onEvent(event, seqNr)
-            } yield phase
+            } yield phase*/
+            ???
           }
 
           def onRecoveryCompleted(seqNr: SeqNr) = {
             println(s"onRecoveryCompleted: $seqNr")
-            for {
-              recovering <- setup.onRecoveryStarted(none, journaller, snapshotter)
-              receive    <- recovering.onRecoveryCompleted(recovering.initial, seqNr)
-            } yield {
-
-              val phase = receiveCommand[S, C, E](receive, adapter)
-              phase.some // TODO some ?
-            }
+//            for {
+//              recovering <- setup.onRecoveryStarted(none, journaller, snapshotter)
+//              receive    <- recovering.onRecoveryCompleted(recovering.initial, seqNr)
+//            } yield {
+//
+//              val phase = receiveCommand[S, C, E](receive, adapter)
+//              phase.some // TODO some ?
+//            }
+            ???
           }
 
           def onCommand(cmd: C, adapter: ActorContextAdapter[F], seqNr: SeqNr, ref: ActorRef, sender: ActorRef) = {
@@ -272,27 +286,31 @@ object PersistentActorOf {
     
     new PersistentActor { actor =>
 
-      lazy val actorContextAdapter = ActorContextAdapter[F](context)
+      val actorContextAdapter = ActorContextAdapter[F](context)
 
-      lazy val eventsourcedAdapter = EventsourcedAdapter[F](actorContextAdapter, actor)
+      val eventsourcedAdapter = EventsourcedAdapter[F](actorContextAdapter, actor)
 
-      lazy val snapshotterAdapter = SnapshotterAdapter[F](actorContextAdapter, actor)
+      val snapshotterAdapter = SnapshotterAdapter[F](actorContextAdapter, actor)
 
-      lazy val router = Router[Any, Any, Any](
+      val router = Router[Any, Any, Any](
         actorContextAdapter,
         eventsourcedAdapter.journaller,
         snapshotterAdapter.snapshotter)
 
-      lazy val (persistenceSetup, persistenceSetupRelease) = {
+      println("new PersistentActor")
+      lazy val persistenceSetup = {
         println("setup")
         persistenceSetupOf(actorContextAdapter.ctx)
-          .allocated
+          .handleErrorWith { cause =>
+            PersistentActorError(s"$self.preStart failed: cannot allocate persistenceSetup", cause)
+              .raiseError[F, PersistenceSetup[F, Any, Any, Any]]
+          }
           .toTry // TODO blocking
-          .recoverWith { case a => Failure(PersistentActorError(s"failed to start $self", a)) }
           .get
       }
 
       override def preStart(): Unit = {
+        println("preStart")
         super.preStart()
         router.onPreStart(persistenceSetup)
       }
@@ -350,9 +368,7 @@ object PersistentActorOf {
       }
 
       override def postStop() = {
-        // TODO refactor and chain
         router.onPostStop(lastSeqNr())
-        persistenceSetupRelease.toFuture
         super.postStop()
       }
 

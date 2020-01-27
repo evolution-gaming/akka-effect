@@ -2,6 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.Recovery
 import cats.Monad
+import cats.effect.Resource
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Conversion
 import com.evolutiongaming.akkaeffect.Conversion.implicits._
@@ -18,7 +19,7 @@ trait PersistenceSetup[F[_], S, C, E] {
     offer: Option[SnapshotOffer[S]],
     journaller: Journaller[F, E], // TODO move to onRecoveryCompleted
     snapshotter: Snapshotter[F, S] // TODO move to onRecoveryCompleted
-  ): F[Recovering[F, S, C, E]]
+  ): Resource[F, Recovering[F, S, C, E]]
 }
 
 
@@ -26,7 +27,7 @@ object PersistenceSetup {
 
   implicit class PersistenceSetupOps[F[_], S, C, E](val self: PersistenceSetup[F, S, C, E]) extends AnyVal {
 
-    def untype(implicit
+    def untyped(implicit
       F: Monad[F],
       anyToS: Conversion[F, Any, S],
       anyToC: Conversion[F, Any, C],
@@ -43,19 +44,19 @@ object PersistenceSetup {
           snapshotter: Snapshotter[F, Any]
         ) = {
 
-          val offer1 = offer.traverse { offer =>
-            for {
-              snapshot <- offer.snapshot.convert[F, S]
-            } yield {
-              offer.copy(snapshot = snapshot)
+          val offer1 = offer
+            .traverse { offer =>
+              offer
+                .snapshot
+                .convert[F, S]
+                .map { snapshot => offer.copy(snapshot = snapshot) }
             }
-          }
 
           for {
-            offer      <- offer1
+            offer      <- Resource.liftF(offer1)
             recovering <- self.onRecoveryStarted(offer, journaller, snapshotter)
           } yield {
-            recovering.untype
+            recovering.untyped
           }
         }
       }

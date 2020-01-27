@@ -56,7 +56,7 @@ object Recovering {
 
   implicit class RecoveringOps[F[_], S, C, E](val self: Recovering[F, S, C, E]) extends AnyVal {
 
-    def untype(implicit
+    def untyped(implicit
       F: FlatMap[F],
       anyToS: Conversion[F, Any, S],
       anyToC: Conversion[F, Any, C],
@@ -67,7 +67,7 @@ object Recovering {
 
         def initial = self.initial
 
-        def replay = self.replay.untype
+        def replay = self.replay.untyped
 
         def onRecoveryCompleted(state: Any, seqNr: SeqNr) = {
           for {

@@ -58,7 +58,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                 receive(ctx, state, receiveTimeout, journaller, snapshotter)
               }
             }
-            recovering.pure[F]
+            recovering.pure[Resource[F, *]]
           }
         }
 
@@ -66,7 +66,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
         implicit val anyToState = Conversion.cast[F, Any, State]
 
-        persistenceSetup.untype.pure[Resource[F, *]]
+        persistenceSetup.untyped.pure[F]
       }
     }
 
@@ -105,11 +105,11 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
               offer: Option[SnapshotOffer[State]],
               journaller: Journaller[F, Event],
               snapshotter: Snapshotter[F, State]
-            ): F[Recovering[F, State, Any, Event]] = {
+            ) = {
 
-              val snapshot = for {offer <- offer} yield offer.snapshot
+              val snapshot = offer.map { _.snapshot }
 
-              for {
+              val recovering: F[Recovering[F, State, Any, Event]] = for {
                 _      <- snapshotDeferred.complete(snapshot)
                 events <- Ref[F].of(List.empty[Event])
               } yield {
@@ -138,6 +138,8 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                   }
                 }
               }
+
+              Resource.liftF(recovering) // TODO test 
             }
           }
 
@@ -145,7 +147,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
           implicit val anyToState = Conversion.cast[F, Any, State]
 
-          setup.untype.pure[Resource[F, *]]
+          setup.untyped.pure[F]
         }
       }
 

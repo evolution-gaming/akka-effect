@@ -17,6 +17,8 @@ object Receive {
 
   def empty[F[_] : Applicative, A, B]: Receive[F, A, B] = const(false.pure[F])
 
+  def stop[F[_] : Applicative, A, B]: Receive[F, A, B] = const(true.pure[F])
+
   def const[F[_] : Applicative, A, B](stop: F[Stop]): Receive[F, A, B] = (_: A, _: Reply[F, B]) => stop
 
 

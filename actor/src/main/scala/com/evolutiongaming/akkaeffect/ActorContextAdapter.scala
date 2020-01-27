@@ -10,6 +10,7 @@ import scala.concurrent.duration.Duration
 
 private[akkaeffect] trait ActorContextAdapter[F[_]] {
 
+  // TODO implement two cases, when in scope of receive other from future
   def get[A](f: => A): F[A]
 
   def fail(error: Throwable): F[Unit]

@@ -19,7 +19,7 @@ object Replay {
 
   implicit class ReplayOps[F[_], S, E](val self: Replay[F, S, E]) extends AnyVal {
 
-    def untype(implicit
+    def untyped(implicit
       F: FlatMap[F],
       anyToS: Conversion[F, Any, S],
       anyToE: Conversion[F, Any, E]
