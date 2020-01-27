@@ -17,8 +17,8 @@ import scala.util.control.NoStackTrace
 class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import ActorOfSpec._
 
-  test("ActorOf") {
-    `actorOf`[IO](actorSystem).run()
+  test("receive") {
+    receive[IO](actorSystem).run()
   }
 
   test("stop during start") {
@@ -33,11 +33,15 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     `fail during start`[IO](actorSystem).run()
   }
 
-  test("postStop") {
-    `postStop`[IO](actorSystem).run()
+  test("stop") {
+    stop[IO](actorSystem).run()
   }
 
-  def `actorOf`[F[_] : Concurrent : ToFuture : FromFuture](
+  test("stop externally") {
+    `stop externally`[IO](actorSystem).run()
+  }
+
+  def receive[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem
   ): F[Unit] = {
 
@@ -83,7 +87,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     } yield result
   }
 
-  def `actorOf`[F[_] : Async : ToFuture : FromFuture](
+  def actorOf[F[_] : Async : ToFuture : FromFuture](
     actorRef: ActorEffect[F, Any, Any],
     probe: Probe[F],
     receiveTimeout: F[Unit]
@@ -149,6 +153,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
       }
     }
   }
+  
 
   private def `fail actor`[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem
@@ -202,6 +207,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     } yield result
   }
 
+
   private def `fail during start`[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem
   ) = {
@@ -219,7 +225,8 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     result.use { _.pure[F] }
   }
 
-  private def `postStop`[F[_] : Concurrent : ToFuture : FromFuture](
+
+  private def stop[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem
   ) = {
 
@@ -229,8 +236,47 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
       (_: ActorCtx[F, Any, Any]) => {
         Resource
           .make {
-            val receive: Receive[F, Any, Any] = (_: Any, _: Reply[F, Any]) => false.pure[F]
+            val receive: Receive[F, Any, Any] = {
+              (a: Any, reply: Reply[F, Any]) =>
+                a match {
+                  case "stop" => reply(()).as(true)
+                  case _      => false.pure[F]
+                }
+            }
             receive.some.pure[F]
+          } { _ =>
+            stopped
+          }
+      }
+    }
+
+    for {
+      stopped <- Deferred[F, Unit]
+      receive  = receiveOf(stopped.complete(()))
+      actor    = () => ActorOf[F](receive)
+      props    = Props(actor())
+      result  <- actorRefOf(props).use { actorRef =>
+        val ask = Ask.fromActorRef[F](actorRef)
+        for {
+          _ <- ask("stop", 1.second, none)
+          _ <- stopped.get
+        } yield {}
+      }
+    } yield result
+  }
+
+
+  private def `stop externally`[F[_] : Concurrent : ToFuture : FromFuture](
+    actorSystem: ActorSystem
+  ) = {
+
+    val actorRefOf = ActorRefOf[F](actorSystem)
+
+    def receiveOf(stopped: F[Unit]): ReceiveOf[F, Any, Any] = {
+      (_: ActorCtx[F, Any, Any]) => {
+        Resource
+          .make {
+            Receive.empty[F, Any, Any].some.pure[F]
           } { _ =>
             stopped
           }
@@ -249,9 +295,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
           _ <- stopped.get
         } yield {}
       }
-    } yield {
-      result
-    }
+    } yield result
   }
 }
 
