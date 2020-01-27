@@ -66,6 +66,7 @@ private[akkaeffect] object ActorContextAdapter {
 
       val receive = { case Run(f) => f() }
 
+      // TODO wrong
       val stop = Sync[F].delay { context.stop(self) }
     }
   }
