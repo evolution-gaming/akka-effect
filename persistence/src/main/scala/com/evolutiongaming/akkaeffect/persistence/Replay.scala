@@ -25,14 +25,12 @@ object Replay {
       anyToE: Conversion[F, Any, E]
     ): Replay[F, Any, Any] = {
 
-      new Replay[F, Any, Any] {
-        def apply(state: Any, event: Any, seqNr: SeqNr) = {
-          for {
-            state <- state.convert[F, S]
-            event <- event.convert[F, E]
-            state <- self(state, event, seqNr)
-          } yield state
-        }
+      (state: Any, event: Any, seqNr: SeqNr) => {
+        for {
+          state <- state.convert[F, S]
+          event <- event.convert[F, E]
+          state <- self(state, event, seqNr)
+        } yield state
       }
     }
   }

@@ -2,12 +2,13 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef}
 
-trait InReceive {
+private[akkaeffect] trait InReceive {
+
   def apply[A](f: => A): Unit
 }
 
 
-object InReceive {
+private[akkaeffect] object InReceive {
 
   trait Adapter {
 

@@ -16,8 +16,6 @@ private[akkaeffect] trait ActorContextAdapter[F[_]] {
 
   def fail(error: Throwable): F[Unit]
 
-  def receive: Actor.Receive
-
   def stop: F[Unit]
 
   def ctx: ActorCtx[F, Any, Any]
@@ -25,15 +23,15 @@ private[akkaeffect] trait ActorContextAdapter[F[_]] {
 
 private[akkaeffect] object ActorContextAdapter {
 
-  def apply[F[_] : Async : FromFuture](context: ActorContext): ActorContextAdapter[F] = {
-
-    final case class Run(f: () => Unit)
+  def apply[F[_] : Async : FromFuture](
+    inReceive: InReceive,
+    context: ActorContext
+  ): ActorContextAdapter[F] = {
 
     val self = context.self
 
     def run(f: => Unit): F[Unit] = {
-      val run = Run(() => f)
-      Sync[F].delay { self.tell(run, self) }
+      Sync[F].delay { inReceive { f } }
     }
 
     new ActorContextAdapter[F] {
@@ -46,26 +44,7 @@ private[akkaeffect] object ActorContextAdapter {
         }
       }
 
-      val ctx = new ActorCtx[F, Any, Any] {
-
-        val self = ActorEffect.fromActor(context.self)
-
-        def dispatcher = context.dispatcher
-
-        def setReceiveTimeout(timeout: Duration) = {
-          run { context.setReceiveTimeout(timeout) }
-        }
-
-        def child(name: String) = {
-          get { context.child(name) }
-        }
-
-        val children = get { context.children }
-
-        val actorRefOf = ActorRefOf[F](context)
-      }
-
-      val receive = { case Run(f) => f() }
+      val ctx = ActorCtx[F](inReceive, context)
 
       // TODO wrong
       val stop = Sync[F].delay { context.stop(self) }

@@ -10,7 +10,7 @@ final case class SnapshotOffer[+A](metadata: SnapshotMetadata, snapshot: A)
 
 object SnapshotOffer {
 
-  implicit val FunctorSnapshotOffer: Functor[SnapshotOffer] = new Functor[SnapshotOffer] {
+  implicit val functorSnapshotOffer: Functor[SnapshotOffer] = new Functor[SnapshotOffer] {
     def map[A, B](fa: SnapshotOffer[A])(f: A => B) = fa.map(f)
   }
 

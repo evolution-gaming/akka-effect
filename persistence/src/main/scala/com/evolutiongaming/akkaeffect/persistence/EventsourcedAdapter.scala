@@ -21,7 +21,9 @@ object EventsourcedAdapter {
     actor: PersistentActor // TODO narrow type
   ): EventsourcedAdapter[F, Any] = {
 
-    var callbacksVar = Callbacks.Empty
+    var callbacksVar = Callbacks.empty
+
+    val self = actor.context.self
 
     new EventsourcedAdapter[F, Any] {
 
@@ -36,14 +38,14 @@ object EventsourcedAdapter {
               callbacksVar = new Callbacks {
 
                 def onPersistFailure(cause: Throwable, event: Any, seqNr: SeqNr) = {
-                  val failure = PersistentActorError(s"persistAll failed for $event", cause) // TODO persistenceId in all errors
-                  callbacksVar = Callbacks.Empty
+                  val failure = PersistentActorError(s"$self.persistAll failed for $event", cause) // TODO persistenceId in all errors
+                  callbacksVar = Callbacks.empty
                   callback(failure.asLeft[SeqNr])
                 }
 
                 def onPersistRejected(cause: Throwable, event: Any, seqNr: SeqNr) = {
-                  val failure = PersistentActorError(s"persistAll rejected for $event", cause) // TODO persistenceId in all errors
-                  callbacksVar = Callbacks.Empty
+                  val failure = PersistentActorError(s"$self.persistAll rejected for $event", cause) // TODO persistenceId in all errors
+                  callbacksVar = Callbacks.empty
                   callback(failure.asLeft[SeqNr])
                 }
               }
@@ -53,7 +55,7 @@ object EventsourcedAdapter {
               actor.persistAll(events.toList) { _ =>
                 left = left - 1
                 if (left == 0) {
-                  callbacksVar = Callbacks.Empty
+                  callbacksVar = Callbacks.empty
                   callback(actor.lastSequenceNr.asRight[Throwable])
                 }
               }
@@ -85,7 +87,7 @@ object EventsourcedAdapter {
 
   object Callbacks {
 
-    val Empty: Callbacks = new Callbacks {
+    val empty: Callbacks = new Callbacks {
 
       def onPersistFailure(cause: Throwable, event: Any, seqNr: SeqNr) = {}
 

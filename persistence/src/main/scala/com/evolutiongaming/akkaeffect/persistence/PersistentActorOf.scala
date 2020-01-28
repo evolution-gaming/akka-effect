@@ -286,7 +286,9 @@ object PersistentActorOf {
     
     new PersistentActor { actor =>
 
-      val actorContextAdapter = ActorContextAdapter[F](context)
+      val adapter = InReceive.Adapter(self)
+
+      val actorContextAdapter = ActorContextAdapter[F](adapter.inReceive, context)
 
       val eventsourcedAdapter = EventsourcedAdapter[F](actorContextAdapter, actor)
 
@@ -298,34 +300,34 @@ object PersistentActorOf {
         snapshotterAdapter.snapshotter)
 
       println("new PersistentActor")
-      lazy val persistenceSetup = {
+      val persistenceSetup = LazyVal {
         println("setup")
         persistenceSetupOf(actorContextAdapter.ctx)
-          .handleErrorWith { cause =>
-            PersistentActorError(s"$self.preStart failed: cannot allocate persistenceSetup", cause)
+          .handleErrorWith { error =>
+            PersistentActorError(s"$self.preStart failed to allocate persistenceSetup with $error", error)
               .raiseError[F, PersistenceSetup[F, Any, Any, Any]]
           }
-          .toTry // TODO blocking
+          .toTry
           .get
       }
 
       override def preStart(): Unit = {
         println("preStart")
         super.preStart()
-        router.onPreStart(persistenceSetup)
+        router.onPreStart(persistenceSetup())
       }
 
-      def persistenceId = persistenceSetup.persistenceId
+      def persistenceId = persistenceSetup().persistenceId
 
       override def journalPluginId = {
-        persistenceSetup.pluginIds.journal getOrElse super.journalPluginId
+        persistenceSetup().pluginIds.journal getOrElse super.journalPluginId
       }
 
       override def snapshotPluginId = {
-        persistenceSetup.pluginIds.snapshot getOrElse super.snapshotPluginId
+        persistenceSetup().pluginIds.snapshot getOrElse super.snapshotPluginId
       }
 
-      override def recovery = persistenceSetup.recovery
+      override def recovery = persistenceSetup().recovery
 
       override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]) = {
         super.onRecoveryFailure(cause, event)
@@ -364,7 +366,7 @@ object PersistentActorOf {
           case a => router.onCommand(a, actorContextAdapter, lastSeqNr(), ref = self, sender = sender())
         }
 
-        actorContextAdapter.receive orElse snapshotterAdapter.receive orElse receiveCommand
+        adapter.receive orElse snapshotterAdapter.receive orElse receiveCommand
       }
 
       override def postStop() = {
