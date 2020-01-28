@@ -7,6 +7,7 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 import scala.concurrent.Future
 
+// TODO delete
 trait StateVar[F[_], A] {
 
   def update(f: A => F[A]): Unit

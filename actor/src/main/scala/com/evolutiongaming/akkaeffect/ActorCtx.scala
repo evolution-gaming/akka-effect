@@ -45,7 +45,7 @@ object ActorCtx {
 
       val self = ActorEffect.fromActor(context.self)
 
-      def dispatcher = context.dispatcher
+      val dispatcher = context.dispatcher
 
       def setReceiveTimeout(timeout: Duration) = {
         tell { context.setReceiveTimeout(timeout) }

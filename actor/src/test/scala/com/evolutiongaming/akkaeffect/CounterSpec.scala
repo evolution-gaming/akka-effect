@@ -23,9 +23,9 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
   private def testCounterRcv[F[_] : Sync] = {
     for {
       replies <- Ref[F].of(List.empty[Any])
-      tell     = new Reply[F, Any] { def apply(msg: Any) = replies.update { msg :: _ } }
+      reply    = new Reply[F, Any] { def apply(msg: Any) = replies.update { msg :: _ } }
       rcv     <- counter[F]
-      inc      = rcv(Msg.Inc, tell)
+      inc      = rcv(Msg.Inc, reply)
       expect   = (n: Int) => replies.get.map { replies => replies.headOption shouldEqual Some(n) }
       _       <- inc
       _       <- expect(1)
@@ -33,7 +33,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
       _       <- expect(2)
       _       <- inc
       _       <- expect(3)
-      _       <- rcv(Msg.Stop, tell)
+      _       <- rcv(Msg.Stop, reply)
       _       <- expect(3)
     } yield {}
   }

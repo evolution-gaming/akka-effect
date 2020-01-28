@@ -8,6 +8,7 @@ import com.evolutiongaming.catshelper.FromFuture
 import scala.concurrent.duration.Duration
 
 
+// TODO remove
 private[akkaeffect] trait ActorContextAdapter[F[_]] {
 
   // TODO implement two cases, when in scope of receive other from future
