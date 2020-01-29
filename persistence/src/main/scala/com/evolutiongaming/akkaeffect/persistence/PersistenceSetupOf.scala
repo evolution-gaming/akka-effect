@@ -6,6 +6,7 @@ import com.evolutiongaming.akkaeffect.ActorCtx
 
 trait PersistenceSetupOf[F[_], S, C, E, R] {
 
+  // TODO Option
   def apply(ctx: ActorCtx[F, C, R]): F[PersistenceSetup[F, S, C, E]]
 }
 

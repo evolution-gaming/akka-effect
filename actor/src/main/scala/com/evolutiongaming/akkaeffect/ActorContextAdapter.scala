@@ -1,11 +1,9 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{Actor, ActorContext}
+import akka.actor.ActorContext
 import cats.effect.{Async, Sync}
-import cats.implicits._
 import com.evolutiongaming.catshelper.FromFuture
 
-import scala.concurrent.duration.Duration
 
 
 // TODO remove
@@ -24,27 +22,19 @@ private[akkaeffect] trait ActorContextAdapter[F[_]] {
 private[akkaeffect] object ActorContextAdapter {
 
   def apply[F[_] : Async : FromFuture](
-    inReceive: InReceive,
+    act: Act,
     context: ActorContext
   ): ActorContextAdapter[F] = {
 
     val self = context.self
 
-    def run(f: => Unit): F[Unit] = {
-      Sync[F].delay { inReceive { f } }
-    }
-
     new ActorContextAdapter[F] {
 
-      def fail(error: Throwable) = run { throw error }
+      def fail(error: Throwable) = act.tell1 { throw error }
 
-      def get[A](f: => A): F[A] = {
-        Async[F].asyncF[A] { callback =>
-          run { callback(f.asRight) }
-        }
-      }
+      def get[A](f: => A): F[A] = act.ask(f)
 
-      val ctx = ActorCtx[F](inReceive, context)
+      val ctx = ActorCtx[F](act, context)
 
       // TODO wrong
       val stop = Sync[F].delay { context.stop(self) }

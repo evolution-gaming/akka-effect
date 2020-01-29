@@ -286,13 +286,13 @@ object PersistentActorOf {
     
     new PersistentActor { actor =>
 
-      val adapter = InReceive.Adapter(self)
+      val adapter = Act.Adapter(self)
 
-      val actorContextAdapter = ActorContextAdapter[F](adapter.inReceive, context)
+      val actorContextAdapter = ActorContextAdapter[F](adapter.act, context)
 
       val eventsourcedAdapter = EventsourcedAdapter[F](actorContextAdapter, actor)
 
-      val snapshotterAdapter = SnapshotterAdapter[F](actorContextAdapter, actor)
+      val snapshotterAdapter = SnapshotterAdapter[F](adapter.act, actor)
 
       val router = Router[Any, Any, Any](
         actorContextAdapter,

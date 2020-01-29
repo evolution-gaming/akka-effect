@@ -72,15 +72,15 @@ object ActorOf {
 
     new Actor {
 
-      import context.dispatcher
+      implicit val executor = context.dispatcher
 
-      val adapter = InReceive.Adapter(self)
+      val adapter = Act.Adapter(self)
 
       var stateVar = none[Future[State]]
 
       override def preStart(): Unit = {
         super.preStart()
-        val ctx = ActorCtx[F](adapter.inReceive, context)
+        val ctx = ActorCtx[F](adapter.act, context)
         val future = onPreStart(self, ctx)
         syncOrAsync(future)
       }
@@ -127,7 +127,7 @@ object ActorOf {
             stateVar = future
               .transform { value =>
                 val (state, func) = stateAndFunc(value)
-                adapter.inReceive { func() }
+                adapter.act { func() }
                 state match {
                   case Some(state) => state.pure[Try]
                   case None        => Failure(stopped)

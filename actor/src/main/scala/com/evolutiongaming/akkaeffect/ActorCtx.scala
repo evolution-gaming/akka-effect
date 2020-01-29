@@ -27,12 +27,12 @@ trait ActorCtx[F[_], A, B] {
 object ActorCtx {
 
   def apply[F[_] : Async : FromFuture](
-    inReceive: InReceive,
+    act: Act,
     context: ActorContext
   ): ActorCtx[F, Any, Any] = {
 
     def tell(f: => Unit): F[Unit] = {
-      Sync[F].delay { inReceive { f } }
+      Sync[F].delay { act { f } }
     }
 
     def ask[A](f: => A): F[A] = {

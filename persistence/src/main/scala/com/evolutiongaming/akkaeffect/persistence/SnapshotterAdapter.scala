@@ -2,7 +2,10 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.Actor
 import akka.persistence.{Snapshotter => _, _}
-import com.evolutiongaming.akkaeffect.ActorContextAdapter
+import cats.implicits._
+import cats.effect.implicits._
+import cats.effect.{Async, Concurrent}
+import com.evolutiongaming.akkaeffect.{ActorContextAdapter, Act}
 import com.evolutiongaming.catshelper.FromFuture
 
 import scala.concurrent.Promise
@@ -20,61 +23,46 @@ object SnapshotterAdapter {
   type Callback = Try[Unit] => Unit
 
 
-  def apply[F[_] : FromFuture](
-    adapter: ActorContextAdapter[F],
+  def apply[F[_] : Async : FromFuture](
+    act: Act,
     actor: akka.persistence.Snapshotter
   ): SnapshotterAdapter[F, Any] = {
 
-    val saveSnapshot = Callbacks[F, SeqNr](adapter) {
+    val saveSnapshot = Callbacks[F, SeqNr](act) {
       case SaveSnapshotSuccess(a)        => (a.sequenceNr, Success(()))
-      case SaveSnapshotFailure(a, cause) => (a.sequenceNr, Failure(cause))
+      case SaveSnapshotFailure(a, error) => (a.sequenceNr, Failure(error))
     }
 
-    val deleteSnapshot = Callbacks[F, SeqNr](adapter) {
+    val deleteSnapshot = Callbacks[F, SeqNr](act) {
       case DeleteSnapshotSuccess(a)        => (a.sequenceNr, Success(()))
-      case DeleteSnapshotFailure(a, cause) => (a.sequenceNr, Failure(cause))
+      case DeleteSnapshotFailure(a, error) => (a.sequenceNr, Failure(error))
     }
 
-    val deleteSnapshots = Callbacks[F, SnapshotSelectionCriteria](adapter) {
+    val deleteSnapshots = Callbacks[F, SnapshotSelectionCriteria](act) {
       case DeleteSnapshotsSuccess(a)        => (a, Success(()))
-      case DeleteSnapshotsFailure(a, cause) => (a, Failure(cause))
+      case DeleteSnapshotsFailure(a, error) => (a, Failure(error))
     }
-
-    apply(
-      saveSnapshot = saveSnapshot,
-      deleteSnapshot = deleteSnapshot,
-      deleteSnapshots = deleteSnapshots,
-      actor = actor)
-  }
-
-  def apply[F[_] : FromFuture](
-    saveSnapshot: Callbacks[F, SeqNr],
-    deleteSnapshot: Callbacks[F, SeqNr],
-    deleteSnapshots: Callbacks[F, SnapshotSelectionCriteria],
-    actor: akka.persistence.Snapshotter
-  ): SnapshotterAdapter[F, Any] = {
 
     new SnapshotterAdapter[F, Any] {
 
       val snapshotter = new Snapshotter[F, Any] {
 
         def save(a: Any) = {
-          saveSnapshot.add {
+          saveSnapshot.schedule {
             actor.saveSnapshot(a)
             actor.snapshotSequenceNr
           }
         }
 
         def delete(seqNr: SeqNr) = {
-          deleteSnapshot.add {
-            val seqNr = actor.snapshotSequenceNr
+          deleteSnapshot.schedule {
             actor.deleteSnapshot(seqNr)
             seqNr
           }
         }
 
         def delete(criteria: SnapshotSelectionCriteria) = {
-          deleteSnapshots.add {
+          deleteSnapshots.schedule {
             actor.deleteSnapshots(criteria)
             criteria
           }
@@ -88,15 +76,15 @@ object SnapshotterAdapter {
 
   trait Callbacks[F[_], A] {
 
-    def add(keyOf: => A): F[F[Unit]]
+    def schedule(call: => A): F[F[Unit]]
 
     def receive: Actor.Receive
   }
 
   object Callbacks {
 
-    def apply[F[_] : FromFuture, A](
-      adapter: ActorContextAdapter[F])(
+    def apply[F[_] : Async : FromFuture, A](
+      act: Act)(
       pf: PartialFunction[Any, (A, Try[Unit])]
     ): Callbacks[F, A] = {
 
@@ -119,17 +107,13 @@ object SnapshotterAdapter {
 
       new Callbacks[F, A] {
 
-        def add(keyOf: => A) = {
-          adapter.get {
-            val key = keyOf
+        def schedule(call: => A) = {
+          act.ask {
+            val key = call
             val promise = Promise[Unit]()
-            val callback = (a: Try[Unit]) => {
-              promise.complete(a)
-              ()
-            }
+            val callback: Callback = a => promise.complete(a)
             callbacks = callbacks.updated(key, callback)
-            val future = promise.future
-            FromFuture[F].apply(future)
+            FromFuture[F].apply { promise.future }
           }
         }
 
