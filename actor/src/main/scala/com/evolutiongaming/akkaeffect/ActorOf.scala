@@ -15,11 +15,13 @@ object ActorOf {
   private val stopped: Throwable = new RuntimeException with NoStackTrace
   
 
-  def apply[F[_] : Async : ToFuture : FromFuture](
+  def apply[F[_] : Sync : ToFuture : FromFuture](
     receiveOf: ReceiveOf[F, Any, Any]
   ): Actor = {
 
     case class State(receive: Receive[F, Any, Any], release: F[Unit])
+
+    def actorError[A](msg: String, cause: Throwable): F[A] = ActorError(msg, cause).raiseError[F, A]
 
     def onPreStart(self: ActorRef, ctx: ActorCtx[F, Any, Any]): Future[Option[State]] = {
       receiveOf(ctx)
@@ -35,7 +37,7 @@ object ActorOf {
               .as(none[State])
 
           case Left(error) =>
-            ActorError(s"$self.preStart failed to allocate receive with $error", error).raiseError[F, Option[State]]
+            actorError[Option[State]](s"$self.preStart failed to allocate receive with $error", error)
         }
         .toFuture
     }
@@ -62,8 +64,7 @@ object ActorOf {
                 state.release
                   .handleError { _ => () }
                   .productR {
-                    ActorError(s"$self.receive failed on $a from $sender with $error", error)
-                      .raiseError[F, Option[State]]
+                    actorError[Option[State]](s"$self.receive failed on $a from $sender with $error", error)
                   }
             }
         }
@@ -74,18 +75,18 @@ object ActorOf {
 
       implicit val executor = context.dispatcher
 
-      val adapter = Act.Adapter(self)
+      val act = Act.adapter(self)
 
       var stateVar = none[Future[State]]
 
       override def preStart(): Unit = {
         super.preStart()
-        val ctx = ActorCtx[F](adapter.act, context)
+        val ctx = ActorCtx[F](act.value, context)
         val future = onPreStart(self, ctx)
         syncOrAsync(future)
       }
 
-      def receive: Receive = adapter.receive orElse receiveAny
+      def receive: Receive = act.receive orElse receiveAny
 
       override def postStop(): Unit = {
         stateVar.foreach { state =>
@@ -127,7 +128,7 @@ object ActorOf {
             stateVar = future
               .transform { value =>
                 val (state, func) = stateAndFunc(value)
-                adapter.act { func() }
+                act.value { func() }
                 state match {
                   case Some(state) => state.pure[Try]
                   case None        => Failure(stopped)

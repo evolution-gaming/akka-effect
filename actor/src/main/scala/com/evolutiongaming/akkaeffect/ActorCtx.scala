@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorContext, ActorRef}
-import cats.effect.{Async, Sync}
+import cats.effect.Sync
 import cats.implicits._
 import com.evolutiongaming.catshelper.FromFuture
 
@@ -26,20 +26,10 @@ trait ActorCtx[F[_], A, B] {
 
 object ActorCtx {
 
-  def apply[F[_] : Async : FromFuture](
+  def apply[F[_] : Sync : FromFuture](
     act: Act,
     context: ActorContext
   ): ActorCtx[F, Any, Any] = {
-
-    def tell(f: => Unit): F[Unit] = {
-      Sync[F].delay { act { f } }
-    }
-
-    def ask[A](f: => A): F[A] = {
-      Async[F].asyncF[A] { callback =>
-        tell { callback(f.asRight) }
-      }
-    }
 
     new ActorCtx[F, Any, Any] {
 
@@ -48,14 +38,14 @@ object ActorCtx {
       val dispatcher = context.dispatcher
 
       def setReceiveTimeout(timeout: Duration) = {
-        tell { context.setReceiveTimeout(timeout) }
+        act.ask3 { context.setReceiveTimeout(timeout) }.void
       }
 
       def child(name: String) = {
-        ask { context.child(name) }
+        act.ask3 { context.child(name) }.flatten
       }
 
-      val children = ask { context.children }
+      val children = act.ask3 { context.children }.flatten
 
       val actorRefOf = ActorRefOf[F](context)
     }

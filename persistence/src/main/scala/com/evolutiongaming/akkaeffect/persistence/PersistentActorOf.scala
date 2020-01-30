@@ -49,7 +49,7 @@ object PersistentActorOf {
           /*state.update { phase =>
             f(phase)
               .attempt.flatMap {
-              case Right(phase) => phase.fold(adapter.stop.as(none[Phase[S, C, E]]))  
+              case Right(phase) => phase.fold(adapter.stop.as(none[Phase[S, C, E]]))
               case Left(error) => adapter.fail(error).as(none[Phase[S, C, E]])
             }
             for {
@@ -283,16 +283,19 @@ object PersistentActorOf {
       }
     }
 
-    
+
     new PersistentActor { actor =>
 
-      val adapter = Act.Adapter(self)
+      val act = Act.adapter(self)
 
-      val actorContextAdapter = ActorContextAdapter[F](adapter.act, context)
+      // TODO use Adapter.scala
+      val actorContextAdapter = ActorContextAdapter[F](act.value, context)
 
+      // TODO use Adapter.scala
       val eventsourcedAdapter = EventsourcedAdapter[F](actorContextAdapter, actor)
 
-      val snapshotterAdapter = SnapshotterAdapter[F](adapter.act, actor)
+      // TODO use Adapter.scala
+      val snapshotterAdapter = SnapshotterAdapter[F](act.value, actor)
 
       val router = Router[Any, Any, Any](
         actorContextAdapter,
@@ -366,7 +369,7 @@ object PersistentActorOf {
           case a => router.onCommand(a, actorContextAdapter, lastSeqNr(), ref = self, sender = sender())
         }
 
-        adapter.receive orElse snapshotterAdapter.receive orElse receiveCommand
+        act.receive orElse snapshotterAdapter.receive orElse receiveCommand
       }
 
       override def postStop() = {
