@@ -15,6 +15,8 @@ trait PersistenceSetup[F[_], S, C, E] {
 
   def pluginIds: PluginIds = PluginIds.Default
 
+  // TODO onPreStart phase is missing
+
   def onRecoveryStarted(
     offer: Option[SnapshotOffer[S]],
     journaller: Journaller[F, E], // TODO move to onRecoveryCompleted

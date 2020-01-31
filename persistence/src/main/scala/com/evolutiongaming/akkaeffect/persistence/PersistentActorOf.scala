@@ -303,7 +303,7 @@ object PersistentActorOf {
         snapshotterAdapter.snapshotter)
 
       println("new PersistentActor")
-      val persistenceSetup = LazyVal {
+      val persistenceSetup = Lazy {
         println("setup")
         persistenceSetupOf(actorContextAdapter.ctx)
           .handleErrorWith { error =>
@@ -312,12 +312,6 @@ object PersistentActorOf {
           }
           .toTry
           .get
-      }
-
-      override def preStart(): Unit = {
-        println("preStart")
-        super.preStart()
-        router.onPreStart(persistenceSetup())
       }
 
       def persistenceId = persistenceSetup().persistenceId
@@ -332,16 +326,22 @@ object PersistentActorOf {
 
       override def recovery = persistenceSetup().recovery
 
-      override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]) = {
+      override def preStart(): Unit = {
+        println("preStart")
+        super.preStart()
+        router.onPreStart(persistenceSetup())
+      }
+
+      override def onRecoveryFailure(cause: Throwable, event: Option[Any]) = {
         super.onRecoveryFailure(cause, event)
       }
 
-      override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
+      override def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
         eventsourcedAdapter.callbacks.onPersistFailure(cause, event, seqNr)
         super.onPersistFailure(cause, event, seqNr)
       }
 
-      override protected def onPersistRejected(cause: Throwable, event: Any, seqNr: Long) = {
+      override def onPersistRejected(cause: Throwable, event: Any, seqNr: Long) = {
         eventsourcedAdapter.callbacks.onPersistRejected(cause, event, seqNr)
         super.onPersistRejected(cause, event, seqNr)
       }
@@ -349,6 +349,7 @@ object PersistentActorOf {
       override def deleteMessages(toSequenceNr: Long) = super.deleteMessages(toSequenceNr)
 
       override def loadSnapshot(persistenceId: String, criteria: SnapshotSelectionCriteria, toSequenceNr: Long) = {
+        // TODO
         super.loadSnapshot(persistenceId, criteria, toSequenceNr)
       }
 

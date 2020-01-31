@@ -6,6 +6,7 @@ import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Async, Concurrent, IO, Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -24,7 +25,11 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     val prefix = if (async) "async" else "sync"
     val delay = if (async) Timer[IO].sleep(1.millis) else ().pure[IO]
 
-    test(s"$prefix receive") {
+    test(s"$prefix all") {
+      all[IO](actorSystem, delay).run()
+    }
+
+    test(s"$prefix receive ") {
       receive[IO](actorSystem, delay).run()
     }
 
@@ -49,10 +54,54 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     }
   }
 
-  def receive[F[_] : Concurrent : ToFuture : FromFuture](
+  private def all[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem,
     delay: F[Unit]
   ): F[Unit] = {
+
+    def all(
+      actorRef: ActorEffect[F, Any, Any],
+      probe: Probe[F],
+      receiveTimeout: F[Unit]
+    ): F[Unit] = {
+
+      val timeout = 1.second
+
+      def withCtx[A : ClassTag](f: ActorCtx[F, Any, Any] => F[A]): F[A] = {
+        for {
+          a <- actorRef.ask(WithCtx(f), timeout)
+          a <- a.cast[F, A]
+        } yield a
+      }
+
+      for {
+        terminated0 <- probe.watch(actorRef.toUnsafe)
+        dispatcher  <- withCtx { _.dispatcher.pure[F] }
+        _           <- Sync[F].delay { dispatcher.toString shouldEqual "Dispatcher[akka.actor.default-dispatcher]" }
+        a           <- withCtx { _.actorRefOf(TestActors.blackholeProps, "child".some).allocated }
+        (child0, childRelease) = a
+        terminated1 <- probe.watch(child0)
+        children    <- withCtx { _.children }
+        _           <- Sync[F].delay { children.toList shouldEqual List(child0) }
+        child        = withCtx { _.child("child") }
+        child1      <- child
+        _           <- Sync[F].delay { child1 shouldEqual child0.some }
+        _           <- childRelease
+        _           <- terminated1
+        child1      <- child
+        _           <- Sync[F].delay { child1 shouldEqual none[ActorRef] }
+        children    <- withCtx { _.children }
+        _           <- Sync[F].delay { children.toList shouldEqual List.empty }
+        identity    <- actorRef.ask(Identify("id"), timeout)
+        identity    <- identity.cast[F, ActorIdentity]
+        _           <- withCtx { _.setReceiveTimeout(1.millis) }
+        _           <- receiveTimeout
+        _           <- Sync[F].delay { identity shouldEqual ActorIdentity("id", actorRef.toUnsafe.some) }
+        a           <- actorRef.ask("stop", timeout)
+        _           <- Sync[F].delay { a shouldEqual "stopping" }
+        _           <- terminated0
+      } yield {}
+    }
 
     def receiveOf(receiveTimeout: F[Unit]): ReceiveOf[F, Any, Any] = {
       (ctx: ActorCtx[F, Any, Any]) => {
@@ -98,52 +147,85 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
       actorEffect     = ActorEffect.of[F](actorRefOf, receive)
       probe           = Probe.of[F](actorSystem)
       resources       = (actorEffect, probe).tupled
-      result         <- resources.use { case (actorRef, probe) => `actorOf`[F](actorRef, probe, receiveTimeout.get) }
+      result         <- resources.use { case (actorRef, probe) => all(actorRef, probe, receiveTimeout.get) }
     } yield result
   }
 
-  private def actorOf[F[_] : Async : ToFuture : FromFuture](
-    actorRef: ActorEffect[F, Any, Any],
-    probe: Probe[F],
-    receiveTimeout: F[Unit]
+
+  private def receive[F[_] : Concurrent : ToFuture : FromFuture](
+    actorSystem: ActorSystem,
+    delay: F[Unit]
   ): F[Unit] = {
 
-    val timeout = 1.second
+    case class GetAndInc(delay: F[Unit])
 
-    def withCtx[A : ClassTag](f: ActorCtx[F, Any, Any] => F[A]): F[A] = {
-      for {
-        a <- actorRef.ask(WithCtx(f), timeout)
-        a <- a.cast[F, A]
-      } yield a
+    def receiveOf: ReceiveOf[F, Any, Any] = {
+      (_: ActorCtx[F, Any, Any]) => {
+
+        val receive = for {
+          state <- Ref[F].of(0)
+        } yield {
+          val receive: Receive[F, Any, Any] = {
+            (a: Any, reply: Reply[F, Any]) => {
+              a match {
+                case a: GetAndInc =>
+                  for {
+                    _ <- delay
+                    _ <- a.delay
+                    a <- state.modify { a => (a + 1, a) }
+                    _ <- reply(a)
+                  } yield false
+
+                case _ => delay as false
+              }
+            }
+          }
+          receive.some
+        }
+        Resource.make { delay productR receive } { _ => delay }
+      }
     }
 
-    for {
-      terminated0 <- probe.watch(actorRef.toUnsafe)
-      dispatcher  <- withCtx { _.dispatcher.pure[F] }
-      _           <- Sync[F].delay { dispatcher.toString shouldEqual "Dispatcher[akka.actor.default-dispatcher]" }
-      a           <- withCtx { _.actorRefOf(TestActors.blackholeProps, "child".some).allocated }
-      (child0, childRelease) = a
-      terminated1 <- probe.watch(child0)
-      children    <- withCtx { _.children }
-      _           <- Sync[F].delay { children.toList shouldEqual List(child0) }
-      child        = withCtx { _.child("child") }
-      child1      <- child
-      _           <- Sync[F].delay { child1 shouldEqual child0.some }
-      _           <- childRelease
-      _           <- terminated1
-      child1      <- child
-      _           <- Sync[F].delay { child1 shouldEqual none[ActorRef] }
-      children    <- withCtx { _.children }
-      _           <- Sync[F].delay { children.toList shouldEqual List.empty }
-      identity    <- actorRef.ask(Identify("id"), timeout)
-      identity    <- identity.cast[F, ActorIdentity]
-      _           <- withCtx { _.setReceiveTimeout(1.millis) }
-      _           <- receiveTimeout
-      _           <- Sync[F].delay { identity shouldEqual ActorIdentity("id", actorRef.toUnsafe.some) }
-      a           <- actorRef.ask("stop", timeout)
-      _           <- Sync[F].delay { a shouldEqual "stopping" }
-      _           <- terminated0
-    } yield {}
+    val actorRefOf = ActorRefOf[F](actorSystem)
+
+    ActorEffect
+      .of[F](actorRefOf, receiveOf)
+      .use { actorRef =>
+        val timeout = 1.second
+
+        def getAndInc(delay: F[Unit]) = {
+          actorRef
+            .ask(GetAndInc(delay), timeout)
+            .startEnsure
+            .map { _.join }
+        }
+
+        for {
+          a   <- getAndInc(().pure[F]).flatten
+          _    = a shouldEqual 0
+          d0  <- Deferred[F, Unit]
+          a0  <- getAndInc(d0.get)
+          ref <- Ref[F].of(false)
+          a1  <- getAndInc(ref.set(true))
+          d1  <- Deferred[F, Unit]
+          a2  <- getAndInc(d1.get)
+          a3  <- getAndInc(().pure[F])
+          b   <- ref.get
+          _    = b shouldEqual false
+          _   <- d0.complete(())
+          a   <- a0
+          _    = a shouldEqual 1
+          a   <- a1
+          _    = a shouldEqual 2
+          b   <- ref.get
+          _    = b shouldEqual true
+          _   <- d1.complete(())
+          a   <- a2
+          _    = a shouldEqual 3
+          a   <- a3
+          _    = a shouldEqual 4
+        } yield {}
+      }
   }
 
 

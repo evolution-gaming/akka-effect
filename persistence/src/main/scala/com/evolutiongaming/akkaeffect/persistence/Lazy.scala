@@ -6,7 +6,7 @@ import cats.implicits._
 /**
   * is not synchronised, safe to use within actor
   */
-object LazyVal {
+object Lazy {
 
   def apply[A](f: => A): () => A = {
     var a = none[A]
