@@ -1,9 +1,11 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef}
-import cats.effect.{Async, Sync}
+import cats.effect.concurrent.Deferred
+import cats.effect.{Concurrent, Sync}
 import cats.implicits._
-import com.evolutiongaming.catshelper.FromFuture
+import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 
 import scala.concurrent.{Future, Promise}
 import scala.util.Try
@@ -18,6 +20,10 @@ private[akkaeffect] trait Act {
 
 
 private[akkaeffect] object Act {
+
+  val now: Act = new Act {
+    def apply[A](f: => A) = { val _ = f }
+  }
 
   def adapter(actorRef: ActorRef): Adapter[Act] = {
 
@@ -43,16 +49,6 @@ private[akkaeffect] object Act {
       Sync[F].delay { self { f } }
     }
 
-    def ask[F[_] : Async, A](f: => A): F[A] = {
-      Async[F].asyncF[A] { callback =>
-        self.tell1 {
-          val result = Try { f }
-          callback(result.toEither)
-          result.get
-        }
-      }
-    }
-
     def ask2[A](f: => A): Future[A] = {
       val promise = Promise[A]()
       self {
@@ -67,6 +63,27 @@ private[akkaeffect] object Act {
       Sync[F]
         .delay { ask2 { f } }
         .map { a => FromFuture[F].apply { a } }
+    }
+
+    def ask[F[_] : Concurrent : ToTry, A](fa: F[A]): F[F[A]] = {
+      Deferred[F, F[A]]
+        .flatMap { deferred =>
+          Sync[F]
+            .delay {
+              self {
+                fa
+                  .attempt
+                  .flatMap { a => deferred.complete(a.liftTo[F]) }
+                  .toTry
+                  .get
+              }
+            }
+            .as {
+              deferred
+                .get
+                .flatten
+            }
+        }
     }
   }
 }

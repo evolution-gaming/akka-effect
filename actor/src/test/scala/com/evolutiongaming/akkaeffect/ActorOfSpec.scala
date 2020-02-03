@@ -145,7 +145,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
       receive         = receiveOf(receiveTimeout.complete(()))
       actorRefOf      = ActorRefOf[F](actorSystem)
       actorEffect     = ActorEffect.of[F](actorRefOf, receive)
-      probe           = Probe.of[F](actorSystem)
+      probe           = Probe.of[F](actorRefOf)
       resources       = (actorEffect, probe).tupled
       result         <- resources.use { case (actorRef, probe) => all(actorRef, probe, receiveTimeout.get) }
     } yield result
@@ -238,7 +238,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
     val receiveOf: ReceiveOf[F, Any, Any] = _ => Resource.make { delay as none[Receive[F, Any, Any]] } { _ => delay }
     def actor = ActorOf[F](receiveOf)
     val props = Props(actor)
-    val probe = Probe.of[F](actorSystem)
+    val probe = Probe.of[F](actorRefOf)
     val actorRef = actorRefOf(props)
     (probe, actorRef)
       .tupled
@@ -322,7 +322,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
     val result = for {
       actorRef <- actorRefOf(props)
-      probe    <- Probe.of[F](actorSystem)
+      probe    <- Probe.of[F](actorRefOf)
       result   <- Resource.liftF { probe.watch(actorRef).flatten }
     } yield result
 

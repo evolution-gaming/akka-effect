@@ -20,12 +20,9 @@ object ActorRefOf {
     (props: Props, name: Option[String]) => {
 
       Resource.make {
-        Sync[F].delay {
-          name.fold {
-            factory.actorOf(props)
-          } { name =>
-            factory.actorOf(props, name)
-          }
+        name match {
+          case Some(name) => Sync[F].delay { factory.actorOf(props, name) }
+          case None       => Sync[F].delay { factory.actorOf(props) }
         }
       } { actorRef =>
         Sync[F].delay { factory.stop(actorRef) }

@@ -17,8 +17,8 @@ class TellSpec extends AsyncFunSuite with ActorSuite with Matchers {
     `toString`[IO](actorSystem).run()
   }
 
-  test("apply") {
-    `apply`[IO](actorSystem).run()
+  test("fromActorRef") {
+    `fromActorRef`[IO](actorSystem).run()
   }
 
   private def `toString`[F[_] : Sync](actorSystem: ActorSystem) = {
@@ -32,17 +32,17 @@ class TellSpec extends AsyncFunSuite with ActorSuite with Matchers {
     }
   }
 
-  private def `apply`[F[_] : Concurrent : ToFuture : FromFuture ](actorSystem: ActorSystem) = {
+  private def `fromActorRef`[F[_] : Concurrent : ToFuture : FromFuture ](actorSystem: ActorSystem) = {
     val actorRefOf = ActorRefOf[F](actorSystem)
     val resources = for {
       actorRef <- actorRefOf(TestActors.blackholeProps)
-      probe    <- Probe.of[F](actorSystem)
+      probe    <- Probe.of[F](actorRefOf)
     } yield {
       (actorRef, probe)
     }
 
     resources.use { case (actorRef, probe) =>
-      val tell = Tell.fromActorRef[F](probe.actorRef).mapK(FunctionK.id)
+      val tell = Tell.fromActorRef[F](probe.actor.toUnsafe).mapK(FunctionK.id)
       for {
         envelope <- probe.expect
         _        <- tell("msg0")

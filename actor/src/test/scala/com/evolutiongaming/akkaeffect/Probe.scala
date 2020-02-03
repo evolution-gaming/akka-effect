@@ -11,9 +11,7 @@ import com.evolutiongaming.catshelper.{FromFuture, SerialRef, ToFuture}
 trait Probe[F[_]] {
   import Probe._
 
-  def actorRef: ActorRef
-
-  def tell: Tell[F, Any]
+  def actor: ActorEffect[F, Any, Any]
 
   def expect: F[F[Envelop]]
 
@@ -31,7 +29,7 @@ object Probe {
   final case class Envelop(msg: Any, sender: ActorRef)
 
   def of[F[_] : Concurrent : ToFuture : FromFuture](
-    actorRefFactory: ActorRefFactory
+    actorRefOf: ActorRefOf[F]
   ): Resource[F, Probe[F]] = {
 
     def history(subscribe: Listener[F] => F[Unit]) = {
@@ -47,16 +45,13 @@ object Probe {
     for {
       listeners <- Resource.liftF(listeners)
       subscribe  = (listener: Listener[F]) => listeners.update { listeners => (listeners + listener).pure[F] }
-      resources <- actorRef(listeners, actorRefFactory)
+      resources <- actorRef(listeners, actorRefOf)
       (actorRef, run) = resources
       history   <- Resource.liftF(history(subscribe))
     } yield {
-      val actorRef1 = actorRef
       new Probe[F] {
 
-        def actorRef = actorRef1
-
-        val tell = Tell.fromActorRef(actorRef)
+        val actor = ActorEffect.fromActor(actorRef)
 
         val expect = {
           for {
@@ -94,7 +89,7 @@ object Probe {
 
   def actorRef[F[_] : Sync : ToFuture : FromFuture](
     listeners: SerialRef[F, Set[Listener[F]]],
-    actorRefFactory: ActorRefFactory
+    actorRefOf: ActorRefOf[F]
   ): Resource[F, (ActorRef, (ActorContext => F[Unit]) => F[Unit])] = {
 
     case class Run(f: ActorContext => F[Unit])
@@ -129,15 +124,9 @@ object Probe {
     }
 
     val props = Props(actor)
-    Resource
-      .make {
-        Sync[F].delay { actorRefFactory.actorOf(props) }
-      } { actorRef =>
-        Sync[F].delay { actorRefFactory.stop(actorRef) }
-      }
-      .map { actorRef =>
-        val run = (f: ActorContext => F[Unit]) => Sync[F].delay { actorRef.tell(Run(f), ActorRef.noSender) }
-        (actorRef, run)
-      }
+    actorRefOf(props).map { actorRef =>
+      val run = (f: ActorContext => F[Unit]) => Sync[F].delay { actorRef.tell(Run(f), ActorRef.noSender) }
+      (actorRef, run)
+    }
   }
 }

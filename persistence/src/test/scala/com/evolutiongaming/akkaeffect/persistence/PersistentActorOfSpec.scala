@@ -28,7 +28,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
   ): F[Unit] = {
 
     def persistenceSetupOf(receiveTimeout: F[Unit]): PersistenceSetupOf[F, Any, Any, Any, Any] = {
-      (ctx: ActorCtx[F, Any, Any]) => {
+      ctx: ActorCtx[F, Any, Any] => {
 
         val persistenceSetup = new PersistenceSetup[F, State, Any, Event] {
 
@@ -75,7 +75,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       receiveTimeout     <- Deferred[F, Unit]
       persistenceSetupOf <- persistenceSetupOf(receiveTimeout.complete(())).pure[F]
       actorRefOf          = ActorRefOf[F](actorSystem)
-      probe               = Probe.of[F](actorSystem)
+      probe               = Probe.of[F](actorRefOf)
       actorEffect         = PersistentActorEffect.of[F](actorRefOf, persistenceSetupOf)
       resources           = (actorEffect, probe).tupled
       result             <- resources.use { case (actorEffect, probe) => persistentActorOf(actorEffect, probe, receiveTimeout.get, actorRefOf) }

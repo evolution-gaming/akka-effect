@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.actor.ActorRef
 import akka.persistence.{PersistentActor, RecoveryCompleted, SnapshotSelectionCriteria}
 import akka.{persistence => ap}
-import cats.effect.Async
+import cats.effect.{Async, Concurrent, ContextShift}
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import com.evolutiongaming.akkaeffect._
@@ -12,7 +12,7 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
 object PersistentActorOf {
 
-  def apply[F[_] : Async : ToFuture : FromFuture : ToTry](
+  def apply[F[_] : Concurrent/*TODO*/ : ToFuture : FromFuture : ToTry](
     persistenceSetupOf: PersistenceSetupOf[F, Any, Any, Any, Any]
   ): PersistentActor = {
 
@@ -295,12 +295,16 @@ object PersistentActorOf {
       val eventsourcedAdapter = EventsourcedAdapter[F](actorContextAdapter, actor)
 
       // TODO use Adapter.scala
-      val snapshotterAdapter = SnapshotterAdapter[F](act.value, actor)
+      val (snapshotterAdapter, release) = Snapshotter
+        .adapter[F](act.value, actor) { PersistentActorError(s"$self has been stopped") }
+        .allocated
+        .toTry
+        .get
 
       val router = Router[Any, Any, Any](
         actorContextAdapter,
         eventsourcedAdapter.journaller,
-        snapshotterAdapter.snapshotter)
+        snapshotterAdapter.value)
 
       println("new PersistentActor")
       val persistenceSetup = Lazy {
@@ -374,6 +378,7 @@ object PersistentActorOf {
       }
 
       override def postStop() = {
+        release.toTry
         router.onPostStop(lastSeqNr())
         super.postStop()
       }

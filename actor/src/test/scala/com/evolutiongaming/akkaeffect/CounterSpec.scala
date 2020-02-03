@@ -72,7 +72,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
     val actorRefOf = ActorRefOf[F](actorSystem)
 
-    val probe = Probe.of[F](actorSystem)
+    val probe = Probe.of[F](actorRefOf)
     probe.use { probe =>
 
       def receive(onStop: F[Unit]) = {
@@ -87,13 +87,13 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
           }
       }
 
-      val onStop   = probe.tell(PostStop)
+      val onStop   = probe.actor.tell(PostStop)
       val actorRef = ActorEffect.of[F](actorRefOf, _ => receive(onStop))
       for {
 
         result   <- actorRef.use { actorRef0 =>
           val ref    = actorRef0.narrow[Msg]
-          val tell   = (msg: Msg) => ref.tell(msg, probe.actorRef.some)
+          val tell   = (msg: Msg) => ref.tell(msg, probe.actor.toUnsafe.some)
           val inc    = tell(Msg.Inc)
           val expect = (n: Int) => {
             for {

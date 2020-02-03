@@ -16,8 +16,8 @@ class ReplySpec extends AsyncFunSuite with ActorSuite with Matchers {
     `toString`[IO](actorSystem).run()
   }
 
-  test("apply") {
-    `apply`[IO](actorSystem).run()
+  test("fromActorRef") {
+    `fromActorRef`[IO](actorSystem).run()
   }
 
   private def `toString`[F[_] : Concurrent](actorSystem: ActorSystem) = {
@@ -32,17 +32,17 @@ class ReplySpec extends AsyncFunSuite with ActorSuite with Matchers {
     }
   }
 
-  private def `apply`[F[_] : Concurrent : ToFuture : FromFuture ](actorSystem: ActorSystem) = {
+  private def `fromActorRef`[F[_] : Concurrent : ToFuture : FromFuture ](actorSystem: ActorSystem) = {
     val actorRefOf = ActorRefOf[F](actorSystem)
     val resources = for {
-      probe    <- Probe.of[F](actorSystem)
+      probe    <- Probe.of[F](actorRefOf)
       actorRef <- actorRefOf(TestActors.blackholeProps)
     } yield {
       (probe, actorRef)
     }
 
     resources.use { case (probe, from) =>
-      val reply = Reply.fromActorRef[F](probe.actorRef, from.some).mapK(FunctionK.id)
+      val reply = Reply.fromActorRef[F](probe.actor.toUnsafe, from.some).mapK(FunctionK.id)
       for {
         a <- probe.expect
         _ <- reply("msg")
