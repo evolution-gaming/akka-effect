@@ -20,7 +20,7 @@ trait ActorVar[F[_], A] {
 
   def receive(f: A => F[Release]): Unit
 
-  def postStop(): Unit
+  def postStop(): Future[Unit]
 }
 
 object ActorVar {
@@ -130,12 +130,16 @@ object ActorVar {
       }
 
       def postStop() = {
-        stateVar.foreach { state =>
-          FromFuture[F]
-            .apply { state }
-            .flatMap { _.release }
-            .toFuture
-          stateVar = none
+        stateVar match {
+          case Some(state) =>
+            val future = FromFuture[F]
+              .apply { state }
+              .flatMap { _.release }
+              .toFuture
+            stateVar = none
+            future
+          case None        =>
+            ().pure[Future]
         }
       }
     }

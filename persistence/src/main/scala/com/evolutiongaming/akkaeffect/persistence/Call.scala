@@ -13,7 +13,7 @@ import com.evolutiongaming.catshelper.ToTry
 
 trait Call[F[_], A, B] {
 
-  def apply(f: => A): F[F[B]]
+  def apply(f: => A): F[(A, F[B])]
 }
 
 object Call {
@@ -74,13 +74,14 @@ object Call {
                       .delay { f }
                       .flatMap { key =>
                         val callback: Callback = a => deferred.complete(a)
-                        callbacks.update { _.updated(key, callback) }
+                        callbacks
+                          .update { _.updated(key, callback) }
+                          .as(key)
                       }
                   }
-                  .as {
-                    deferred
-                      .get
-                      .flatten
+                  .flatten
+                  .map { key =>
+                    (key, deferred.get.flatten)
                   }
               }
               .uncancelable

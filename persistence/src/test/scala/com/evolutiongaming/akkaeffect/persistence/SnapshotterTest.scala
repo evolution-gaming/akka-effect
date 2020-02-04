@@ -27,6 +27,8 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
       new SnapshotterPublic { actor =>
 
+        implicit val executor = context.dispatcher
+
         val act = Act.adapter(self)
 
         val (snapshotter, release) = Snapshotter
@@ -35,18 +37,29 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
           .toTry
           .get
 
+        val actorVar = ActorVar[IO, Unit](act.value, context)
+
+        override def preStart() = {
+          super.preStart()
+          actorVar.preStart {
+            ().some.pure[Resource[IO, *]]
+          }
+        }
         def snapshotStore = probe.actor.toUnsafe
 
         def snapshotterId = "snapshotterId"
 
         def snapshotSequenceNr = 0
 
-        def receiveMsg: Receive = { case Msg(f) => f(snapshotter.value).toTry.get }
+        def receiveMsg: Receive = { case Msg(f) => actorVar.receive { _ => f(snapshotter.value).as(false) } }
 
         def receive = act.receive orElse snapshotter.receive orElse receiveMsg
 
         override def postStop() = {
-          release.toTry.get
+          for {
+            _ <- actorVar.postStop()
+            _ <- release.toFuture
+          } yield {}
           super.postStop()
         }
       }
@@ -62,8 +75,8 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
           def apply[A](f: Snapshotter[IO, Any] => IO[A]) = {
             for {
               d  <- Deferred[IO, IO[A]]
-              f1  = (s: Snapshotter[IO, Any]) => for {
-                a <- f(s).attempt
+              f1  = (snapshotter: Snapshotter[IO, Any]) => for {
+                a <- f(snapshotter).attempt
                 _ <- d.complete(a.liftTo[IO])
                 _ <- a.liftTo[IO]
               } yield {}
@@ -88,7 +101,12 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
         val error = new RuntimeException with NoStackTrace
 
-        def verify[A](f: Snapshotter[IO, Any] => IO[IO[A]], req: Any, res: Any, expected: Either[Throwable, A]) = {
+        def verify[A](
+          f: Snapshotter[IO, Any] => IO[IO[A]],
+          req: Any,
+          res: Any,
+          expected: Either[Throwable, A]
+        ) = {
           for {
             a <- probe.expect
             b <- ask(f)
@@ -100,15 +118,24 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
           } yield {}
         }
 
+        def save(snapshotter: Snapshotter[IO, Any]) = {
+          snapshotter
+            .save("snapshot")
+            .map { case (seqNr, a) =>
+              seqNr shouldEqual 0L
+              a
+            }
+        }
+
         val result = for {
           _ <- verify(
-            _.save("snapshot"),
+            save,
             SnapshotProtocolPublic.saveSnapshot(metadata, "snapshot"),
             SaveSnapshotSuccess(metadata),
             ().asRight)
 
           _ <- verify(
-            _.save("snapshot"),
+            save,
             SnapshotProtocolPublic.saveSnapshot(metadata, "snapshot"),
             SaveSnapshotFailure(metadata, error),
             error.asLeft)

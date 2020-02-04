@@ -1,10 +1,11 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.{SnapshotSelectionCriteria, Snapshotter => _, _}
+import cats.FlatMap
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.{Act, Adapter}
-import com.evolutiongaming.catshelper.{FromFuture, ToTry}
+import com.evolutiongaming.catshelper.ToTry
 
 
 trait Snapshotter[F[_], -A] {
@@ -12,8 +13,7 @@ trait Snapshotter[F[_], -A] {
   /**
     * @return Outer F[_] is about saving in background, inner F[_] is about saving completed
     */
-  def save(a: A): F[F[Unit]]
-  //  TODO def save(a: A): F[(SeqNr, F[Unit])]
+  def save(a: A): F[(SeqNr, F[Unit])]
 
   /**
     * @return Outer F[_] is about deletion in background, inner F[_] is about deletion being completed
@@ -28,7 +28,7 @@ trait Snapshotter[F[_], -A] {
 
 object Snapshotter {
 
-  def apply[F[_]](
+  def apply[F[_] : FlatMap](
     saveSnapshot: Call[F, SeqNr, Unit],
     deleteSnapshot: Call[F, SeqNr, Unit],
     deleteSnapshots: Call[F, SnapshotSelectionCriteria, Unit],
@@ -45,17 +45,20 @@ object Snapshotter {
       }
 
       def delete(seqNr: SeqNr) = {
-        deleteSnapshot {
-          actor.deleteSnapshot(seqNr)
-          seqNr
-        }
+        deleteSnapshot
+          .apply {
+            actor.deleteSnapshot(seqNr)
+            seqNr
+          }
+          .map { case (_, a) => a }
       }
 
       def delete(criteria: SnapshotSelectionCriteria) = {
-        deleteSnapshots {
-          actor.deleteSnapshots(criteria)
-          criteria
-        }
+        deleteSnapshots
+          .apply {
+            actor.deleteSnapshots(criteria)
+            criteria
+          }.map { case (_, a) => a }
       }
     }
   }
@@ -90,10 +93,10 @@ object Snapshotter {
     } yield {
       Adapter(
         apply(
-          saveSnapshot = saveSnapshot.value,
-          deleteSnapshot = deleteSnapshot.value,
+          saveSnapshot    = saveSnapshot.value,
+          deleteSnapshot  = deleteSnapshot.value,
           deleteSnapshots = deleteSnapshots.value,
-          actor = actor),
+          actor           = actor),
         saveSnapshot.receive orElse deleteSnapshot.receive orElse deleteSnapshots.receive)
     }
   }

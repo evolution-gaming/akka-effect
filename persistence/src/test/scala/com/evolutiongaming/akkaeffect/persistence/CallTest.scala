@@ -23,16 +23,25 @@ class CallTest extends AsyncFunSuite with ActorSuite with Matchers {
       stopped  = ref.update { _ + 1 }.as("stopped")
       a       <- Call
         .adapter[IO, Int, String](Act.now, stopped) { case Msg(a, b) => (a, b) }
-        .use { call =>
+        .use { adapter =>
+
+          def call(key: Int): IO[IO[String]] = {
+            for {
+              ak     <- adapter.value(key)
+              (k, a)  = ak
+              _       = k shouldEqual key
+            } yield a
+          }
+
           for {
-            a0 <- call.value { 0 }
-            a1 <- call.value { 1 }
-            a2 <- call.value { 2 }
-            a3 <- call.value { 3 }
-            _  <- IO.delay { call.receive.lift(Msg(0, "0".pure[IO])) }
-            _  <- IO.delay { call.receive.lift(Msg(1, "1".pure[IO])) }
-            _  <- IO.delay { call.receive.lift(Msg(2, error.raiseError[IO, String])) }
-            _  <- IO.delay { call.receive.lift(Msg(2, "2".pure[IO])) }
+            a0 <- call { 0 }
+            a1 <- call { 1 }
+            a2 <- call { 2 }
+            a3 <- call { 3 }
+            _  <- IO.delay { adapter.receive.lift(Msg(0, "0".pure[IO])) }
+            _  <- IO.delay { adapter.receive.lift(Msg(1, "1".pure[IO])) }
+            _  <- IO.delay { adapter.receive.lift(Msg(2, error.raiseError[IO, String])) }
+            _  <- IO.delay { adapter.receive.lift(Msg(2, "2".pure[IO])) }
             a  <- a0
             _   = a shouldEqual "0"
             a  <- a1
