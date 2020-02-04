@@ -6,6 +6,14 @@
 [![Version](https://api.bintray.com/packages/evolutiongaming/maven/akka-effect/images/download.svg)](https://bintray.com/evolutiongaming/maven/akka-effect/_latestVersion)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellowgreen.svg)](https://opensource.org/licenses/MIT)
 
+This project aims to build a bridge between pure functional code based on [cats-effect](https://typelevel.org/cats-effect) and [akka](https://akka.io)
+
+Covered:
+* [Actors](https://doc.akka.io/docs/akka/current/actors.html)
+* [Persistence](https://doc.akka.io/docs/akka/current/persistence.html)
+
+## Building blocks 
+
 ### Tell.scala
 
 Represents `ActorRef.tell`
@@ -80,9 +88,14 @@ trait ActorCtx[F[_], A, B] {
 
   def children: F[Iterable[ActorRef]]
 
-  def actorOf: ActorRefOf[F]
+  def actorRefOf: ActorRefOf[F]
 }
 ```
+
+
+### PersistentActorOf.scala
+
+Constructs `PersistentActor.scala` out of `receive: ActorCtx[F, Any, Any] => Resource[F, Option[PersistenceSetup[F, S, C, E]]`
  
 
 ## Setup
