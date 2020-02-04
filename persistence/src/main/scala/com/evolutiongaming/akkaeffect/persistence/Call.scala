@@ -29,20 +29,20 @@ object Call {
     Resource
       .make {
         Ref[F].of(Map.empty[A, Callback])
-      } { callbacks =>
-        callbacks
-          .getAndSet(Map.empty)
-          .flatMap { callbacks =>
-            callbacks
-              .values
-              .toList
-              .foldMapM { _.apply(stopped) }
-          }
+      } { ref =>
+        for {
+          callbacks <- ref.getAndSet(Map.empty)
+          stopped   <- stopped.attempt
+          result    <- callbacks
+            .values
+            .toList
+            .foldMapM { _.apply(stopped.liftTo[F]) }
+        } yield result
       }
-      .map { callbacks =>
+      .map { ref =>
 
         def callbackOf(key: A) = {
-          callbacks
+          ref
             .get
             .map { _.get(key) }
             .toTry
@@ -56,7 +56,7 @@ object Call {
               (key, value) <- pf.lift(a)
               callback <- callbackOf(key)
             } yield {
-              callbacks
+              ref
                 .update { _ - key }
                 .productR { callback(value) }
             }
@@ -74,7 +74,7 @@ object Call {
                       .delay { f }
                       .flatMap { key =>
                         val callback: Callback = a => deferred.complete(a)
-                        callbacks
+                        ref
                           .update { _.updated(key, callback) }
                           .as(key)
                       }
