@@ -19,9 +19,9 @@ import scala.util.control.NoStackTrace
 class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import PersistentActorOfSpec._
 
-  test("PersistentActor") {
+  /*test("PersistentActor") {
     `persistentActorOf`[IO](actorSystem).run()
-  }
+  }*/
 
   private def `persistentActorOf`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
