@@ -31,14 +31,16 @@ class PersistTest extends AsyncFunSuite with ActorSuite with Matchers {
             def lastSequenceNr = seqNr.get.toTry.get
 
             def persistAllAsync[A](events: List[A])(handler: A => Unit) = {
-              val handlers = events.foldMapM { event => IO { handler(event) } }
-              act
-                .ask {
-                  for {
-                    _ <- seqNr.update { _ + events.size }
-                    _ <- ref.update { _.enqueue(handlers) }
-                  } yield {}
-                }
+              val handlers = events.foldMapM { event =>
+                act
+                  .ask { IO { handler(event) } }
+                  .flatten
+              }
+              val result = for {
+                _ <- seqNr.update { _ + events.size }
+                _ <- ref.update { _.enqueue(handlers) }
+              } yield {}
+              result
                 .toTry
                 .get
             }
@@ -51,7 +53,7 @@ class PersistTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     val result = for {
       ref          <- Ref[IO].of(Queue.empty[IO[Unit]])
-      act          <- Act.serial[IO]
+      act          <- Act.of[IO]
       eventsourced <- eventsourced(act, ref)
       seqNr        <- Persist
         .adapter[IO, Int](act, eventsourced, stopped.pure[IO])

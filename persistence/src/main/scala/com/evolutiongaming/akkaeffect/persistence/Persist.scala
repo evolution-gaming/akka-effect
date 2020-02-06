@@ -53,7 +53,7 @@ private[akkaeffect] object Persist {
       .map { ref =>
 
         val persist: Persist[F, A] = {
-          (events: Nel[A]) => {
+          events: Nel[A] => {
 
             val size = events.size
 

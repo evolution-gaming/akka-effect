@@ -7,7 +7,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Future, Promise}
 import scala.util.Try
 
 /**
@@ -15,6 +15,7 @@ import scala.util.Try
   */
 private[akkaeffect] trait Act {
 
+  // TODO return F[A]
   def apply[A](f: => A): Unit
 }
 
@@ -25,33 +26,25 @@ private[akkaeffect] object Act {
     def apply[A](f: => A) = { val _ = f }
   }
 
-  def serial[F[_] : Concurrent : ToTry : ToFuture](implicit executor: ExecutionContext): F[Act] = {
+  def of[F[_] : Concurrent : ToTry : ToFuture]: F[Act] = {
     Ref[F]
-      .of(Future.unit)
+      .of(().pure[F])
       .map { ref =>
         new Act {
           def apply[A](f: => A) = {
-
-            val promise = Promise[Unit]
-
-            val future = ref
-              .modify { future => (future.productR(promise.future), future) }
+            val result = for {
+              d <- Deferred[F, Unit]
+              b <- ref.modify { b => (d.get, b) }
+            } yield for {
+              _ <- b
+              a <- Sync[F].delay { f }.attempt
+              _ <- d.complete(())
+              a <- a.liftTo[F]
+            } yield a
+            result
               .toTry
               .get
-
-            def complete() = {
-              promise.completeWith {
-                Sync[F]
-                  .delay { f }
-                  .void
-                  .toFuture
-              }
-            }
-
-            future.value match {
-              case Some(_) => complete()
-              case None    => future.onComplete { _ => complete() }
-            }
+              .toFuture
           }
         }
       }
@@ -115,4 +108,64 @@ private[akkaeffect] object Act {
       }
     }
   }
+
+  // TODO avoid context switching when Act called from receive
+  /*trait Adapter {
+
+    def value: Act
+
+    def around[A](f: => A): A
+
+    def receive(receive: Actor.Receive): Actor.Receive
+  }
+
+  object Adapter {
+
+    def adapter(actorRef: ActorRef): Adapter = {
+
+      case class Msg(f: () => Unit)
+
+      val receiveMsg: Actor.Receive = { case Msg(f) => f() }
+
+      val actorThread = new ThreadLocal[Boolean] {
+        override def initialValue() = false
+      }
+
+      def aroundReceive(receive: Actor.Receive) = new Actor.Receive {
+
+        def isDefinedAt(a: Any) = receive.isDefinedAt(a)
+
+        def apply(a: Any) = receive(a)
+      }
+
+      new Adapter {
+
+        val value = new Act {
+          def apply[A](f: => A) = {
+
+            if (actorThread.get()) {
+              f
+            } else {
+
+            }
+
+            val f1 = () => { f; () }
+            actorRef.tell(Msg(f1), actorRef)
+          }
+        }
+
+        def around[A](f: => A) = {
+          actorThread.set(true)
+          try f finally actorThread.set(false)
+        }
+
+        def receive(receive: Actor.Receive) = {
+
+
+
+
+        }
+      }
+    }
+  }*/
 }
