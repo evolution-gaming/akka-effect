@@ -30,14 +30,20 @@ object Call {
       .make {
         Ref[F].of(Map.empty[A, Callback])
       } { ref =>
-        for {
-          callbacks <- ref.getAndSet(Map.empty)
-          stopped   <- stopped.attempt
-          result    <- callbacks
-            .values
-            .toList
-            .foldMapM { _.apply(stopped.liftTo[F]) }
-        } yield result
+        ref
+          .getAndSet(Map.empty)
+          .flatMap { callbacks =>
+            callbacks
+              .values
+              .toList
+              .toNel
+              .foldMapM { callbacks =>
+                for {
+                  stopped <- stopped.attempt
+                  result  <- callbacks.foldMapM { _.apply(stopped.liftTo[F]) }
+                } yield result
+              }
+          }
       }
       .map { ref =>
 

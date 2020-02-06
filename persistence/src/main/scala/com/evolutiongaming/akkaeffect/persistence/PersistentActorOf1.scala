@@ -8,7 +8,7 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, LazyVal, ToFuture, ToTry}
 
 
 object PersistentActorOf1 {
@@ -20,6 +20,8 @@ object PersistentActorOf1 {
     type State = PersistenceSetup[F, Any, Any, Any]
 
     new PersistentActor { actor =>
+      
+      implicit val executor = context.dispatcher
 
       val act = Act.adapter(self)
 
@@ -27,17 +29,20 @@ object PersistentActorOf1 {
       val actorContextAdapter = ActorContextAdapter[F](act.value, context)
 
       // TODO use Adapter.scala
-      val eventsourcedAdapter = EventsourcedAdapter[F](actorContextAdapter, actor)
-
-      val (snapshotter, release) = Snapshotter
-        .adapter[F](act.value, actor) { PersistentActorError(s"$self has been stopped") }
-        .allocated
-        .toTry
-        .get
+      val ((journaller, snapshotter), release) = {
+        def stopped() = PersistentActorError(s"$self has been stopped")
+        val journaller = Journaller.adapter[F](act.value, actor) { stopped() }
+        val snapshotter = Snapshotter.adapter[F](act.value, actor) { stopped() }
+        (journaller, snapshotter)
+          .tupled
+          .allocated
+          .toTry
+          .get
+      }
 
       val router = Router[F, Any, Any, Any](
         actorContextAdapter,
-        eventsourcedAdapter.journaller,
+        journaller.value,
         snapshotter.value)
 
       println("new PersistentActor")
@@ -80,12 +85,14 @@ object PersistentActorOf1 {
 
       override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
         println("onPersistFailure")
-        eventsourcedAdapter.callbacks.onPersistFailure(cause, event, seqNr)
+        val error = PersistentActorError(s"$self.persistAll rejected for $event", cause) // TODO persistenceId in all errors
+        journaller.onError(error, event, seqNr)
         super.onPersistFailure(cause, event, seqNr)
       }
 
       override protected def onPersistRejected(cause: Throwable, event: Any, seqNr: Long) = {
-        eventsourcedAdapter.callbacks.onPersistRejected(cause, event, seqNr)
+        val error = PersistentActorError(s"$self.persistAll rejected for $event", cause) // TODO persistenceId in all errors
+        journaller.onError(error, event, seqNr)
         super.onPersistRejected(cause, event, seqNr)
       }
 
@@ -121,14 +128,20 @@ object PersistentActorOf1 {
         case event                  => router.onEvent(event, lastSeqNr())
       }
 
-      def receiveCommand: Receive = act.receive orElse snapshotter.receive orElse {
+      def receiveCmd: Receive = {
         case a => router.onCommand(a, actorContextAdapter, lastSeqNr(), ref = self, sender = sender())
       }
 
+      def receiveCommand: Receive = {
+        act.receive orElse journaller.receive orElse snapshotter.receive orElse receiveCmd
+      }
+
       override def postStop() = {
-        release.toTry
-        router.onPostStop(lastSeqNr())
-        actorVar.postStop()
+        router.onPostStop(lastSeqNr()) // TODO
+        for {
+          _ <- actorVar.postStop()
+          _ <- release.toFuture
+        } yield {}
         super.postStop()
       }
 
@@ -136,4 +149,3 @@ object PersistentActorOf1 {
     }
   }
 }
-

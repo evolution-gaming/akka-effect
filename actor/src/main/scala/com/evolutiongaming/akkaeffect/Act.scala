@@ -1,13 +1,13 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef}
-import cats.effect.concurrent.Deferred
+import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, Sync}
 import cats.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
 /**
@@ -23,6 +23,38 @@ private[akkaeffect] object Act {
 
   val now: Act = new Act {
     def apply[A](f: => A) = { val _ = f }
+  }
+
+  def serial[F[_] : Concurrent : ToTry : ToFuture](implicit executor: ExecutionContext): F[Act] = {
+    Ref[F]
+      .of(Future.unit)
+      .map { ref =>
+        new Act {
+          def apply[A](f: => A) = {
+
+            val promise = Promise[Unit]
+
+            val future = ref
+              .modify { future => (future.productR(promise.future), future) }
+              .toTry
+              .get
+
+            def complete() = {
+              promise.completeWith {
+                Sync[F]
+                  .delay { f }
+                  .void
+                  .toFuture
+              }
+            }
+
+            future.value match {
+              case Some(_) => complete()
+              case None    => future.onComplete { _ => complete() }
+            }
+          }
+        }
+      }
   }
 
   def adapter(actorRef: ActorRef): Adapter[Act] = {
@@ -66,24 +98,21 @@ private[akkaeffect] object Act {
     }
 
     def ask[F[_] : Concurrent : ToTry, A](fa: F[A]): F[F[A]] = {
-      Deferred[F, F[A]]
-        .flatMap { deferred =>
-          Sync[F]
-            .delay {
-              self {
-                fa
-                  .attempt
-                  .flatMap { a => deferred.complete(a.liftTo[F]) }
-                  .toTry
-                  .get
-              }
-            }
-            .as {
-              deferred
-                .get
-                .flatten
-            }
-        }
+
+      def ask(deferred: Deferred[F, F[A]]) = self {
+        fa
+          .attempt
+          .flatMap { a => deferred.complete(a.liftTo[F]) }
+          .toTry
+          .get
+      }
+
+      for {
+        deferred <- Deferred[F, F[A]]
+        _        <- Sync[F].delay { ask(deferred) }
+      } yield {
+        deferred.get.flatten
+      }
     }
   }
 }

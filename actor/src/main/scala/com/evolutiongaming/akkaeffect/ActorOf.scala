@@ -43,11 +43,11 @@ object ActorOf {
         }
       }
 
-      def receive: Receive = act.receive orElse {
-        case a => actorVar.receive {
-          onReceive(a, self = self, sender = sender())
-        }
+      def receiveAny: Receive = {
+        case a => actorVar.receive { onReceive(a, self = self, sender = sender()) }
       }
+
+      def receive: Receive = act.receive orElse receiveAny
 
       override def postStop(): Unit = {
         actorVar.postStop()

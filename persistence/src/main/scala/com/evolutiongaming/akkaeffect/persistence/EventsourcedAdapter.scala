@@ -62,6 +62,8 @@ object EventsourcedAdapter {
             }
           }
         }
+
+        def deleteTo(seqNr: SeqNr) = ???
       }
 
       val callbacks = new Callbacks {

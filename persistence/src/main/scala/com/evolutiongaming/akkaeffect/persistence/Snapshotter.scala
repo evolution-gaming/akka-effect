@@ -11,16 +11,19 @@ import com.evolutiongaming.catshelper.ToTry
 trait Snapshotter[F[_], -A] {
 
   /**
+    * @see [[akka.persistence.Snapshotter.saveSnapshot]]
     * @return Outer F[_] is about saving in background, inner F[_] is about saving completed
     */
   def save(a: A): F[(SeqNr, F[Unit])]
 
   /**
+    * @see [[akka.persistence.Snapshotter.deleteSnapshot]]
     * @return Outer F[_] is about deletion in background, inner F[_] is about deletion being completed
     */
   def delete(seqNr: SeqNr): F[F[Unit]]
 
   /**
+    * @see [[akka.persistence.Snapshotter.deleteSnapshots]]
     * @return Outer F[_] is about deletion in background, inner F[_] is about deletion being completed
     */
   def delete(criteria: SnapshotSelectionCriteria): F[F[Unit]]
@@ -58,7 +61,8 @@ object Snapshotter {
           .apply {
             actor.deleteSnapshots(criteria)
             criteria
-          }.map { case (_, a) => a }
+          }
+          .map { case (_, a) => a }
       }
     }
   }

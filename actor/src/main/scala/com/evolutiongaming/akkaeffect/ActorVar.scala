@@ -20,6 +20,7 @@ trait ActorVar[F[_], A] {
 
   def receive(f: A => F[Release]): Unit
 
+  // TODO return F[Unit]
   def postStop(): Future[Unit]
 }
 
