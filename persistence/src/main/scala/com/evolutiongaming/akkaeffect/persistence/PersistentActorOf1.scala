@@ -50,7 +50,7 @@ object PersistentActorOf1 {
         println("setup")
         val ctx = ActorCtx[F](act.value, context)
         persistenceSetupOf(ctx)
-          .adaptError { error => PersistentActorError(s"$self failed to allocate persistenceSetup with $error", error) }
+          .adaptError { case error => PersistentActorError(s"$self failed to allocate persistenceSetup with $error", error) }
           .toTry
           .get
       }

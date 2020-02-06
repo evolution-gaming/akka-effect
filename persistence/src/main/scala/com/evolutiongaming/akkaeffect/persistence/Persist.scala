@@ -62,17 +62,20 @@ private[akkaeffect] object Persist {
                 for {
                   _ <- ref.update { _.enqueue(deferred) }
                   _ <- Sync[F].delay {
-                    val seqNr = eventsourced.lastSequenceNr + size
                     var left = size
+                    val seqNr = eventsourced.lastSequenceNr + size
                     eventsourced.persistAllAsync(events.toList) { _ =>
                       left = left - 1
                       if (left <= 0) {
                         ref
                           .modify { queue =>
-                            queue.dequeueOption match {
-                              case Some((deferred, queue)) => (queue, deferred.some)
-                              case None                    => (Queue.empty, none[Deferred[F, F[SeqNr]]])
-                            }
+                            queue
+                              .dequeueOption
+                              .fold {
+                                (Queue.empty[Deferred[F, F[SeqNr]]], none[Deferred[F, F[SeqNr]]])
+                              } { case (deferred, queue) =>
+                                (queue, deferred.some)
+                              }
                           }
                           .flatMap { _.foldMapM { _.complete(seqNr.pure[F]) } }
                           .toTry
