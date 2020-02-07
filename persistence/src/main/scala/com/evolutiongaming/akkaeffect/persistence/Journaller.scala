@@ -13,7 +13,7 @@ import com.evolutiongaming.catshelper.ToTry
 
 trait Journaller[F[_], -A] {
   /**
-    * @see [[akka.persistence.PersistentActor.persistAll]]
+    * @see [[akka.persistence.PersistentActor.persistAllAsync]]
     * @return SeqNr of last event
     */
   def append(events: Nel[A]): F[SeqNr]
@@ -30,14 +30,14 @@ object Journaller {
 
   private[akkaeffect] def adapter[F[_] : Concurrent : ToTry](
     act: Act,
-    actor: PersistentActor)(
-    stopped: => Throwable
+    actor: PersistentActor,
+    stopped: F[Throwable]
   ): Resource[F, Adapter[F, Any]] = {
 
     adapter[F](
       act,
       Eventsourced(actor),
-      Sync[F].delay { stopped })
+      stopped)
   }
 
   private[akkaeffect] def adapter[F[_] : Concurrent : ToTry](

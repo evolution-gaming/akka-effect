@@ -11,6 +11,12 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ToTry
 
 
+/**
+  * `Call` represents convenient way of modeling cross actor communication
+  * Basically when you are within an actor calling methods which privately send messages to another actor
+  * and expect you to react upon reply - you can still model that via `A => F[B]` with help of `Call`
+  * `call { sendMsg(id); id }`
+  */
 trait Call[F[_], A, B] {
 
   def apply(f: => A): F[(A, F[B])]

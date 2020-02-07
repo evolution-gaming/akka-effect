@@ -284,7 +284,7 @@ object PersistentActorOf {
     }
 
 
-    new PersistentActor { actor =>
+    /*new PersistentActor { actor =>
 
       val act = Act.adapter(self)
 
@@ -307,7 +307,7 @@ object PersistentActorOf {
         snapshotterAdapter.value)
 
       println("new PersistentActor")
-      val persistenceSetup = Lazy {
+      val persistenceSetup = Lazy.unsafe {
         println("setup")
         persistenceSetupOf(actorContextAdapter.ctx)
           .handleErrorWith { error =>
@@ -384,6 +384,8 @@ object PersistentActorOf {
       }
 
       private def lastSeqNr() = lastSequenceNr
-    }
+    }*/
+
+    ???
   }
 }

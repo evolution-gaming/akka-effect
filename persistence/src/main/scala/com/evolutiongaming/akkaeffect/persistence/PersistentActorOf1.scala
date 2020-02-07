@@ -1,14 +1,12 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import akka.actor.ActorRef
 import akka.persistence.{PersistentActor, RecoveryCompleted, SnapshotSelectionCriteria}
 import akka.{persistence => ap}
-import cats.effect.{Async, Concurrent, Resource}
-import cats.effect.concurrent.Ref
+import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, LazyVal, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
 
 object PersistentActorOf1 {
@@ -30,11 +28,19 @@ object PersistentActorOf1 {
 
       // TODO use Adapter.scala
       val ((journaller, snapshotter), release) = {
-        def stopped() = PersistentActorError(s"$self has been stopped")
-        val journaller = Journaller.adapter[F](act.value, actor) { stopped() }
-        val snapshotter = Snapshotter.adapter[F](act.value, actor) { stopped() }
-        (journaller, snapshotter)
-          .tupled
+
+        val stopped = Lazy[F].of {
+          Sync[F].delay[Throwable] { new PersistentActorError(s"$self has been stopped") }
+        }
+        val result = for {
+          stopped     <- Resource.liftF(stopped)
+          journaller  <- Journaller.adapter[F](act.value, actor, stopped.apply())
+          snapshotter <- Snapshotter.adapter[F](act.value, actor, stopped())
+        } yield {
+          (journaller, snapshotter)
+        }
+
+        result
           .allocated
           .toTry
           .get
@@ -46,7 +52,7 @@ object PersistentActorOf1 {
         snapshotter.value)
 
       println("new PersistentActor")
-      val persistenceSetup = Lazy {
+      val persistenceSetup = Lazy.unsafe {
         println("setup")
         val ctx = ActorCtx[F](act.value, context)
         persistenceSetupOf(ctx)

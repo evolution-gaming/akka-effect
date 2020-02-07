@@ -91,7 +91,7 @@ private[akkaeffect] object Persist {
             }
 
             for {
-              deferred <- Deferred[F, F[SeqNr]]
+              deferred <- Deferred.uncancelable[F, F[SeqNr]]
               _        <- persist(deferred).flatten
             } yield {
               deferred.get.flatten

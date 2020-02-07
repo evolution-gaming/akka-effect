@@ -69,11 +69,11 @@ object Snapshotter {
 
   def adapter[F[_] : Concurrent : ToTry](
     act: Act,
-    actor: akka.persistence.Snapshotter)(
-    stopped: => Throwable
+    actor: akka.persistence.Snapshotter,
+    stopped: F[Throwable],
   ): Resource[F, Adapter[Snapshotter[F, Any]]] = {
 
-    val stopped1 = Sync[F].delay { stopped }.flatMap { _.raiseError[F, Unit] }
+    val stopped1 = stopped.flatMap { _.raiseError[F, Unit] }
 
     val saveSnapshot = Call.adapter[F, SeqNr, Unit](act, stopped1) {
       case SaveSnapshotSuccess(a)    => (a.sequenceNr, ().pure[F])
