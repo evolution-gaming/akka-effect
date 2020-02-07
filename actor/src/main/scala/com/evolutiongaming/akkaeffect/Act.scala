@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef}
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, Sync}
+import cats.effect.concurrent.Deferred
+import cats.effect.{Async, Concurrent, Sync}
 import cats.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
@@ -26,28 +26,17 @@ private[akkaeffect] object Act {
     def apply[A](f: => A) = { val _ = f }
   }
 
-  def of[F[_] : Concurrent : ToTry : ToFuture]: F[Act] = {
-    Ref[F]
-      .of(().pure[F])
-      .map { ref =>
-        new Act {
-          def apply[A](f: => A) = {
-            val result = for {
-              d <- Deferred[F, Unit]
-              b <- ref.modify { b => (d.get, b) }
-            } yield for {
-              _ <- b
-              a <- Sync[F].delay { f }.attempt
-              _ <- d.complete(())
-              a <- a.liftTo[F]
-            } yield a
-            result
-              .toTry
-              .get
-              .toFuture
-          }
-        }
-      }
+  def of[F[_] : Async : ToTry : ToFuture]: F[Act] = {
+    Serially.of[F].map { serially => apply(serially) }
+  }
+
+  def apply[F[_] : Sync : ToTry : ToFuture](serially: Serially[F]): Act = new Act {
+    def apply[A](f: => A) = {
+      serially { Sync[F].delay { f } }
+        .toTry
+        .get
+        .toFuture
+    }
   }
 
   def adapter(actorRef: ActorRef): Adapter[Act] = {

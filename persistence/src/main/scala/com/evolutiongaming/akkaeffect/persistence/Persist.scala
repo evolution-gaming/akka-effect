@@ -18,7 +18,7 @@ import scala.collection.immutable.Queue
 private[akkaeffect] trait Persist[F[_], A] {
 
   // TODO change API to support Nel[Nel[A]]
-  def apply(events: Nel[A]): F[F[SeqNr]]
+  def apply(events: Nel[Nel[A]]): F[F[SeqNr]]
 }
 
 private[akkaeffect] object Persist {
@@ -37,7 +37,7 @@ private[akkaeffect] object Persist {
           .toNel
           .foldMapM { queue =>
             for {
-              error <- error
+              error  <- error
               result <- queue.foldMapM { _.complete(error.raiseError[F, SeqNr]) }
             } yield result
           }
@@ -53,33 +53,36 @@ private[akkaeffect] object Persist {
       .map { ref =>
 
         val persist: Persist[F, A] = {
-          events: Nel[A] => {
+          events: Nel[Nel[A]] => {
 
-            val size = events.size
+            val size = events.foldLeft(0) { _ + _.size }
 
             def persist(deferred: Deferred[F, F[SeqNr]]) = {
+
               act.ask {
                 for {
                   _ <- ref.update { _.enqueue(deferred) }
                   _ <- Sync[F].delay {
                     var left = size
                     val seqNr = eventsourced.lastSequenceNr + size
-                    eventsourced.persistAllAsync(events.toList) { _ =>
-                      left = left - 1
-                      if (left <= 0) {
-                        ref
-                          .modify { queue =>
-                            queue
-                              .dequeueOption
-                              .fold {
-                                (Queue.empty[Deferred[F, F[SeqNr]]], none[Deferred[F, F[SeqNr]]])
-                              } { case (deferred, queue) =>
-                                (queue, deferred.some)
-                              }
-                          }
-                          .flatMap { _.foldMapM { _.complete(seqNr.pure[F]) } }
-                          .toTry
-                          .get
+                    events.toList.foreach { events =>
+                      eventsourced.persistAllAsync(events.toList) { _ =>
+                        left = left - 1
+                        if (left <= 0) {
+                          ref
+                            .modify { queue =>
+                              queue
+                                .dequeueOption
+                                .fold {
+                                  (Queue.empty[Deferred[F, F[SeqNr]]], none[Deferred[F, F[SeqNr]]])
+                                } { case (deferred, queue) =>
+                                  (queue, deferred.some)
+                                }
+                            }
+                            .flatMap { _.foldMapM { _.complete(seqNr.pure[F]) } }
+                            .toTry // TODO get rid of this try
+                            .get
+                        }
                       }
                     }
                   }

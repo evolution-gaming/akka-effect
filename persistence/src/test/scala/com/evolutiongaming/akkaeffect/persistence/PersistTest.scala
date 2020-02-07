@@ -13,7 +13,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.collection.immutable.Queue
 import scala.util.control.NoStackTrace
 
-class PersistTest extends AsyncFunSuite with ActorSuite with Matchers {
+class PersistTest extends AsyncFunSuite with Matchers {
 
   test("adapter") {
 
@@ -71,21 +71,22 @@ class PersistTest extends AsyncFunSuite with ActorSuite with Matchers {
           }
 
           for {
-            seqNr0 <- persist.value(Nel.of(0, 1))
-            seqNr1 <- persist.value(Nel.of(2))
+            seqNr0 <- persist.value(Nel.of(Nel.of(0, 1), Nel.of(2)))
+            seqNr1 <- persist.value(Nel.of(Nel.of(3)))
             queue  <- ref.get
-            _       = queue.size shouldEqual 2
+            _       = queue.size shouldEqual 3
+            _      <- dequeue
             _      <- dequeue
             seqNr  <- seqNr0
-            _       = seqNr shouldEqual 2L
+            _       = seqNr shouldEqual 3L
             queue  <- ref.get
             _       = queue.size shouldEqual 1
             _      <- dequeue
             seqNr  <- seqNr1
-            _       = seqNr shouldEqual 3L
+            _       = seqNr shouldEqual 4L
             _      <- dequeue
-            seqNr0 <- persist.value(Nel.of(3))
-            seqNr1 <- persist.value(Nel.of(4))
+            seqNr0 <- persist.value(Nel.of(Nel.of(3)))
+            seqNr1 <- persist.value(Nel.of(Nel.of(4)))
             queue  <- ref.get
             _       = queue.size shouldEqual 2
             _      <- IO { persist.onError(error, 2, 2L) }
@@ -93,7 +94,7 @@ class PersistTest extends AsyncFunSuite with ActorSuite with Matchers {
             _       = seqNr shouldEqual error.asLeft
             seqNr  <- seqNr1.attempt
             _       = seqNr shouldEqual error.asLeft
-            seqNr  <- persist.value(Nel.of(2))
+            seqNr  <- persist.value(Nel.of(Nel.of(4)))
           } yield seqNr
         }
       seqNr        <- seqNr.attempt

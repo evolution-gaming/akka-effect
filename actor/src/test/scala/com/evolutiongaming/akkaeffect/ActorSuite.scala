@@ -6,6 +6,7 @@ import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.CatsHelper._
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
+// TODO cleanup usages
 trait ActorSuite extends BeforeAndAfterAll { self: Suite =>
 
   lazy val (actorSystem: ActorSystem, actorSystemRelease: IO[Unit]) = {
