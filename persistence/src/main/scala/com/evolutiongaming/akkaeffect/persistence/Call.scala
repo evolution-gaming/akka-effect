@@ -2,13 +2,15 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.Actor
 import akka.persistence.{Snapshotter => _}
-import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.concurrent.Ref
 import cats.effect.implicits._
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Act, Adapter}
+import com.evolutiongaming.akkaeffect.{Act, Adapter, PromiseEffect}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.ToTry
+import com.evolutiongaming.catshelper.{FromFuture, ToTry}
+
+import scala.util.Try
 
 
 /**
@@ -24,17 +26,15 @@ trait Call[F[_], A, B] {
 
 object Call {
 
-  def adapter[F[_] : Concurrent : ToTry, A, B](
+  def adapter[F[_] : Sync : ToTry : FromFuture, A, B](
     act: Act,
     stopped: F[B])(
-    pf: PartialFunction[Any, (A, F[B])]
+    pf: PartialFunction[Any, (A, Try[B])]
   ): Resource[F, Adapter[Call[F, A, B]]] = {
-
-    type Callback = F[B] => F[Unit]
 
     Resource
       .make {
-        Ref[F].of(Map.empty[A, Callback])
+        Ref[F].of(Map.empty[A, PromiseEffect[F, B]])
       } { ref =>
         ref
           .getAndSet(Map.empty)
@@ -43,17 +43,17 @@ object Call {
               .values
               .toList
               .toNel
-              .foldMapM { callbacks =>
+              .foldMapM { promise =>
                 for {
                   stopped <- stopped.attempt
-                  result  <- callbacks.foldMapM { _.apply(stopped.liftTo[F]) }
+                  result  <- promise.foldMapM { _.complete(stopped) }
                 } yield result
               }
           }
       }
       .map { ref =>
 
-        def callbackOf(key: A) = {
+        def promiseOf(key: A) = {
           ref
             .get
             .map { _.get(key) }
@@ -66,35 +66,30 @@ object Call {
           def unapply(a: Any): Option[F[Unit]] = {
             for {
               (key, value) <- pf.lift(a)
-              callback <- callbackOf(key)
+              promise      <- promiseOf(key)
             } yield {
               ref
                 .update { _ - key }
-                .productR { callback(value) }
+                .productR { promise.complete(value) }
             }
           }
         }
 
-        val result = new Call[F, A, B] {
+        val call = new Call[F, A, B] {
 
           def apply(f: => A) = {
-            Deferred[F, F[B]]
-              .flatMap { deferred =>
+            PromiseEffect[F, B]
+              .flatMap { promise =>
                 act
-                  .ask {
-                    Sync[F]
-                      .delay { f }
-                      .flatMap { key =>
-                        val callback: Callback = a => deferred.complete(a)
-                        ref
-                          .update { _.updated(key, callback) }
-                          .as(key)
-                      }
+                  .ask4 {
+                    val key = f
+                    ref
+                      .update { _.updated(key, promise) }
+                      .toTry
+                      .get
+                    key
                   }
-                  .flatten
-                  .map { key =>
-                    (key, deferred.get.flatten)
-                  }
+                  .map { key => (key, promise.get) }
               }
               .uncancelable
           }
@@ -102,7 +97,7 @@ object Call {
 
         val receive: Actor.Receive = { case Expected(fa) => fa.toTry.get }
 
-        Adapter(result, receive)
+        Adapter(call, receive)
       }
   }
 }

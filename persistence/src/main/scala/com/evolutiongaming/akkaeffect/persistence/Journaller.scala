@@ -8,7 +8,9 @@ import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Act
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.ToTry
+import com.evolutiongaming.catshelper.{FromFuture, ToTry}
+
+import scala.util.Try
 
 
 trait Journaller[F[_], -A] {
@@ -28,7 +30,7 @@ trait Journaller[F[_], -A] {
 
 object Journaller {
 
-  private[akkaeffect] def adapter[F[_] : Concurrent : ToTry](
+  private[akkaeffect] def adapter[F[_] : Concurrent : ToTry : FromFuture](
     act: Act,
     actor: PersistentActor,
     stopped: F[Throwable]
@@ -40,15 +42,15 @@ object Journaller {
       stopped)
   }
 
-  private[akkaeffect] def adapter[F[_] : Concurrent : ToTry](
+  private[akkaeffect] def adapter[F[_] : Concurrent : ToTry : FromFuture](
     act: Act,
     eventsourced: Eventsourced,
     stopped: F[Throwable]
   ): Resource[F, Adapter[F, Any]] = {
 
     val deleteMessages = Call.adapter[F, SeqNr, Unit](act, stopped.void) {
-      case DeleteMessagesSuccess(a)    => (a, ().pure[F])
-      case DeleteMessagesFailure(e, a) => (a, e.raiseError[F, Unit])
+      case DeleteMessagesSuccess(a)    => (a, ().pure[Try])
+      case DeleteMessagesFailure(e, a) => (a, e.raiseError[Try, Unit])
     }
 
     val ref = Resource.make {

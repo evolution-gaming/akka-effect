@@ -5,7 +5,9 @@ import cats.FlatMap
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.{Act, Adapter}
-import com.evolutiongaming.catshelper.ToTry
+import com.evolutiongaming.catshelper.{FromFuture, ToTry}
+
+import scala.util.Try
 
 
 trait Snapshotter[F[_], -A] {
@@ -67,7 +69,7 @@ object Snapshotter {
     }
   }
 
-  def adapter[F[_] : Concurrent : ToTry](
+  def adapter[F[_] : Concurrent : ToTry : FromFuture](
     act: Act,
     actor: akka.persistence.Snapshotter,
     stopped: F[Throwable],
@@ -76,18 +78,18 @@ object Snapshotter {
     val stopped1 = stopped.flatMap { _.raiseError[F, Unit] }
 
     val saveSnapshot = Call.adapter[F, SeqNr, Unit](act, stopped1) {
-      case SaveSnapshotSuccess(a)    => (a.sequenceNr, ().pure[F])
-      case SaveSnapshotFailure(a, e) => (a.sequenceNr, e.raiseError[F, Unit])
+      case SaveSnapshotSuccess(a)    => (a.sequenceNr, ().pure[Try])
+      case SaveSnapshotFailure(a, e) => (a.sequenceNr, e.raiseError[Try, Unit])
     }
 
     val deleteSnapshot = Call.adapter[F, SeqNr, Unit](act, stopped1) {
-      case DeleteSnapshotSuccess(a)    => (a.sequenceNr, ().pure[F])
-      case DeleteSnapshotFailure(a, e) => (a.sequenceNr, e.raiseError[F, Unit])
+      case DeleteSnapshotSuccess(a)    => (a.sequenceNr, ().pure[Try])
+      case DeleteSnapshotFailure(a, e) => (a.sequenceNr, e.raiseError[Try, Unit])
     }
 
     val deleteSnapshots = Call.adapter[F, SnapshotSelectionCriteria, Unit](act, stopped1) {
-      case DeleteSnapshotsSuccess(a)    => (a, ().pure[F])
-      case DeleteSnapshotsFailure(a, e) => (a, e.raiseError[F, Unit])
+      case DeleteSnapshotsSuccess(a)    => (a, ().pure[Try])
+      case DeleteSnapshotsFailure(a, e) => (a, e.raiseError[Try, Unit])
     }
 
     for {

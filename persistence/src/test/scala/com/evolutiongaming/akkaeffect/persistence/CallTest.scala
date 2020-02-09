@@ -8,13 +8,14 @@ import com.evolutiongaming.akkaeffect.{Act, ActorSuite}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
+import scala.util.Try
 import scala.util.control.NoStackTrace
 
 class CallTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("adapter") {
 
-    case class Msg(key: Int, result: IO[String])
+    case class Msg(key: Int, result: Try[String])
 
     val error = new RuntimeException with NoStackTrace
 
@@ -38,10 +39,10 @@ class CallTest extends AsyncFunSuite with ActorSuite with Matchers {
             a1 <- call { 1 }
             a2 <- call { 2 }
             a3 <- call { 3 }
-            _  <- IO.delay { adapter.receive.lift(Msg(0, "0".pure[IO])) }
-            _  <- IO.delay { adapter.receive.lift(Msg(1, "1".pure[IO])) }
-            _  <- IO.delay { adapter.receive.lift(Msg(2, error.raiseError[IO, String])) }
-            _  <- IO.delay { adapter.receive.lift(Msg(2, "2".pure[IO])) }
+            _  <- IO.delay { adapter.receive.lift(Msg(0, "0".pure[Try])) }
+            _  <- IO.delay { adapter.receive.lift(Msg(1, "1".pure[Try])) }
+            _  <- IO.delay { adapter.receive.lift(Msg(2, error.raiseError[Try, String])) }
+            _  <- IO.delay { adapter.receive.lift(Msg(2, "2".pure[Try])) }
             a  <- a0
             _   = a shouldEqual "0"
             a  <- a1
