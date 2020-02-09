@@ -2,12 +2,12 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence._
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.concurrent.Ref
+import cats.effect.{Async, Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.Act
+import com.evolutiongaming.akkaeffect.{Act, PromiseEffect}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.ToTry
+import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 
 import scala.collection.immutable.Queue
 
@@ -23,22 +23,22 @@ private[akkaeffect] trait Persist[F[_], A] {
 
 private[akkaeffect] object Persist {
 
-  def adapter[F[_] : Concurrent : ToTry, A](
+  def adapter[F[_] : Sync : FromFuture : ToTry, A](
     act: Act,
     eventsourced: Eventsourced,
     stopped: F[Throwable]
   ): Resource[F, Adapter[F, A]] = {
 
-    def fail(ref: Ref[F, Queue[Deferred[F, F[SeqNr]]]], error: F[Throwable]) = {
+    def fail(ref: Ref[F, Queue[PromiseEffect[F, SeqNr]]], error: F[Throwable]) = {
       for {
-        queue <- ref.getAndSet(Queue.empty)
+        queue  <- ref.getAndSet(Queue.empty)
         result <- queue
           .toList
           .toNel
           .foldMapM { queue =>
             for {
               error  <- error
-              result <- queue.foldMapM { _.complete(error.raiseError[F, SeqNr]) }
+              result <- queue.foldMapM { _.fail(error) }
             } yield result
           }
       } yield result
@@ -46,7 +46,7 @@ private[akkaeffect] object Persist {
 
     Resource
       .make {
-        Ref[F].of(Queue.empty[Deferred[F, F[SeqNr]]])
+        Ref[F].of(Queue.empty[PromiseEffect[F, SeqNr]])
       } { ref =>
         fail(ref, stopped)
       }
@@ -57,44 +57,45 @@ private[akkaeffect] object Persist {
 
             val size = events.foldLeft(0) { _ + _.size }
 
-            def persist(deferred: Deferred[F, F[SeqNr]]) = {
+            def persist(promise: PromiseEffect[F, SeqNr]) = {
 
-              act.ask {
-                for {
-                  _ <- ref.update { _.enqueue(deferred) }
-                  _ <- Sync[F].delay {
-                    var left = size
-                    val seqNr = eventsourced.lastSequenceNr + size
-                    events.toList.foreach { events =>
-                      eventsourced.persistAllAsync(events.toList) { _ =>
-                        left = left - 1
-                        if (left <= 0) {
-                          ref
-                            .modify { queue =>
-                              queue
-                                .dequeueOption
-                                .fold {
-                                  (Queue.empty[Deferred[F, F[SeqNr]]], none[Deferred[F, F[SeqNr]]])
-                                } { case (deferred, queue) =>
-                                  (queue, deferred.some)
-                                }
+              act.ask4 {
+                ref
+                  .update { _.enqueue(promise) }
+                  .toTry
+                  .get
+
+                var left = size
+                val seqNr = eventsourced.lastSequenceNr + size
+                events.toList.foreach { events =>
+                  eventsourced.persistAllAsync(events.toList) { _ =>
+                    left = left - 1
+                    if (left <= 0) {
+                      // TODO make sure Act is sync in handler and test this
+                      ref
+                        .modify { queue =>
+                          queue
+                            .dequeueOption
+                            .fold {
+                              (Queue.empty[PromiseEffect[F, SeqNr]], none[PromiseEffect[F, SeqNr]])
+                            } { case (promise, queue) =>
+                              (queue, promise.some)
                             }
-                            .flatMap { _.foldMapM { _.complete(seqNr.pure[F]) } }
-                            .toTry // TODO get rid of this try
-                            .get
                         }
-                      }
+                        .flatMap { _.foldMapM { _.success(seqNr) } }
+                        .toTry // TODO get rid of this try
+                        .get
                     }
                   }
-                } yield {}
+                }
               }
             }
 
             for {
-              deferred <- Deferred.uncancelable[F, F[SeqNr]]
-              _        <- persist(deferred).flatten
+              promise <- PromiseEffect[F, SeqNr]
+              _       <- persist(promise)
             } yield {
-              deferred.get.flatten
+              promise.get
             }
           }
         }

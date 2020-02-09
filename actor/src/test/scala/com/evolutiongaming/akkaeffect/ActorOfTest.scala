@@ -15,8 +15,8 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.control.NoStackTrace
 
-class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
-  import ActorOfSpec._
+class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
+  import ActorOfTest._
 
   for {
     async <- List(false, true)
@@ -246,7 +246,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
         probe.watch(actorRef).flatten
       }
   }
-  
+
 
   private def `fail actor`[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem,
@@ -410,7 +410,7 @@ class ActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
 }
 
 
-object ActorOfSpec {
+object ActorOfTest {
 
   val error: Throwable = new RuntimeException("test") with NoStackTrace
 

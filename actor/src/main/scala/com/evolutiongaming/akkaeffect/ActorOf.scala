@@ -37,20 +37,22 @@ object ActorOf {
 
       override def preStart(): Unit = {
         super.preStart()
-        val ctx = ActorCtx[F](act.value, context)
-        actorVar.preStart {
-          onPreStart(self, ctx)
+        act.sync {
+          val ctx = ActorCtx[F](act.value, context)
+          actorVar.preStart {
+            onPreStart(self, ctx)
+          }
         }
       }
 
-      def receiveAny: Receive = {
+      def receive: Receive = act.receive {
         case a => actorVar.receive { onReceive(a, self = self, sender = sender()) }
       }
 
-      def receive: Receive = act.receive orElse receiveAny
-
       override def postStop(): Unit = {
-        actorVar.postStop()
+        act.sync {
+          actorVar.postStop()
+        }
         super.postStop()
       }
     }

@@ -53,7 +53,9 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
         def receiveMsg: Receive = { case Msg(f) => actorVar.receive { _ => f(snapshotter.value).as(false) } }
 
-        def receive = act.receive orElse snapshotter.receive orElse receiveMsg
+        def receive = {
+          act.receive { snapshotter.receive orElse receiveMsg }
+        }
 
         override def postStop() = {
           for {

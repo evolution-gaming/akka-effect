@@ -8,6 +8,8 @@ import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
+import scala.collection.immutable.Seq
+
 
 object PersistentActorOf1 {
 
@@ -18,7 +20,7 @@ object PersistentActorOf1 {
     type State = PersistenceSetup[F, Any, Any, Any]
 
     new PersistentActor { actor =>
-      
+
       implicit val executor = context.dispatcher
 
       val act = Act.adapter(self)
@@ -30,11 +32,11 @@ object PersistentActorOf1 {
       val ((journaller, snapshotter), release) = {
 
         val stopped = Lazy[F].of {
-          Sync[F].delay[Throwable] { new PersistentActorError(s"$self has been stopped") }
+          Sync[F].delay[Throwable] { PersistentActorError(s"$self has been stopped") }
         }
         val result = for {
           stopped     <- Resource.liftF(stopped)
-          journaller  <- Journaller.adapter[F](act.value, actor, stopped.apply())
+          journaller  <- Journaller.adapter[F](act.value, actor, stopped())
           snapshotter <- Snapshotter.adapter[F](act.value, actor, stopped())
         } yield {
           (journaller, snapshotter)
@@ -66,8 +68,11 @@ object PersistentActorOf1 {
       override def preStart(): Unit = {
         println("preStart")
         super.preStart()
-        actorVar.preStart {
-          persistenceSetup().some.pure[Resource[F, *]]
+
+        act.sync {
+          actorVar.preStart {
+            persistenceSetup().some.pure[Resource[F, *]]
+          }
         }
       }
 
@@ -92,13 +97,17 @@ object PersistentActorOf1 {
       override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
         println("onPersistFailure")
         val error = PersistentActorError(s"$self.persistAll rejected for $event", cause) // TODO persistenceId in all errors
-        journaller.onError(error, event, seqNr)
+        act.sync {
+          journaller.onError(error, event, seqNr)
+        }
         super.onPersistFailure(cause, event, seqNr)
       }
 
       override protected def onPersistRejected(cause: Throwable, event: Any, seqNr: Long) = {
         val error = PersistentActorError(s"$self.persistAll rejected for $event", cause) // TODO persistenceId in all errors
-        journaller.onError(error, event, seqNr)
+        act.sync {
+          journaller.onError(error, event, seqNr)
+        }
         super.onPersistRejected(cause, event, seqNr)
       }
 
@@ -128,26 +137,35 @@ object PersistentActorOf1 {
         super.deleteSnapshots(criteria)
       }
 
-      def receiveRecover: Receive = {
+      def receiveRecover: Receive = act.receive {
         case ap.SnapshotOffer(m, s) => router.onSnapshotOffer(SnapshotOffer(m, s))
         case RecoveryCompleted      => router.onRecoveryCompleted(lastSeqNr())
         case event                  => router.onEvent(event, lastSeqNr())
       }
 
-      def receiveCmd: Receive = {
-        case a => router.onCommand(a, actorContextAdapter, lastSeqNr(), ref = self, sender = sender())
+      def receiveCommand: Receive = {
+
+        def receiveAny: Receive = {
+          case a => router.onCommand(a, actorContextAdapter, lastSeqNr(), ref = self, sender = sender())
+        }
+
+        act.receive {
+          journaller.receive orElse snapshotter.receive orElse receiveAny
+        }
       }
 
-      def receiveCommand: Receive = {
-        act.receive orElse journaller.receive orElse snapshotter.receive orElse receiveCmd
+      override def persistAllAsync[A](events: Seq[A])(f: A => Unit) = {
+        super.persistAllAsync(events) { a => act.sync { f(a) } }
       }
 
       override def postStop() = {
-        router.onPostStop(lastSeqNr()) // TODO
-        for {
-          _ <- actorVar.postStop()
-          _ <- release.toFuture
-        } yield {}
+        act.sync {
+          router.onPostStop(lastSeqNr()) // TODO
+          for {
+            _ <- actorVar.postStop()
+            _ <- release.toFuture
+          } yield {}
+        }
         super.postStop()
       }
 

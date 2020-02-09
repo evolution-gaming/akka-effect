@@ -125,7 +125,7 @@ private[akkaeffect] object Act {
       }
 
       for {
-        d <- Deferred.uncancelable[F, F[A]]
+        d <- Deferred.uncancelable[F, F[A]] // TODO deprecate usage of Deferred
         _ <- Sync[F].delay { ask(d) }
       } yield {
         d.get.flatten

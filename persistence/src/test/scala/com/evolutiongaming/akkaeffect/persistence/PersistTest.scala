@@ -70,14 +70,21 @@ class PersistTest extends AsyncFunSuite with Matchers {
               .flatten
           }
 
+          println("1")
           for {
             seqNr0 <- persist.value(Nel.of(Nel.of(0, 1), Nel.of(2)))
+            _ = println("2")
             seqNr1 <- persist.value(Nel.of(Nel.of(3)))
+            _ = println("3")
             queue  <- ref.get
+            _ = println("4")
             _       = queue.size shouldEqual 3
             _      <- dequeue
+            _ = println("5")
             _      <- dequeue
+            _ = println("6")
             seqNr  <- seqNr0
+            _ = println("7")
             _       = seqNr shouldEqual 3L
             queue  <- ref.get
             _       = queue.size shouldEqual 1
