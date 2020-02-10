@@ -28,10 +28,22 @@ object PersistentActorOf1 {
       // TODO use Adapter.scala
       val actorContextAdapter = ActorContextAdapter[F](act.value, context)
 
+      println("new PersistentActor")
+      val persistenceSetup = Lazy.unsafe {
+        println("setup")
+        val ctx = ActorCtx[F](act.value, context)
+        persistenceSetupOf(ctx)
+          .adaptError { case error => PersistentActorError(s"$self failed to allocate persistenceSetup with $error", error) }
+          .toTry
+          .get
+      }
+
+      def errorPrefix = s"${self.path.toStringWithoutAddress} $persistenceId $lastSequenceNr"
+
       val ((journaller, snapshotter, persist), release) = {
 
         val stopped = Lazy[F].of {
-          Sync[F].delay[Throwable] { PersistentActorError(s"$self has been stopped") }
+          Sync[F].delay[Throwable] { PersistentActorError(s"$errorPrefix has been stopped") }
         }
         val result = for {
           stopped     <- Resource.liftF(stopped)
@@ -52,16 +64,6 @@ object PersistentActorOf1 {
         actorContextAdapter,
         journaller.value,
         snapshotter.value)
-
-      println("new PersistentActor")
-      val persistenceSetup = Lazy.unsafe {
-        println("setup")
-        val ctx = ActorCtx[F](act.value, context)
-        persistenceSetupOf(ctx)
-          .adaptError { case error => PersistentActorError(s"$self failed to allocate persistenceSetup with $error", error) }
-          .toTry
-          .get
-      }
 
       val actorVar = ActorVar[F, State](act.value, context)
 
@@ -96,7 +98,7 @@ object PersistentActorOf1 {
 
       override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
         println("onPersistFailure")
-        val error = PersistentActorError(s"$self.persistAll rejected for $event", cause) // TODO persistenceId in all errors
+        val error = PersistentActorError(s"$errorPrefix persist failed for $event", cause)
         act.sync {
           persist.onError(error, event, seqNr)
         }
@@ -104,7 +106,7 @@ object PersistentActorOf1 {
       }
 
       override protected def onPersistRejected(cause: Throwable, event: Any, seqNr: Long) = {
-        val error = PersistentActorError(s"$self.persistAll rejected for $event", cause) // TODO persistenceId in all errors
+        val error = PersistentActorError(s"$errorPrefix persist rejected for $event", cause)
         act.sync {
           persist.onError(error, event, seqNr)
         }
