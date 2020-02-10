@@ -20,17 +20,13 @@ class SeriallyTest extends AsyncFunSuite with Matchers {
       ref      <- Ref[IO].of(List.empty[Int])
       a0       <- serially { ref.update { 0 :: _ } *> d0.complete(()) *> d1.get as "0" }
       a1       <- serially { ref.update { 1 :: _ } as "1" }
-      list     <- ref.get
-      _         = list shouldEqual List.empty
-      a1       <- a1.startEnsure
-      a0       <- a0.startEnsure
       _        <- d0.get
       list     <- ref.get
       _         = list shouldEqual List(0)
       _        <- d1.complete(())
-      a        <- a0.join
+      a        <- a0
       _         = a shouldEqual "0"
-      a        <- a1.join
+      a        <- a1
       _         = a shouldEqual "1"
       list     <- ref.get
       _         = list shouldEqual List(1, 0)
