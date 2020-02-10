@@ -1,13 +1,10 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import akka.actor.Actor
 import akka.persistence._
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.Act
-import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.akkaeffect.{Act, Adapter}
 import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 
 import scala.util.Try
@@ -16,9 +13,10 @@ import scala.util.Try
 trait Journaller[F[_], -A] {
   /**
     * @see [[akka.persistence.PersistentActor.persistAllAsync]]
+    * @param events to be saved, inner Nel[A] will be persisted atomically, outer Nel[_] for batching
     * @return SeqNr of last event
     */
-  def append(events: Nel[A]): F[SeqNr]
+  def append(events: Nel[Nel[A]]): F[(SeqNr, F[Unit])]
 
   /**
     * @see [[akka.persistence.Eventsourced.deleteMessages]]
@@ -30,116 +28,56 @@ trait Journaller[F[_], -A] {
 
 object Journaller {
 
-  private[akkaeffect] def adapter[F[_] : Concurrent : ToTry : FromFuture](
+  private[akkaeffect] def adapter[F[_] : Sync : ToTry : FromFuture, A](
     act: Act,
+    persist: Persist[F, A],
     actor: PersistentActor,
     stopped: F[Throwable]
-  ): Resource[F, Adapter[F, Any]] = {
+  ): Resource[F, Adapter[Journaller[F, A]]] = {
 
-    adapter[F](
+    adapter(
       act,
+      persist,
       Eventsourced(actor),
       stopped)
   }
 
-  private[akkaeffect] def adapter[F[_] : Concurrent : ToTry : FromFuture](
+  private[akkaeffect] def adapter[F[_] : Sync : ToTry : FromFuture, A](
     act: Act,
+    persist: Persist[F, A],
     eventsourced: Eventsourced,
     stopped: F[Throwable]
-  ): Resource[F, Adapter[F, Any]] = {
+  ): Resource[F, Adapter[Journaller[F, A]]] = {
 
     val deleteMessages = Call.adapter[F, SeqNr, Unit](act, stopped.void) {
       case DeleteMessagesSuccess(a)    => (a, ().pure[Try])
       case DeleteMessagesFailure(e, a) => (a, e.raiseError[Try, Unit])
     }
 
-    val ref = Resource.make {
-        Ref[F].of(none[Deferred[F, F[SeqNr]]])
-      } { ref =>
-        for {
-          deferred <- ref.getAndSet(none)
-          result   <- deferred.foldMapM { deferred =>
-            for {
-              stopped <- stopped
-              _       <- deferred.complete(stopped.raiseError[F, SeqNr])
-            } yield {}
-          }
-        } yield result
+    deleteMessages.map { deleteMessages =>
+
+      val journaller = new Journaller[F, A] {
+
+        def append(events: Nel[Nel[A]]) = persist(events)
+
+        def deleteTo(seqNr: SeqNr) = {
+          deleteMessages
+            .value {
+              eventsourced.deleteMessages(seqNr)
+              seqNr
+            }
+            .map { case (_, a) => a }
+        }
       }
 
-      for {
-        ref            <- ref
-        deleteMessages <- deleteMessages
-      } yield {
-        new Adapter[F, Any] {
-
-          val value = new Journaller[F, Any] {
-
-            def append(events: Nel[Any]) = {
-              def persist(deferred: Deferred[F, F[SeqNr]]) = {
-                Sync[F].delay {
-                  act {
-                    val size = events.size
-                    val seqNr = eventsourced.lastSequenceNr + size
-                    eventsourced.persistAllAsync(events.toList) { _ =>
-                      if (eventsourced.lastSequenceNr == seqNr) {
-                        ref
-                          .set(none)
-                          .productR { deferred.complete(seqNr.pure[F]) }
-                          .toTry
-                          .get
-                      }
-                    }
-                  }
-                }
-              }
-
-              for {
-                deferred <- Deferred[F, F[SeqNr]]
-                _        <- ref.set(deferred.some)
-                _        <- persist(deferred)
-                seqNr    <- deferred.get.flatten
-              } yield seqNr
-            }
-
-            def deleteTo(seqNr: SeqNr) = {
-              deleteMessages
-                .value {
-                  eventsourced.deleteMessages(seqNr)
-                  seqNr
-                }
-                .map { case (_, a) => a }
-            }
-          }
-
-          def onError(error: Throwable, event: Any, seqNr: SeqNr) = {
-            ref
-              .getAndSet(none)
-              .flatMap { _.foldMapM { _.complete(error.raiseError[F, SeqNr]) } }
-              .toTry
-              .get
-          }
-
-          def receive = deleteMessages.receive
-        }
+      Adapter(journaller, deleteMessages.receive)
     }
-  }
-
-  private[akkaeffect] trait Adapter[F[_], A] {
-
-    def value: Journaller[F, A]
-
-    def onError(error: Throwable, event: Any, seqNr: SeqNr): Unit
-
-    def receive: Actor.Receive
   }
 
 
   private[akkaeffect] trait Eventsourced {
 
     def lastSequenceNr: SeqNr
-
-    def persistAllAsync[A](events: List[A])(handler: A => Unit): Unit
 
     def deleteMessages(toSequenceNr: Long): Unit
   }
@@ -150,8 +88,6 @@ object Journaller {
       new Eventsourced {
 
         def lastSequenceNr = actor.lastSequenceNr
-
-        def persistAllAsync[A](events: List[A])(f: A => Unit) = actor.persistAllAsync(events)(f)
 
         def deleteMessages(toSequenceNr: SeqNr) = actor.deleteMessages(toSequenceNr)
       }

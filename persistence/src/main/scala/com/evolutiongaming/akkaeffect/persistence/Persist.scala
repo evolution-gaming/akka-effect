@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.persistence._
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.Ref
-import cats.effect.{Async, Resource, Sync}
+import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.{Act, PromiseEffect}
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -21,6 +21,14 @@ private[akkaeffect] trait Persist[F[_], A] {
 }
 
 private[akkaeffect] object Persist {
+
+  def adapter[F[_] : Sync : FromFuture : ToTry, A](
+    act: Act,
+    actor: PersistentActor,
+    stopped: F[Throwable]
+  ): Resource[F, Adapter[F, A]] = {
+    adapter(act, Eventsourced(actor), stopped)
+  }
 
   def adapter[F[_] : Sync : FromFuture : ToTry, A](
     act: Act,

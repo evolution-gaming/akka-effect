@@ -268,13 +268,13 @@ object PersistentActorOfSpec {
 
             case Cmd.Inc =>
               for {
-                _      <- journaller.append(Nel.of("inc"))
+                _      <- journaller.append(Nel.of(Nel.of("inc")))
                 _      <- stateRef.update { _ + 1 }
                 state  <- stateRef.get
                 ab     <- snapshotter.save(state)
                 (_, a)  = ab
                 _      <- a
-                seqNr  <- journaller.append(Nel.of("inc"))
+                seqNr  <- journaller.append(Nel.of(Nel.of("inc")))
                 _      <- stateRef.update { _ + 1 }
                 _      <- reply(seqNr)
               } yield {
