@@ -39,10 +39,10 @@ class CallTest extends AsyncFunSuite with ActorSuite with Matchers {
             a1 <- call { 1 }
             a2 <- call { 2 }
             a3 <- call { 3 }
-            _  <- IO.delay { adapter.receive.lift(Msg(0, "0".pure[Try])) }
-            _  <- IO.delay { adapter.receive.lift(Msg(1, "1".pure[Try])) }
-            _  <- IO.delay { adapter.receive.lift(Msg(2, error.raiseError[Try, String])) }
-            _  <- IO.delay { adapter.receive.lift(Msg(2, "2".pure[Try])) }
+            _  <- IO { adapter.receive.lift(Msg(0, "0".pure[Try])) }
+            _  <- IO { adapter.receive.lift(Msg(1, "1".pure[Try])) }
+            _  <- IO { adapter.receive.lift(Msg(2, error.raiseError[Try, String])) }
+            _  <- IO { adapter.receive.lift(Msg(2, "2".pure[Try])) }
             a  <- a0
             _   = a shouldEqual "0"
             a  <- a1
