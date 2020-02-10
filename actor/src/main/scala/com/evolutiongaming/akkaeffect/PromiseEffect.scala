@@ -16,11 +16,11 @@ private[akkaeffect] trait PromiseEffect[F[_], A] {
 }
 
 
-// TODO test
 private[akkaeffect] object PromiseEffect {
 
   /**
     * Unlike `Deferred.uncancelable`, `complete` method does not add async boundary
+    * This is needed to stay on actor's thread after fulfilling the promise
     */
   def apply[F[_] : Sync : FromFuture, A]: F[PromiseEffect[F, A]] = {
     Sync[F]
