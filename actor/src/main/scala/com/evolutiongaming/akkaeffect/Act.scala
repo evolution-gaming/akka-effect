@@ -1,8 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef}
-import cats.effect.concurrent.Deferred
-import cats.effect.{Async, Concurrent, Sync}
+import cats.effect.Sync
 import cats.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
@@ -28,7 +27,7 @@ private[akkaeffect] object Act {
   }
 
 
-  def of[F[_] : Async : ToTry : ToFuture]: F[Act] = {
+  def of[F[_] : Sync : ToTry : ToFuture : FromFuture]: F[Act] = {
     Serially.of[F].map { serially => apply(serially) }
   }
 
@@ -114,26 +113,7 @@ private[akkaeffect] object Act {
         .map { a => FromFuture[F].apply { a } }
     }
 
-    def ask[F[_] : Async : ToTry, A](fa: F[A]): F[F[A]] = {
-
-      def ask(d: Deferred[F, F[A]]) = self {
-        fa
-          .attempt
-          .flatMap { a => d.complete(a.liftTo[F]) }
-          .toTry
-          .get
-      }
-
-      for {
-        d <- Deferred.uncancelable[F, F[A]] // TODO deprecate usage of Deferred
-        _ <- Sync[F].delay { ask(d) }
-      } yield {
-        d.get.flatten
-      }
-    }
-
-
-    def ask4[F[_] : FromFuture, A](f: => A): F[A] = {
+    def ask[F[_] : FromFuture, A](f: => A): F[A] = {
       FromFuture[F].apply { self(f) }
     }
   }

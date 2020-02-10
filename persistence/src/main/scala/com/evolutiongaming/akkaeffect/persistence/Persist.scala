@@ -17,8 +17,7 @@ import scala.collection.immutable.Queue
 // TODO write tests to ensure PersistentActor does not write in parallel
 private[akkaeffect] trait Persist[F[_], A] {
 
-  // TODO change API to support Nel[Nel[A]]
-  def apply(events: Nel[Nel[A]]): F[F[SeqNr]]
+  def apply(events: Nel[Nel[A]]): F[(SeqNr, F[Unit])]
 }
 
 private[akkaeffect] object Persist {
@@ -59,7 +58,7 @@ private[akkaeffect] object Persist {
 
             def persist(promise: PromiseEffect[F, SeqNr]) = {
 
-              act.ask4 {
+              act.ask {
                 ref
                   .update { _.enqueue(promise) }
                   .toTry
@@ -83,19 +82,20 @@ private[akkaeffect] object Persist {
                             }
                         }
                         .flatMap { _.foldMapM { _.success(seqNr) } }
-                        .toTry // TODO get rid of this try
+                        .toTry
                         .get
                     }
                   }
                 }
+                eventsourced.lastSequenceNr
               }
             }
 
             for {
               promise <- PromiseEffect[F, SeqNr]
-              _       <- persist(promise)
+              seqNr   <- persist(promise)
             } yield {
-              promise.get
+              (seqNr, promise.get.void)
             }
           }
         }

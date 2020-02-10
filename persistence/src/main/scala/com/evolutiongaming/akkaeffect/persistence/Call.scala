@@ -81,7 +81,7 @@ object Call {
             PromiseEffect[F, B]
               .flatMap { promise =>
                 act
-                  .ask4 {
+                  .ask {
                     val key = f
                     ref
                       .update { _.updated(key, promise) }

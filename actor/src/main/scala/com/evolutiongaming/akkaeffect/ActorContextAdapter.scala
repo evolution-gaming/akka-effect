@@ -29,7 +29,7 @@ private[akkaeffect] object ActorContextAdapter {
 
     new ActorContextAdapter[F] {
 
-      def get[A](f: => A): F[A] = act.ask4(f)
+      def get[A](f: => A): F[A] = act.ask(f)
 
       val ctx = ActorCtx[F](act, context)
 
