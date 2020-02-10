@@ -5,6 +5,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.util.Try
+import scala.util.control.NoStackTrace
 
 class ActTest extends AnyFunSuite with Matchers {
 
@@ -24,5 +25,8 @@ class ActTest extends AnyFunSuite with Matchers {
     msg.foreach { receive.lift }
 
     future.value shouldEqual 0.pure[Try].some
+
+    case object Error extends RuntimeException with NoStackTrace
+    intercept[Error.type] { act.sync { act.value { throw Error } } }
   }
 }
