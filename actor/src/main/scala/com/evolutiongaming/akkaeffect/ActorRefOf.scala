@@ -1,7 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorRef, ActorRefFactory, Props}
-import cats.effect.{Resource, Sync}
+import cats.effect.{Bracket, Resource, Sync}
+import cats.{Applicative, Defer, ~>}
 
 trait ActorRefOf[F[_]] {
 
@@ -27,6 +28,19 @@ object ActorRefOf {
       } { actorRef =>
         Sync[F].delay { factory.stop(actorRef) }
       }
+    }
+  }
+
+
+  implicit class ActorRefOfOps[F[_]](val self: ActorRefOf[F]) extends AnyVal {
+
+    def mapK[G[_]](
+      f: F ~> G)(implicit
+      B: Bracket[F, Throwable],
+      D: Defer[G],
+      G: Applicative[G]
+    ): ActorRefOf[G] = {
+      (props: Props, name: Option[String]) => self(props, name).mapK(f)
     }
   }
 }

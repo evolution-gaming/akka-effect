@@ -2,13 +2,13 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorContext, ActorRef}
 import cats.effect.Sync
-import cats.implicits._
 import com.evolutiongaming.catshelper.FromFuture
 
 import scala.collection.immutable.Iterable
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
 
+// TODO add watch/unwatch
 trait ActorCtx[F[_], A, B] {
 
   def self: ActorEffect[F, A, B]
@@ -38,14 +38,14 @@ object ActorCtx {
       val dispatcher = context.dispatcher
 
       def setReceiveTimeout(timeout: Duration) = {
-        act.ask3 { context.setReceiveTimeout(timeout) }.void
+        act.ask { context.setReceiveTimeout(timeout) }
       }
 
       def child(name: String) = {
-        act.ask3 { context.child(name) }.flatten
+        act.ask { context.child(name) }
       }
 
-      val children = act.ask3 { context.children }.flatten
+      val children = act.ask { context.children }
 
       val actorRefOf = ActorRefOf[F](context)
     }

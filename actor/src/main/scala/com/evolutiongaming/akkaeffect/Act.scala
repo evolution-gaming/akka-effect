@@ -12,7 +12,7 @@ import scala.util.Try
 /**
   * executes function in `receive` thread of an actor
   */
-// TODO  ass F
+// TODO  as F
 private[akkaeffect] trait Act {
 
   // TODO return F[A]
@@ -96,22 +96,6 @@ private[akkaeffect] object Act {
 
 
   implicit class ActOps(val self: Act) extends AnyVal {
-
-    def ask2[A](f: => A): Future[A] = {
-      val promise = Promise[A]()
-      self {
-        val result = Try { f }
-        promise.complete(result)
-        result.get
-      }
-      promise.future
-    }
-
-    def ask3[F[_] : Sync : FromFuture, A](f: => A): F[F[A]] = {
-      Sync[F]
-        .delay { ask2 { f } }
-        .map { a => FromFuture[F].apply { a } }
-    }
 
     def ask[F[_] : FromFuture, A](f: => A): F[A] = {
       FromFuture[F].apply { self(f) }
