@@ -34,9 +34,9 @@ object PersistentActorOf1 {
           Sync[F].delay[Throwable] { PersistentActorError(s"$self has been stopped") }
         }
         val result = for {
-          stopped <- Resource.liftF(stopped)
-          persist <- Persist.adapter[F, Any](act.value, actor, stopped())
-          journaller <- Journaller.adapter[F, Any](act.value, persist.value, actor, stopped())
+          stopped     <- Resource.liftF(stopped)
+          persist     <- Persist.adapter[F, Any](act.value, actor, stopped())
+          journaller  <- Journaller.adapter[F, Any](act.value, persist.value, actor, stopped())
           snapshotter <- Snapshotter.adapter[F](act.value, actor, stopped())
         } yield {
           (journaller, snapshotter, persist)

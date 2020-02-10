@@ -84,13 +84,11 @@ object Journaller {
 
   private[akkaeffect] object Eventsourced {
 
-    def apply(actor: PersistentActor): Eventsourced = {
-      new Eventsourced {
+    def apply(actor: PersistentActor): Eventsourced = new Eventsourced {
 
-        def lastSequenceNr = actor.lastSequenceNr
+      def lastSequenceNr = actor.lastSequenceNr
 
-        def deleteMessages(toSequenceNr: SeqNr) = actor.deleteMessages(toSequenceNr)
-      }
+      def deleteMessages(toSequenceNr: SeqNr) = actor.deleteMessages(toSequenceNr)
     }
   }
 }
