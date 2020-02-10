@@ -34,9 +34,9 @@ object PersistentActorOf1 {
           Sync[F].delay[Throwable] { PersistentActorError(s"$self has been stopped") }
         }
         val result = for {
-          stopped     <- Resource.liftF(stopped)
-          persist     <- Persist.adapter[F, Any](act.value, actor, stopped())
-          journaller  <- Journaller.adapter[F, Any](act.value, persist.value, actor, stopped())
+          stopped <- Resource.liftF(stopped)
+          persist <- Persist.adapter[F, Any](act.value, actor, stopped())
+          journaller <- Journaller.adapter[F, Any](act.value, persist.value, actor, stopped())
           snapshotter <- Snapshotter.adapter[F](act.value, actor, stopped())
         } yield {
           (journaller, snapshotter, persist)
@@ -154,8 +154,28 @@ object PersistentActorOf1 {
         }
       }
 
+      override def persist[A](event: A)(f: A => Unit): Unit = {
+        super.persist(event) { a => act.sync { f(a) } }
+      }
+
+      override def persistAll[A](events: Seq[A])(f: A => Unit): Unit = {
+        super.persistAll(events) { a => act.sync { f(a) } }
+      }
+
+      override def persistAsync[A](event: A)(f: A => Unit): Unit = {
+        super.persistAsync(event) { a => act.sync { f(a) } }
+      }
+
       override def persistAllAsync[A](events: Seq[A])(f: A => Unit) = {
         super.persistAllAsync(events) { a => act.sync { f(a) } }
+      }
+
+      override def defer[A](event: A)(f: A => Unit): Unit = {
+        super.defer(event) { a => act.sync { f(a) } }
+      }
+
+      override def deferAsync[A](event: A)(f: A => Unit): Unit = {
+        super.deferAsync(event) { a => act.sync { f(a) } }
       }
 
       override def postStop() = {
