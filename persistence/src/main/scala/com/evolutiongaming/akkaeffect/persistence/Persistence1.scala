@@ -218,7 +218,7 @@ object Phase {
           println(s"onRecoveryCompleted: $seqNr")
           for {
             state <- stateRef.get
-            receive <- recovering.onRecoveryCompleted(state, seqNr)
+            receive <- recovering.recoveryCompleted(state, seqNr)
           } yield {
             val phase = receiveCommand[F, S, C, E](receive, adapter)
             phase.some // TODO some ?

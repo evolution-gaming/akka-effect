@@ -14,7 +14,7 @@ trait Recovering[F[_], S, C, E] {
   /**
     * called when recovering completed
     */
-  def onRecoveryCompleted(state: S, seqNr: SeqNr): F[Receive[F, C, Any]] // TODO resource
+  def recoveryCompleted(state: S, seqNr: SeqNr): F[Receive[F, C, Any]] // TODO resource
 
 
   /*final def mapEvent[EE](fee: E => EE, fe: EE => E): Recovering[S, C, EE] = new Recovering[S, C, EE] {
@@ -69,10 +69,10 @@ object Recovering {
 
         def replay = self.replay.untyped
 
-        def onRecoveryCompleted(state: Any, seqNr: SeqNr) = {
+        def recoveryCompleted(state: Any, seqNr: SeqNr) = {
           for {
             state   <- state.convert[F, S]
-            receive <- self.onRecoveryCompleted(state, seqNr)
+            receive <- self.recoveryCompleted(state, seqNr)
           } yield {
             receive.untyped
           }

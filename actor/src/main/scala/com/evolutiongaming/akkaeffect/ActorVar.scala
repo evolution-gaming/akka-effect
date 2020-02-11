@@ -1,6 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorContext
+import cats.FlatMap
 import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._
@@ -14,14 +15,16 @@ import scala.util.{Failure, Success, Try}
 
 // TODO add tests
 trait ActorVar[F[_], A] {
-  import ActorVar._
 
   def preStart(a: Resource[F, Option[A]]): Unit
 
-  def receive(f: A => F[Release]): Unit
+  /**
+    * @param f takes current state and returns tuple from next state and optional release callback
+    */
+  def receive(f: A => F[Option[Releasable[F, A]]]): Unit
 
   // TODO return F[Unit]
-  def postStop(): Future[Unit]
+  def postStop(): F[Unit]
 }
 
 object ActorVar {
@@ -99,7 +102,7 @@ object ActorVar {
         }
       }
 
-      def receive(f: A => F[Release]) = {
+      def receive(f: A => F[Option[Releasable[F, A]]]) = {
         stateVar.foreach { state =>
           run {
             FromFuture[F]
@@ -107,16 +110,20 @@ object ActorVar {
               .flatMap { state =>
                 f(state.value)
                   .flatMap {
-                    case false =>
-                      state
+                    case Some(a) =>
+                      val release1 = a.release match {
+                        case Some(release) => release *> state.release
+                        case None          => state.release
+                      }
+                      State(a.value, release1)
                         .some
                         .pure[F]
 
-                    case true =>
-                      state.release
+                    case None =>
+                      state
+                        .release
                         .handleError { _ => () }
                         .as(none[State])
-
                   }
                   .handleErrorWith { error =>
                     state
@@ -133,14 +140,26 @@ object ActorVar {
       def postStop() = {
         stateVar match {
           case Some(state) =>
-            val future = FromFuture[F]
+            stateVar = none
+            FromFuture[F]
               .apply { state }
               .flatMap { _.release }
-              .toFuture
-            stateVar = none
-            future
           case None        =>
-            ().pure[Future]
+            ().pure[F]
+        }
+      }
+    }
+  }
+
+
+  implicit class ActorVarOps[F[_], A](val self: ActorVar[F, A]) extends AnyVal {
+
+    // TODO rename
+    def receive1(f: A => F[Boolean])(implicit F: FlatMap[F]): Unit = {
+      self.receive { a =>
+        f(a).map {
+          case false => Releasable(a).some
+          case true  => none
         }
       }
     }

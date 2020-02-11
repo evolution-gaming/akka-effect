@@ -17,8 +17,6 @@ object PersistentActorOf1 {
     persistenceSetupOf: PersistenceSetupOf[F, Any, Any, Any, Any]
   ): PersistentActor = {
 
-    type State = PersistenceSetup[F, Any, Any, Any]
-
     new PersistentActor { actor =>
 
       implicit val executor = context.dispatcher
@@ -60,21 +58,14 @@ object PersistentActorOf1 {
           .get
       }
 
-      val router = Router[F, Any, Any, Any](
-        actorContextAdapter,
-        journaller.value,
-        snapshotter.value)
-
-      val actorVar = ActorVar[F, State](act.value, context)
+      val persistence = PersistenceVar[F, Any, Any, Any](act.value, context)
 
       override def preStart(): Unit = {
         println("preStart")
         super.preStart()
 
         act.sync {
-          actorVar.preStart {
-            persistenceSetup().some.pure[Resource[F, *]]
-          }
+          persistence.preStart(persistenceSetup())
         }
       }
 
@@ -140,16 +131,14 @@ object PersistentActorOf1 {
       }
 
       def receiveRecover: Receive = act.receive {
-        case ap.SnapshotOffer(m, s) => router.onSnapshotOffer(SnapshotOffer(m, s))
-        case RecoveryCompleted      => router.onRecoveryCompleted(lastSeqNr())
-        case event                  => router.onEvent(event, lastSeqNr())
+        case ap.SnapshotOffer(m, s) => persistence.snapshotOffer(SnapshotOffer(m, s))
+        case RecoveryCompleted      => persistence.recoveryCompleted(lastSeqNr())
+        case event                  => persistence.event(event, lastSeqNr())
       }
 
       def receiveCommand: Receive = {
 
-        def receiveAny: Receive = {
-          case a => router.onCommand(a, actorContextAdapter, lastSeqNr(), ref = self, sender = sender())
-        }
+        def receiveAny: Receive = { case a => persistence.command(a, lastSeqNr(), sender()) }
 
         act.receive {
           journaller.receive orElse snapshotter.receive orElse receiveAny
@@ -181,12 +170,13 @@ object PersistentActorOf1 {
       }
 
       override def postStop() = {
+        val seqNr = lastSeqNr()
         act.sync {
-          router.onPostStop(lastSeqNr()) // TODO
-          for {
-            _ <- actorVar.postStop()
-            _ <- release.toFuture
+          val result = for {
+            _ <- persistence.postStop(seqNr)
+            _ <- release
           } yield {}
+          result.toFuture
         }
         super.postStop()
       }

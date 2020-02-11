@@ -34,7 +34,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
           def persistenceId = "persistenceId"
 
-          def onRecoveryStarted(
+          def recoveryStarted(
             offer: Option[SnapshotOffer[State]],
             journaller: Journaller[F, Event],
             snapshotter: Snapshotter[F, State]
@@ -52,7 +52,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                 }
               }
 
-              def onRecoveryCompleted(state: State, seqNr: SeqNr) = {
+              def recoveryCompleted(state: State, seqNr: SeqNr) = {
                 println(s"onRecoveryCompleted state: $state, seqNr: $seqNr")
 
                 receive(ctx, state, receiveTimeout, journaller, snapshotter)
@@ -101,7 +101,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
             def persistenceId = "persistenceId"
 
-            def onRecoveryStarted(
+            def recoveryStarted(
               offer: Option[SnapshotOffer[State]],
               journaller: Journaller[F, Event],
               snapshotter: Snapshotter[F, State]
@@ -125,7 +125,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                     }
                   }
 
-                  def onRecoveryCompleted(state: State, seqNr: SeqNr) = {
+                  def recoveryCompleted(state: State, seqNr: SeqNr) = {
                     println(s"onRecoveryCompleted state: $state, seqNr: $seqNr")
 
                     // TODO stop actor ?

@@ -17,7 +17,7 @@ trait PersistenceSetup[F[_], S, C, E] {
 
   // TODO onPreStart phase is missing
 
-  def onRecoveryStarted(
+  def recoveryStarted(
     offer: Option[SnapshotOffer[S]],
     journaller: Journaller[F, E], // TODO move to onRecoveryCompleted
     snapshotter: Snapshotter[F, S] // TODO move to onRecoveryCompleted
@@ -40,7 +40,7 @@ object PersistenceSetup {
 
         def persistenceId = self.persistenceId
 
-        def onRecoveryStarted(
+        def recoveryStarted(
           offer: Option[SnapshotOffer[Any]],
           journaller: Journaller[F, Any],
           snapshotter: Snapshotter[F, Any]
@@ -56,7 +56,7 @@ object PersistenceSetup {
 
           for {
             offer      <- Resource.liftF(offer1)
-            recovering <- self.onRecoveryStarted(offer, journaller, snapshotter)
+            recovering <- self.recoveryStarted(offer, journaller, snapshotter)
           } yield {
             recovering.untyped
           }
