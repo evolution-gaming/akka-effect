@@ -36,7 +36,7 @@ object PersistentActorOf1 {
           .get
       }
 
-      def errorPrefix = s"${self.path.toStringWithoutAddress} $persistenceId $lastSequenceNr"
+      def errorPrefix = s"${self.path.toStringWithoutAddress} $persistenceId"
 
       val ((journaller, snapshotter, persist), release) = {
 
@@ -58,14 +58,19 @@ object PersistentActorOf1 {
           .get
       }
 
-      val persistence = PersistenceVar[F, Any, Any, Any](act.value, context)
+      val persistence = {
+        implicit val fail: Fail[F] = new Fail[F] {
+          def apply[A](msg: String) = PersistentActorError(s"$errorPrefix $msg").raiseError[F, A]
+        }
+        PersistenceVar[F, Any, Any, Any](act.value, context)
+      }
 
       override def preStart(): Unit = {
         println("preStart")
         super.preStart()
 
         act.sync {
-          persistence.preStart(persistenceSetup())
+          persistence.preStart(persistenceSetup(), journaller.value, snapshotter.value)
         }
       }
 

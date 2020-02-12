@@ -10,7 +10,7 @@ import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 import scala.util.Try
 
 
-trait Journaller[F[_], -A] {
+trait Journaller[F[_], -A/*TODO*/] {
   /**
     * @see [[akka.persistence.PersistentActor.persistAllAsync]]
     * @param events to be saved, inner Nel[A] will be persisted atomically, outer Nel[_] for batching

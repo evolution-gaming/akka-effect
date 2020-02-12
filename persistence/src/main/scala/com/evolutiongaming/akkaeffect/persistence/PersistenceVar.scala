@@ -1,13 +1,17 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.{ActorContext, ActorRef}
-import cats.Monad
+import cats.effect.Sync
 import com.evolutiongaming.akkaeffect.{Act, ActorVar}
-import com.evolutiongaming.catshelper.{BracketThrowable, FromFuture, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 private[akkaeffect] trait PersistenceVar[F[_], S, C, E] {
 
-  def preStart(persistenceSetup: PersistenceSetup[F, S, C, E]): Unit
+  def preStart(
+    persistenceSetup: PersistenceSetup[F, S, C, E],
+    journaller: Journaller[F, E],
+    snapshotter: Snapshotter[F, S]
+  ): Unit
 
   def snapshotOffer(snapshotOffer: SnapshotOffer[S]): Unit
 
@@ -22,22 +26,26 @@ private[akkaeffect] trait PersistenceVar[F[_], S, C, E] {
 
 private[akkaeffect] object PersistenceVar {
 
-  def apply[F[_] : BracketThrowable : ToFuture : FromFuture, S, C, E](
+  def apply[F[_] : Sync : ToFuture : FromFuture : Fail, S, C, E](
     act: Act,
     context: ActorContext
   ): PersistenceVar[F, S, C, E] = {
     apply(ActorVar[F, Persistence2[F, S, C, E]](act, context))
   }
 
-  def apply[F[_] : Monad, S, C, E](
+  def apply[F[_] : Sync : Fail, S, C, E](
     actorVar: ActorVar[F, Persistence2[F, S, C, E]]
   ): PersistenceVar[F, S, C, E] = {
 
     new PersistenceVar[F, S, C, E] {
 
-      def preStart(persistenceSetup: PersistenceSetup[F, S, C, E]) = {
+      def preStart(
+        persistenceSetup: PersistenceSetup[F, S, C, E],
+        journaller: Journaller[F, E],
+        snapshotter: Snapshotter[F, S]
+      ) = {
         actorVar.preStart {
-          Persistence2.preStart(persistenceSetup)
+          Persistence2.started(persistenceSetup, journaller, snapshotter)
         }
       }
 
