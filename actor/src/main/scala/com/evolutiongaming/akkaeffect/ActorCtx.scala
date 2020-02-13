@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorContext, ActorRef}
-import cats.effect.Sync
+import cats.effect.{Resource, Sync}
 import com.evolutiongaming.catshelper.FromFuture
 
 import scala.collection.immutable.Iterable
@@ -22,6 +22,10 @@ trait ActorCtx[F[_], A, B] {
   def children: F[Iterable[ActorRef]]
 
   def actorRefOf: ActorRefOf[F]
+
+
+  // TODO
+//  def allocate[A](resource: Resource[F, A]): F[(A, F[Unit])]
 }
 
 object ActorCtx {

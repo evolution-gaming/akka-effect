@@ -7,13 +7,13 @@ import com.evolutiongaming.akkaeffect.ActorCtx
 trait PersistenceSetupOf[F[_], S, C, E, R] {
 
   // TODO Option
-  def apply(ctx: ActorCtx[F, C, R]): F[PersistenceSetup[F, S, C, E]]
+  def apply(ctx: ActorCtx[F, C, R]): F[PersistenceSetup[F, S, C, E, R]]
 }
 
 object PersistenceSetupOf {
 
   def const[F[_] : Applicative, S, C, E, R](
-    persistenceSetup: PersistenceSetup[F, S, C, E]
+    persistenceSetup: PersistenceSetup[F, S, C, E, R]
   ): PersistenceSetupOf[F, S, C, E, R] = {
     _ => persistenceSetup.pure[F]
   }

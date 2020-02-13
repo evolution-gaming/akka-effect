@@ -15,10 +15,7 @@ object Reply {
   def empty[F[_] : Applicative, A]: Reply[F, A] = const(().pure[F])
 
 
-  def const[F[_], A](unit: F[Unit]): Reply[F, A] = new Reply[F, A] {
-
-    def apply(a: A) = unit
-  }
+  def const[F[_], A](unit: F[Unit]): Reply[F, A] = (_: A) => unit
 
 
   def fromActorRef[F[_] : Sync](

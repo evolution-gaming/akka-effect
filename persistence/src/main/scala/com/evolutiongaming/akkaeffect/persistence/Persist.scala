@@ -15,14 +15,22 @@ import scala.collection.immutable.Queue
 // TODO make public and rename to append and reuse ?
 
 // TODO write tests to ensure PersistentActor does not write in parallel
-private[akkaeffect] trait Persist[F[_], A] {
+/**
+  * @see [[akka.persistence.PersistentActor.persistAllAsync]]
+  */
+trait Persist[F[_], -A] {
+  import Persist._
 
-  def apply(events: Nel[Nel[A]]): F[(SeqNr, F[Unit])]
+  /**
+    * @param events to be saved, inner Nel[A] will be persisted atomically, outer Nel[_] for batching
+    * @return SeqNr of last event
+    */
+  def apply(events: Nel[Nel[A]]): F[F[SeqNr]]
 }
 
-private[akkaeffect] object Persist {
+object Persist {
 
-  def adapter[F[_] : Sync : FromFuture : ToTry, A](
+  private[akkaeffect] def adapter[F[_] : Sync : FromFuture : ToTry, A](
     act: Act,
     actor: PersistentActor,
     stopped: F[Throwable]
@@ -73,11 +81,11 @@ private[akkaeffect] object Persist {
                   .get
 
                 var left = size
-                val seqNr = eventsourced.lastSequenceNr + size
                 events.toList.foreach { events =>
                   eventsourced.persistAllAsync(events.toList) { _ =>
                     left = left - 1
                     if (left <= 0) {
+                      val seqNr = eventsourced.lastSequenceNr
                       // TODO make sure Act is sync in handler and test this
                       ref
                         .modify { queue =>
@@ -95,15 +103,14 @@ private[akkaeffect] object Persist {
                     }
                   }
                 }
-                eventsourced.lastSequenceNr
               }
             }
 
             for {
               promise <- PromiseEffect[F, SeqNr]
-              seqNr   <- persist(promise)
+              _       <- persist(promise)
             } yield {
-              (seqNr, promise.get.void)
+              promise.get
             }
           }
         }
@@ -120,14 +127,14 @@ private[akkaeffect] object Persist {
   }
 
 
-  trait Eventsourced {
+  private[akkaeffect] trait Eventsourced {
 
     def lastSequenceNr: SeqNr
 
     def persistAllAsync[A](events: List[A])(handler: A => Unit): Unit
   }
 
-  object Eventsourced {
+  private[akkaeffect] object Eventsourced {
 
     def apply(actor: PersistentActor): Eventsourced = new Eventsourced {
 
@@ -138,10 +145,10 @@ private[akkaeffect] object Persist {
   }
 
 
-  trait OnError[A] {
+  private[akkaeffect] trait OnError[A] {
     def apply(cause: Throwable, event: A, seqNr: SeqNr): Unit
   }
 
 
-  final case class Adapter[F[_], A](value: Persist[F, A], onError: OnError[A])
+  private[akkaeffect] final case class Adapter[F[_], A](value: Persist[F, A], onError: OnError[A])
 }

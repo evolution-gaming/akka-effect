@@ -19,9 +19,9 @@ import scala.util.control.NoStackTrace
 class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import PersistentActorOfSpec._
 
-  /*test("PersistentActor") {
+  test("PersistentActor") {
     `persistentActorOf`[IO](actorSystem).run()
-  }*/
+  }
 
   private def `persistentActorOf`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
@@ -30,7 +30,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     def persistenceSetupOf(receiveTimeout: F[Unit]): PersistenceSetupOf[F, Any, Any, Any, Any] = {
       ctx: ActorCtx[F, Any, Any] => {
 
-        val persistenceSetup = new PersistenceSetup[F, State, Any, Event] {
+        val persistenceSetup = new PersistenceSetup[F, State, Any, Event, Any] {
 
           def persistenceId = "persistenceId"
 
@@ -40,7 +40,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
             snapshotter: Snapshotter[F, State]
           ) = {
 
-            val recovering: Recovering[F, State, Any, Event] = new Recovering[F, State, Any, Event] {
+            val recovering: Recovering[F, State, Any, Event, Any] = new Recovering[F, State, Any, Event, Any] {
 
               def initial = 0
 
@@ -78,7 +78,9 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       probe               = Probe.of[F](actorRefOf)
       actorEffect         = PersistentActorEffect.of[F](actorRefOf, persistenceSetupOf)
       resources           = (actorEffect, probe).tupled
-      result             <- resources.use { case (actorEffect, probe) => persistentActorOf(actorEffect, probe, receiveTimeout.get, actorRefOf) }
+      result             <- resources.use { case (actorEffect, probe) =>
+        persistentActorOf(actorEffect, probe, receiveTimeout.get, actorRefOf)
+      }
     } yield result
   }
 
@@ -91,13 +93,14 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
     def snapshotAndEvents: F[(Option[State], List[Event])] = {
 
+      // TODO rework on actions
       def persistenceSetupOf(
         eventsDeferred: Deferred[F, List[Event]],
         snapshotDeferred: Deferred[F, Option[State]]
       ): PersistenceSetupOf[F, Any, Any, Any, Any] = {
         (_: ActorCtx[F, Any, Any]) => {
 
-          val setup = new PersistenceSetup[F, State, Any, Event] {
+          val setup = new PersistenceSetup[F, State, Any, Event, Any] {
 
             def persistenceId = "persistenceId"
 
@@ -109,11 +112,11 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
               val snapshot = offer.map { _.snapshot }
 
-              val recovering: F[Recovering[F, State, Any, Event]] = for {
+              val recovering: F[Recovering[F, State, Any, Event, Any]] = for {
                 _      <- snapshotDeferred.complete(snapshot)
                 events <- Ref[F].of(List.empty[Event])
               } yield {
-                new Recovering[F, State, Any, Event] {
+                new Recovering[F, State, Any, Event, Any] {
 
                   def initial = 0
 
@@ -195,14 +198,14 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       _           <- receiveTimeout
       _           <- Sync[F].delay { identity shouldEqual ActorIdentity("id", actorRef.toUnsafe.some) }
       seqNr       <- actorRef.ask(Cmd.Inc, timeout)
-      _           <- Sync[F].delay { seqNr shouldEqual 2 }
+      _           <- Sync[F].delay { seqNr shouldEqual 4 }
       a           <- actorRef.ask(Cmd.Stop, timeout)
       _           <- Sync[F].delay { a shouldEqual "stopping" }
       _           <- terminated0
       ab          <- snapshotAndEvents
       (s, events) = ab
-      _           <- Sync[F].delay { events shouldEqual List("inc") }
-      _           <- Sync[F].delay { s shouldEqual Some(1) }
+      _           <- Sync[F].delay { events shouldEqual List("d", "c", "b") }
+      _           <- Sync[F].delay { s shouldEqual 1.some }
     } yield {}
   }
 }
@@ -268,13 +271,15 @@ object PersistentActorOfSpec {
 
             case Cmd.Inc =>
               for {
-                _      <- journaller.append(Nel.of(Nel.of("inc")))
+                seqNr  <- journaller.append(Nel.of(Nel.of("a")))
+                seqNr  <- seqNr
                 _      <- stateRef.update { _ + 1 }
                 state  <- stateRef.get
                 ab     <- snapshotter.save(state)
+                seqNr  <- journaller.append(Nel.of(Nel.of("b"), Nel.of("c", "d")))
+                seqNr  <- seqNr
                 (_, a)  = ab
                 _      <- a
-                seqNr  <- journaller.append(Nel.of(Nel.of("inc")))
                 _      <- stateRef.update { _ + 1 }
                 _      <- reply(seqNr)
               } yield {

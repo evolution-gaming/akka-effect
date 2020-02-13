@@ -4,9 +4,16 @@ import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.akkaeffect.Conversion.implicits._
 
+/**
+  * @see [[akka.actor.Actor.receive]]
+  */
 trait Receive[F[_], A, B] {
   import Receive._
 
+  /**
+    * Called strictly sequentially, next message will be processed only after we've done with the previous one
+    * This basically preserves the semantic of Actors
+    */
   def apply(a: A, reply: Reply[F, B]): F[Stop]
 }
 

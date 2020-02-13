@@ -5,7 +5,7 @@ import cats.implicits._
 import com.evolutiongaming.akkaeffect.{Conversion, Receive}
 import com.evolutiongaming.akkaeffect.Conversion.implicits._
 
-trait Recovering[F[_], S, C, E] {
+trait Recovering[F[_], S, C, E, R] {
 
   def initial: S
 
@@ -14,7 +14,7 @@ trait Recovering[F[_], S, C, E] {
   /**
     * called when recovering completed
     */
-  def recoveryCompleted(state: S, seqNr: SeqNr): F[Receive[F, C, Any]] // TODO resource
+  def recoveryCompleted(state: S, seqNr: SeqNr): F[Receive[F, C, R]] // TODO resource
 
 
   /*final def mapEvent[EE](fee: E => EE, fe: EE => E): Recovering[S, C, EE] = new Recovering[S, C, EE] {
@@ -54,16 +54,16 @@ trait Recovering[F[_], S, C, E] {
 
 object Recovering {
 
-  implicit class RecoveringOps[F[_], S, C, E](val self: Recovering[F, S, C, E]) extends AnyVal {
+  implicit class RecoveringOps[F[_], S, C, E, R](val self: Recovering[F, S, C, E, R]) extends AnyVal {
 
     def untyped(implicit
       F: FlatMap[F],
       anyToS: Conversion[F, Any, S],
       anyToC: Conversion[F, Any, C],
       anyToE: Conversion[F, Any, E]
-    ): Recovering[F, Any, Any, Any] = {
+    ): Recovering[F, Any, Any, Any, Any] = {
 
-      new Recovering[F, Any, Any, Any] {
+      new Recovering[F, Any, Any, Any, Any] {
 
         def initial = self.initial
 

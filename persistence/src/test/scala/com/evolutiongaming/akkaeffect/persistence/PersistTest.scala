@@ -31,12 +31,12 @@ class PersistTest extends AsyncFunSuite with Matchers {
             def lastSequenceNr = seqNr.get.toTry.get
 
             def persistAllAsync[A](events: List[A])(handler: A => Unit) = {
-              val handlers = events.foldMapM { event => act.ask { handler(event) } }
-              val result = for {
+              val handlers = for {
                 _ <- seqNr.update { _ + events.size }
-                _ <- ref.update { _.enqueue(handlers) }
+                _ <- events.foldMapM { event => act.ask { handler(event) } }
               } yield {}
-              result
+              ref
+                .update { _.enqueue(handlers) }
                 .toTry
                 .get
             }
@@ -67,38 +67,31 @@ class PersistTest extends AsyncFunSuite with Matchers {
           }
 
           for {
-            ab          <- persist.value(Nel.of(Nel.of(0, 1), Nel.of(2)))
-            (seqNr, a0)  = ab
-            _            = seqNr shouldEqual 3L
-            ab          <- persist.value(Nel.of(Nel.of(3)))
-            (seqNr, a1)  = ab
-            _            = seqNr shouldEqual 4L
-            queue       <- ref.get
-            _            = queue.size shouldEqual 3
-            _           <- dequeue
-            _           <- dequeue
-            _           <- a0
-            queue       <- ref.get
-            _            = queue.size shouldEqual 1
-            _           <- dequeue
-            _           <- a1
-            _           <- dequeue
-            ab          <- persist.value(Nel.of(Nel.of(3)))
-            (seqNr, a0)  = ab
-            _            = seqNr shouldEqual 5L
-            ab          <- persist.value(Nel.of(Nel.of(4)))
-            (seqNr, a1)  = ab
-            _            = seqNr shouldEqual 6L
-            queue       <- ref.get
-            _            = queue.size shouldEqual 2
-            _           <- IO { persist.onError(error, 2, 2L) }
-            a           <- a0.attempt
-            _            = a shouldEqual error.asLeft
-            a           <- a1.attempt
-            _            = a shouldEqual error.asLeft
-            ab          <- persist.value(Nel.of(Nel.of(4)))
-            (_, a)       = ab
-          } yield a
+            seqNr0 <- persist.value(Nel.of(Nel.of(0, 1), Nel.of(2)))
+            seqNr1 <- persist.value(Nel.of(Nel.of(3)))
+            queue  <- ref.get
+            _       = queue.size shouldEqual 3
+            _      <- dequeue
+            _      <- dequeue
+            seqNr  <- seqNr0
+            _       = seqNr shouldEqual 3L
+            queue  <- ref.get
+            _       = queue.size shouldEqual 1
+            _      <- dequeue
+            seqNr  <- seqNr1
+            _       = seqNr shouldEqual 4L
+            _      <- dequeue
+            seqNr0 <- persist.value(Nel.of(Nel.of(3)))
+            seqNr1 <- persist.value(Nel.of(Nel.of(4)))
+            queue  <- ref.get
+            _       = queue.size shouldEqual 2
+            _      <- IO { persist.onError(error, 2, 2L) }
+            seqNr  <- seqNr0.attempt
+            _       = seqNr shouldEqual error.asLeft
+            seqNr  <- seqNr1.attempt
+            _       = seqNr shouldEqual error.asLeft
+            result <- persist.value(Nel.of(Nel.of(4)))
+          } yield result
         }
       result   <- result.attempt
       _         = result shouldEqual stopped.asLeft

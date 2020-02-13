@@ -10,13 +10,13 @@ import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 import scala.util.Try
 
 
-trait Journaller[F[_], -A/*TODO*/] {
+trait Journaller[F[_], -A] {
   /**
     * @see [[akka.persistence.PersistentActor.persistAllAsync]]
     * @param events to be saved, inner Nel[A] will be persisted atomically, outer Nel[_] for batching
     * @return SeqNr of last event
     */
-  def append(events: Nel[Nel[A]]): F[(SeqNr, F[Unit])]
+  def append: Persist[F, A] // TODO val and rename Persist to Append
 
   /**
     * @see [[akka.persistence.Eventsourced.deleteMessages]]
@@ -49,6 +49,8 @@ object Journaller {
     stopped: F[Throwable]
   ): Resource[F, Adapter[Journaller[F, A]]] = {
 
+    val append1 = persist
+
     val deleteMessages = Call.adapter[F, SeqNr, Unit](act, stopped.void) {
       case DeleteMessagesSuccess(a)    => (a, ().pure[Try])
       case DeleteMessagesFailure(e, a) => (a, e.raiseError[Try, Unit])
@@ -56,9 +58,9 @@ object Journaller {
 
     deleteMessages.map { deleteMessages =>
 
-      val journaller = new Journaller[F, A] {
+      val journaller: Journaller[F, A] = new Journaller[F, A] {
 
-        def append(events: Nel[Nel[A]]) = persist(events)
+        val append = append1
 
         def deleteTo(seqNr: SeqNr) = {
           deleteMessages

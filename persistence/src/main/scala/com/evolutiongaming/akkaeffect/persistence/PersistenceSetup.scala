@@ -7,7 +7,7 @@ import cats.implicits._
 import com.evolutiongaming.akkaeffect.Conversion
 import com.evolutiongaming.akkaeffect.Conversion.implicits._
 
-trait PersistenceSetup[F[_], S, C, E] {
+trait PersistenceSetup[F[_], S, C, E, R] {
 
   def persistenceId: String
 
@@ -17,26 +17,27 @@ trait PersistenceSetup[F[_], S, C, E] {
 
   // TODO onPreStart phase is missing
 
+  // TODO describe resource release scope
   def recoveryStarted(
     offer: Option[SnapshotOffer[S]],
     journaller: Journaller[F, E], // TODO move to onRecoveryCompleted
     snapshotter: Snapshotter[F, S] // TODO move to onRecoveryCompleted
-  ): Resource[F, Recovering[F, S, C, E]]
+  ): Resource[F, Recovering[F, S, C, E, R]]
 }
 
 
 object PersistenceSetup {
 
-  implicit class PersistenceSetupOps[F[_], S, C, E](val self: PersistenceSetup[F, S, C, E]) extends AnyVal {
+  implicit class PersistenceSetupOps[F[_], S, C, E, R](val self: PersistenceSetup[F, S, C, E, R]) extends AnyVal {
 
     def untyped(implicit
       F: Monad[F],
       anyToS: Conversion[F, Any, S],
       anyToC: Conversion[F, Any, C],
       anyToE: Conversion[F, Any, E]
-    ): PersistenceSetup[F, Any, Any, Any] = {
+    ): PersistenceSetup[F, Any, Any, Any, Any] = {
 
-      new PersistenceSetup[F, Any, Any, Any] {
+      new PersistenceSetup[F, Any, Any, Any, Any] {
 
         def persistenceId = self.persistenceId
 

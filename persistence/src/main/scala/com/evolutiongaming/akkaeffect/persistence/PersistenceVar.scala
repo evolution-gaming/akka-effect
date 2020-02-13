@@ -2,13 +2,13 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.{ActorContext, ActorRef}
 import cats.effect.Sync
-import com.evolutiongaming.akkaeffect.{Act, ActorVar}
+import com.evolutiongaming.akkaeffect.{Act, ActorVar, ReplyOf}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
-private[akkaeffect] trait PersistenceVar[F[_], S, C, E] {
+private[akkaeffect] trait PersistenceVar[F[_], S, C, E, R] {
 
   def preStart(
-    persistenceSetup: PersistenceSetup[F, S, C, E],
+    persistenceSetup: PersistenceSetup[F, S, C, E, R],
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]
   ): Unit
@@ -17,7 +17,7 @@ private[akkaeffect] trait PersistenceVar[F[_], S, C, E] {
 
   def event(event: E, seqNr: SeqNr): Unit
 
-  def recoveryCompleted(seqNr: SeqNr): Unit
+  def recoveryCompleted(seqNr: SeqNr, replyOf: ReplyOf[F, R]): Unit
 
   def command(cmd: C, seqNr: SeqNr, sender: ActorRef): Unit
 
@@ -26,21 +26,21 @@ private[akkaeffect] trait PersistenceVar[F[_], S, C, E] {
 
 private[akkaeffect] object PersistenceVar {
 
-  def apply[F[_] : Sync : ToFuture : FromFuture : Fail, S, C, E](
+  def apply[F[_] : Sync : ToFuture : FromFuture : Fail, S, C, E, R](
     act: Act,
     context: ActorContext
-  ): PersistenceVar[F, S, C, E] = {
-    apply(ActorVar[F, Persistence2[F, S, C, E]](act, context))
+  ): PersistenceVar[F, S, C, E, R] = {
+    apply(ActorVar[F, Persistence2[F, S, C, E, R]](act, context))
   }
 
-  def apply[F[_] : Sync : Fail, S, C, E](
-    actorVar: ActorVar[F, Persistence2[F, S, C, E]]
-  ): PersistenceVar[F, S, C, E] = {
+  def apply[F[_] : Sync : Fail, S, C, E, R](
+    actorVar: ActorVar[F, Persistence2[F, S, C, E, R]]
+  ): PersistenceVar[F, S, C, E, R] = {
 
-    new PersistenceVar[F, S, C, E] {
+    new PersistenceVar[F, S, C, E, R] {
 
       def preStart(
-        persistenceSetup: PersistenceSetup[F, S, C, E],
+        persistenceSetup: PersistenceSetup[F, S, C, E, R],
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S]
       ) = {
@@ -57,8 +57,8 @@ private[akkaeffect] object PersistenceVar {
         actorVar.receive { _.event(event, seqNr) }
       }
 
-      def recoveryCompleted(seqNr: SeqNr) = {
-        actorVar.receive { _.recoveryCompleted(seqNr) }
+      def recoveryCompleted(seqNr: SeqNr, replyOf: ReplyOf[F, R]) = {
+        actorVar.receive { _.recoveryCompleted(seqNr, replyOf) }
       }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {

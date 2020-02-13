@@ -7,43 +7,65 @@ import com.evolutiongaming.akkaeffect.Releasable.implicits._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.akkaeffect.persistence.Fail.implicits._
 
-private[akkaeffect] trait Persistence2[F[_], S, C, E] {
+private[akkaeffect] trait Persistence2[F[_], S, C, E, R] {
 
-  type Result = Option[Releasable[F, Persistence2[F, S, C, E]]]
+  type Result = Option[Releasable[F, Persistence2[F, S, C, E, R]]]
 
   def snapshotOffer(snapshotOffer: SnapshotOffer[S]): F[Result]
 
   def event(event: E, seqNr: SeqNr): F[Result]
 
-  def recoveryCompleted(seqNr: SeqNr): F[Result]
+  def recoveryCompleted(seqNr: SeqNr, replyOf: ReplyOf[F, R]): F[Result]
 
   def command(cmd: C, seqNr: SeqNr, sender: ActorRef): F[Result]
 }
 
 private[akkaeffect] object Persistence2 {
 
-  def started[F[_] : Sync : Fail, S, C, E](
-    persistenceSetup: PersistenceSetup[F, S, C, E],
+  def started[F[_] : Sync : Fail, S, C, E, R](
+    persistenceSetup: PersistenceSetup[F, S, C, E, R],
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]
-  ): Resource[F, Option[Persistence2[F, S, C, E]]] = {
+  ): Resource[F, Option[Persistence2[F, S, C, E, R]]] = {
 
-    val result: Persistence2[F, S, C, E] = new Persistence2[F, S, C, E] {
+    val result: Persistence2[F, S, C, E, R] = new Persistence2[F, S, C, E, R] {
 
       def snapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
         persistenceSetup
           .recoveryStarted(snapshotOffer.some, journaller, snapshotter)
+          .map { recovering => Persistence2.recovering(recovering.initial, recovering) }
           .toReleasable
-          .map { recovering =>
-            recovering
-              .map { recovering => Persistence2.recovering(recovering.initial, recovering) }
-              .some
-          }
+          .map { _.some }
       }
 
-      def event(event: E, seqNr: SeqNr) = ???
+      def event(event: E, seqNr: SeqNr) = {
+        println(s"Persistence2.event $event")
+        persistenceSetup
+          .recoveryStarted(none, journaller, snapshotter)
+          .flatMap { recovering =>
+            val persistence = recovering
+              .replay(recovering.initial, event, seqNr)
+              .map { state =>
+                Persistence2.recovering(state, recovering)
+              }
+            Resource.liftF(persistence)
+          }
+          .toReleasable
+          .map { _.some }
+      }
 
-      def recoveryCompleted(seqNr: SeqNr) = ???
+      def recoveryCompleted(seqNr: SeqNr, replyOf: ReplyOf[F, R]) = {
+        persistenceSetup
+          .recoveryStarted(none, journaller, snapshotter)
+          .flatMap { recovering =>
+            val receive = recovering
+              .recoveryCompleted(recovering.initial, seqNr)
+              .map { receive => Persistence2.receive[F, S, C, E, R](replyOf, receive) }
+            Resource.liftF(receive)
+          }
+          .toReleasable
+          .map { _.some }
+      }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {
         unexpected[F, Result](name = s"command $cmd", state = "started")
@@ -54,28 +76,34 @@ private[akkaeffect] object Persistence2 {
   }
 
 
-  def recovering[F[_] : Sync : Fail, S, C, E](
+  def recovering[F[_] : Sync : Fail, S, C, E, R](
     state: S,
-    recovering: Recovering[F, S, C, E]
-  ): Persistence2[F, S, C, E] = {
+    recovering: Recovering[F, S, C, E, R]
+  ): Persistence2[F, S, C, E, R] = {
 
-    new Persistence2[F, S, C, E] {
+    new Persistence2[F, S, C, E, R] {
 
       def snapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
         unexpected[F, Result](name = s"snapshotOffer $snapshotOffer", state = "receive")
       }
 
       def event(event: E, seqNr: SeqNr) = {
+        println(s"Persistence2.event $event")
         recovering
           .replay(state, event, seqNr)
           .map { state =>
             val persistence = Persistence2.recovering(state, recovering)
-            Releasable(persistence).some
+            persistence.pure[Releasable[F, *]].some
           }
       }
 
-      def recoveryCompleted(seqNr: SeqNr) = {
-        ???
+      def recoveryCompleted(seqNr: SeqNr, replyOf: ReplyOf[F, R]) = {
+        recovering
+          .recoveryCompleted(state, seqNr)
+          .map { receive =>
+            val persistence = Persistence2.receive[F, S, C, E, R](replyOf, receive)
+            Releasable(persistence).some
+          }
       }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {
@@ -88,9 +116,9 @@ private[akkaeffect] object Persistence2 {
   def receive[F[_] : Sync : Fail, S, C, E, R](
     replyOf: ReplyOf[F, R],
     receive: Receive[F, C, R]
-  ): Resource[F, Option[Persistence2[F, S, C, E]]] = {
+  ): Persistence2[F, S, C, E, R] = {
 
-    val result: Persistence2[F, S, C, E] = new Persistence2[F, S, C, E] { self =>
+    new Persistence2[F, S, C, E, R] { self =>
 
       def snapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
         unexpected[F, Result](name = s"snapshotOffer $snapshotOffer", state = "receive")
@@ -100,20 +128,18 @@ private[akkaeffect] object Persistence2 {
         unexpected[F, Result](name = s"event $event", state = "receive")
       }
 
-      def recoveryCompleted(seqNr: SeqNr) = {
+      def recoveryCompleted(seqNr: SeqNr, replyOf: ReplyOf[F, R]) = {
         unexpected[F, Result](name = "recoveryCompleted", state = "receive")
       }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {
-        val reply = replyOf(sender.some)
+        val reply = replyOf(sender)
         receive(cmd, reply).map {
           case false => Releasable(self).some
           case true  => none
         }
       }
     }
-
-    result.some.pure[Resource[F, *]]
   }
 
 
