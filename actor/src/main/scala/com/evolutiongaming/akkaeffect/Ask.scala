@@ -2,7 +2,8 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorRef, ActorSelection}
 import akka.util.Timeout
-import cats.~>
+import cats.implicits._
+import cats.{FlatMap, ~>}
 import com.evolutiongaming.catshelper.FromFuture
 
 import scala.concurrent.duration.FiniteDuration
@@ -68,5 +69,20 @@ object Ask {
 
 
     def narrow[C <: A]: Ask[F, C, B] = self
+
+
+    def convert[C, D](implicit
+      F: FlatMap[F],
+      ca: Convert[F, C, A],
+      bd: Convert[F, B, D]
+    ): Ask[F, C, D] = {
+      (a: C, timeout: FiniteDuration, sender: Option[ActorRef]) => {
+        for {
+          c <- ca(a)
+          b <- self(c, timeout, sender)
+          d <- bd(b)
+        } yield d
+      }
+    }
   }
 }

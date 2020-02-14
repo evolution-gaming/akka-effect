@@ -18,7 +18,7 @@ object Releasable {
   }
 
 
-  implicit def applicativeReleasable[F[_] : Applicative]: Monad[Releasable[F, *]] = {
+  implicit def monadReleasable[F[_] : Applicative]: Monad[Releasable[F, *]] = {
 
     def combine(a: Option[F[Unit]], b: Option[F[Unit]]) = {
       a match {

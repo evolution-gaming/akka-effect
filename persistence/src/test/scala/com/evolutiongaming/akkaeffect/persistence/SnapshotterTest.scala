@@ -126,9 +126,9 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
         def save(snapshotter: Snapshotter[IO, Any]) = {
           snapshotter
             .save("snapshot")
-            .map { case (seqNr, a) =>
-              seqNr shouldEqual 0L
-              a
+            .map { a =>
+              a.seqNr shouldEqual 0L
+              a.done
             }
         }
 

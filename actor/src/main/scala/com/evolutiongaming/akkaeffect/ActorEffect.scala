@@ -1,10 +1,11 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorPath, ActorRef, Props}
+import cats.FlatMap
 import cats.effect.{Async, Resource, Sync}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
-trait ActorEffect[F[_], -A, B] { self =>
+trait ActorEffect[F[_], -A/*TODO remove variance everywhere*/, B] { self =>
 
   def path: ActorPath
 
@@ -50,8 +51,24 @@ object ActorEffect {
   }
 
 
-  implicit class ActorRefFOps[F[_], A, B](val self: ActorEffect[F, A, B]) extends AnyVal {
+  implicit class ActorEffectOps[F[_], A, B](val self: ActorEffect[F, A, B]) extends AnyVal {
 
     def narrow[C <: A]: ActorEffect[F, C, B] = self
+
+
+    def convert[C, D](implicit
+      F: FlatMap[F],
+      ca: Convert[F, C, A],
+      bd: Convert[F, B, D]
+    ): ActorEffect[F, C, D] = new ActorEffect[F, C, D] {
+
+      def path = self.path
+
+      val ask = self.ask.convert[C, D]
+
+      val tell = self.tell.convert[C]
+
+      def toUnsafe = self.toUnsafe
+    }
   }
 }

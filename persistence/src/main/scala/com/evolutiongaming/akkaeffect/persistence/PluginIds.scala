@@ -5,5 +5,5 @@ final case class PluginIds(
   snapshot: Option[String] = None)
 
 object PluginIds {
-  val Default: PluginIds = PluginIds()
+  val default: PluginIds = PluginIds()
 }

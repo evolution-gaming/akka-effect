@@ -2,8 +2,8 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import cats.implicits._
 import cats.{Applicative, FlatMap}
-import com.evolutiongaming.akkaeffect.Conversion
-import com.evolutiongaming.akkaeffect.Conversion.implicits._
+import com.evolutiongaming.akkaeffect.Convert
+import com.evolutiongaming.akkaeffect.Convert.implicits._
 
 trait Replay[F[_], S, E] {
 
@@ -21,8 +21,8 @@ object Replay {
 
     def untyped(implicit
       F: FlatMap[F],
-      anyToS: Conversion[F, Any, S],
-      anyToE: Conversion[F, Any, E]
+      anyToS: Convert[F, Any, S],
+      anyToE: Convert[F, Any, E]
     ): Replay[F, Any, Any] = {
 
       (state: Any, event: Any, seqNr: SeqNr) => {

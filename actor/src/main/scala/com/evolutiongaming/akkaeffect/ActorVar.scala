@@ -23,6 +23,9 @@ trait ActorVar[F[_], A] {
     */
   def receive(f: A => F[Option[Releasable[F, A]]]): Unit
 
+  // TODO rename
+  def receive1(f: A => F[Boolean]): Unit
+
   // TODO return F[Unit]
   def postStop(): F[Unit]
 }
@@ -93,10 +96,9 @@ object ActorVar {
           a
             .allocated
             .flatMap { case (a, release) =>
-              val release1 = release.handleError { _ => () }
               a match {
-                case Some(a) => State(a, release1).some.pure[F]
-                case None    => release1.as(none[State])
+                case Some(a) => State(a, release).some.pure[F]
+                case None    => release.as(none[State])
               }
             }
         }
@@ -120,6 +122,7 @@ object ActorVar {
                         .pure[F]
 
                     case None =>
+                      println("none")
                       state
                         .release
                         .handleError { _ => () }
@@ -137,6 +140,15 @@ object ActorVar {
         }
       }
 
+      def receive1(f: A => F[Boolean]): Unit = {
+        receive { a =>
+          f(a).map {
+            case false => Releasable(a).some
+            case true  => none
+          }
+        }
+      }
+
       def postStop() = {
         stateVar match {
           case Some(state) =>
@@ -150,7 +162,7 @@ object ActorVar {
       }
     }
   }
-
+/*
 
   implicit class ActorVarOps[F[_], A](val self: ActorVar[F, A]) extends AnyVal {
 
@@ -163,5 +175,5 @@ object ActorVar {
         }
       }
     }
-  }
+  }*/
 }

@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorRef}
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
+import com.evolutiongaming.catshelper.CatsHelper._
 
 object ActorOf {
 
@@ -51,7 +52,7 @@ object ActorOf {
 
       override def postStop(): Unit = {
         act.sync {
-          actorVar.postStop()
+          actorVar.postStop().toFuture
         }
         super.postStop()
       }

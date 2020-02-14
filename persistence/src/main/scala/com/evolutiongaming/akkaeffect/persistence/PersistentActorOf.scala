@@ -137,9 +137,7 @@ object PersistentActorOf {
       def receiveRecover: Receive = act.receive {
         case ap.SnapshotOffer(m, s) => persistence.snapshotOffer(SnapshotOffer(m, s))
         case RecoveryCompleted      => persistence.recoveryCompleted(lastSeqNr(), ReplyOf.fromActorRef(self))
-        case event                  =>
-          println(s"receiveRecover $event")
-          persistence.event(event, lastSeqNr())
+        case event                  => persistence.event(event, lastSeqNr())
       }
 
       def receiveCommand: Receive = {

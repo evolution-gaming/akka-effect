@@ -8,6 +8,7 @@ import cats.{Applicative, ~>}
 trait Reply[F[_], -A] {
 
   def apply(a: A): F[Unit]
+  // TODO support fail call
 }
 
 object Reply {

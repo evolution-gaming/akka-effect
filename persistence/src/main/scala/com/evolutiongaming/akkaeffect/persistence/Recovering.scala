@@ -2,17 +2,22 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import cats.FlatMap
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Conversion, Receive}
-import com.evolutiongaming.akkaeffect.Conversion.implicits._
+import com.evolutiongaming.akkaeffect.Convert.implicits._
+import com.evolutiongaming.akkaeffect.{Convert, Receive}
 
 trait Recovering[F[_], S, C, E, R] {
 
+  // TODO F[S]
   def initial: S
 
+  /**
+    * Used to replay events during recovery against passed state, resource will be released when recovery is completed
+    */
+  // TODO Resource
   def replay: Replay[F, S, E]
 
   /**
-    * called when recovering completed
+    * Called when recovery completed, resource will be released upon actor termination
     */
   def recoveryCompleted(state: S, seqNr: SeqNr): F[Receive[F, C, R]] // TODO resource
 
@@ -58,9 +63,9 @@ object Recovering {
 
     def untyped(implicit
       F: FlatMap[F],
-      anyToS: Conversion[F, Any, S],
-      anyToC: Conversion[F, Any, C],
-      anyToE: Conversion[F, Any, E]
+      anyToS: Convert[F, Any, S],
+      anyToC: Convert[F, Any, C],
+      anyToE: Convert[F, Any, E]
     ): Recovering[F, Any, Any, Any, Any] = {
 
       new Recovering[F, Any, Any, Any, Any] {

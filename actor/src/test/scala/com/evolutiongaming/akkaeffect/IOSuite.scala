@@ -9,7 +9,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 object IOSuite {
-  val Timeout: FiniteDuration = 1.minute
+  val Timeout: FiniteDuration = 10.seconds
 
   implicit val executor: ExecutionContextExecutor = ExecutionContext.global
   implicit val contextShiftIO: ContextShift[IO]   = IO.contextShift(executor)

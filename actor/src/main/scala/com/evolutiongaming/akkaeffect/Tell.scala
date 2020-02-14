@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.ActorRef
 import cats.effect.Sync
 import cats.implicits._
-import cats.{Applicative, ~>}
+import cats.{Applicative, FlatMap, ~>}
 
 trait Tell[F[_], -A] {
 
@@ -52,5 +52,13 @@ object Tell {
 
 
     def narrow[B <: A]: Tell[F, B] = self
+
+
+    def convert[B](implicit F: FlatMap[F], ba: Convert[F, B, A]): Tell[F, B] = {
+      (a: B, sender: Option[ActorRef]) => for {
+        a <- ba(a)
+        a <- self(a, sender)
+      } yield a
+    }
   }
 }

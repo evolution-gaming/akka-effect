@@ -1,7 +1,9 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorContext, ActorRef}
-import cats.effect.{Resource, Sync}
+import cats.implicits._
+import cats.FlatMap
+import cats.effect.Sync
 import com.evolutiongaming.catshelper.FromFuture
 
 import scala.collection.immutable.Iterable
@@ -52,6 +54,30 @@ object ActorCtx {
       val children = act.ask { context.children }
 
       val actorRefOf = ActorRefOf[F](context)
+    }
+  }
+
+
+  implicit class ActorCtxOps[F[_], A, B](val actorCtx: ActorCtx[F, A, B]) extends AnyVal {
+
+    // TODO refactor `narrow` methods
+    def convert[C, D](implicit
+      F: FlatMap[F],
+      ca: Convert[F, C, A],
+      bd: Convert[F, B, D]
+    ): ActorCtx[F, C, D] = new ActorCtx[F, C, D] {
+
+      def self = actorCtx.self.convert[C, D]
+
+      def dispatcher = actorCtx.dispatcher
+
+      def setReceiveTimeout(timeout: Duration) = actorCtx.setReceiveTimeout(timeout)
+
+      def child(name: String) = actorCtx.child(name)
+
+      def children = actorCtx.children
+
+      def actorRefOf = actorCtx.actorRefOf
     }
   }
 }

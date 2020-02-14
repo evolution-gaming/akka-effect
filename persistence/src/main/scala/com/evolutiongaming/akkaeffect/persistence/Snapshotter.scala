@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.{SnapshotSelectionCriteria, Snapshotter => _, _}
 import cats.FlatMap
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.{Concurrent, Resource}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.{Act, Adapter}
 import com.evolutiongaming.catshelper.{FromFuture, ToTry}
@@ -11,12 +11,13 @@ import scala.util.Try
 
 
 trait Snapshotter[F[_], -A] {
+  import Snapshotter.Result
 
   /**
     * @see [[akka.persistence.Snapshotter.saveSnapshot]]
     * @return Outer F[_] is about saving in background, inner F[_] is about saving completed
     */
-  def save(a: A): F[(SeqNr, F[Unit])]
+  def save(snapshot: A): F[Result[F]]
 
   /**
     * @see [[akka.persistence.Snapshotter.deleteSnapshot]]
@@ -42,11 +43,13 @@ object Snapshotter {
 
     new Snapshotter[F, Any] {
 
-      def save(a: Any) = {
-        saveSnapshot {
-          actor.saveSnapshot(a)
-          actor.snapshotSequenceNr
-        }
+      def save(snapshot: Any) = {
+        saveSnapshot
+          .apply {
+            actor.saveSnapshot(snapshot)
+            actor.snapshotSequenceNr
+          }
+          .map { case (seqNr, a) => Result(seqNr, a) }
       }
 
       def delete(seqNr: SeqNr) = {
@@ -106,4 +109,7 @@ object Snapshotter {
         saveSnapshot.receive orElse deleteSnapshot.receive orElse deleteSnapshots.receive)
     }
   }
+
+
+  final case class Result[F[_]](seqNr: SeqNr, done: F[Unit])
 }

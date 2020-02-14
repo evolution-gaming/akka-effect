@@ -8,6 +8,7 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
 object PersistentActorEffect {
 
+  // TODO not use Any
   def of[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
     actorRefOf: ActorRefOf[F],
     persistenceSetupOf: PersistenceSetupOf[F, Any, Any, Any, Any],

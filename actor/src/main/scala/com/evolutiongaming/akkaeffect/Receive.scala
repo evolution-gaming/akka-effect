@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
-import com.evolutiongaming.akkaeffect.Conversion.implicits._
+import com.evolutiongaming.akkaeffect.Convert.implicits._
 
 /**
   * @see [[akka.actor.Actor.receive]]
@@ -50,7 +50,7 @@ object Receive {
     }
 
 
-    def untyped(implicit F: FlatMap[F], anyToA: Conversion[F, Any, A]): Receive[F, Any, Any] = {
+    def untyped(implicit F: FlatMap[F], anyToA: Convert[F, Any, A]): Receive[F, Any, Any] = {
       (a: Any, reply: Reply[F, Any]) => {
         for {
           a    <- a.convert[F, A]
