@@ -113,10 +113,14 @@ object InstrumentPersistenceSetup {
                 }
               }
             }
+            val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
+              val metadata = snapshotOffer.metadata.copy(timestamp = 0)
+              snapshotOffer.copy(metadata = metadata)
+            }
 
             for {
               recovering <- persistenceSetup.recoveryStarted(snapshotOffer, journaller1, snapshotter1)
-              _          <- resource(Action.RecoveryAllocated(snapshotOffer, recovering.initial), Action.RecoveryReleased)
+              _          <- resource(Action.RecoveryAllocated(snapshotOffer1, recovering.initial), Action.RecoveryReleased)
             } yield {
 
               new Recovering[F, S, C, E, R] {
