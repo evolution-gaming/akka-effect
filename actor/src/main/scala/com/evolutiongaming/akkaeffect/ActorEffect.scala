@@ -60,13 +60,28 @@ object ActorEffect {
       F: FlatMap[F],
       ca: Convert[F, C, A],
       bd: Convert[F, B, D]
-    ): ActorEffect[F, C, D] = new ActorEffect[F, C, D] {
+    ): ActorEffect[F, C, D] = ??? /*new ActorEffect[F, C, D] {
 
       def path = self.path
 
       val ask = self.ask.convert[C, D]
 
       val tell = self.tell.convert[C]
+
+      def toUnsafe = self.toUnsafe
+    }*/
+  }
+
+
+  implicit class ActorEffectAnyOps[F[_]](val self: ActorEffect[F, Any, Any]) extends AnyVal {
+
+    def typeful[A, B](f: Any => F[B])(implicit F: FlatMap[F]): ActorEffect[F, A, B] = new ActorEffect[F, A, B] {
+
+      def path = self.path
+
+      val ask = self.ask.typeful(f)
+
+      val tell = self.tell
 
       def toUnsafe = self.toUnsafe
     }

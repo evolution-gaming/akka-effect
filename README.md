@@ -33,7 +33,7 @@ Represents `ActorRef.ask` pattern
 ```scala
 trait Ask[F[_], -A, B] {
 
-  def apply(a: A, timeout: FiniteDuration, sender: Option[ActorRef] = None): F[B]
+  def apply(msg: A, timeout: FiniteDuration, sender: Option[ActorRef] = None): F[B]
 }
 ```
 
@@ -45,7 +45,7 @@ Represents reply pattern: `sender() ! reply`
 ```scala
 trait Reply[F[_], -A] {
 
-  def apply(a: A): F[Unit]
+  def apply(msg: A): F[Unit]
 }
 ```
 
@@ -59,7 +59,7 @@ trait Receive[F[_], A, B] {
 
   type Stop = Boolean
 
-  def apply(a: A, reply: Reply[F, B]): F[Stop]
+  def apply(msg: A, reply: Reply[F, B]): F[Stop]
 
   def postStop: F[Unit]
 }

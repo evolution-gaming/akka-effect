@@ -1,10 +1,10 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.{SnapshotSelectionCriteria, Snapshotter => _, _}
-import cats.FlatMap
 import cats.effect.{Concurrent, Resource}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Act, Adapter}
+import cats.{FlatMap, Monad}
+import com.evolutiongaming.akkaeffect.{Act, Adapter, Convert}
 import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 
 import scala.util.Try
@@ -112,4 +112,27 @@ object Snapshotter {
 
 
   final case class Result[F[_]](seqNr: SeqNr, done: F[Unit])
+
+
+  implicit class SnapshotterOps[F[_], A](val self: Snapshotter[F, A]) extends AnyVal {
+
+    // TODO
+    def convert[B](implicit F: Monad[F], ba: Convert[F, B, A]): Snapshotter[F, B] = new Snapshotter[F, B] {
+
+      def save(snapshot: B) = ba(snapshot).flatMap(self.save)
+
+      def delete(seqNr: SeqNr) = self.delete(seqNr)
+
+      def delete(criteria: SnapshotSelectionCriteria) = self.delete(criteria)
+    }
+
+    /*def narrow[B <: A]: Snapshotter[F, B] = new Snapshotter[F, B] {
+
+      def save(snapshot: B) = self.save(snapshot)
+
+      def delete(seqNr: SeqNr) = self.dele
+
+      def delete(criteria: SnapshotSelectionCriteria) = ???
+    } */
+  }
 }

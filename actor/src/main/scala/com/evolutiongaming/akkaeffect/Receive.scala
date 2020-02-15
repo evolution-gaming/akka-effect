@@ -2,7 +2,6 @@ package com.evolutiongaming.akkaeffect
 
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
-import com.evolutiongaming.akkaeffect.Convert.implicits._
 
 /**
   * @see [[akka.actor.Actor.receive]]
@@ -14,7 +13,7 @@ trait Receive[F[_], A, B] {
     * Called strictly sequentially, next message will be processed only after we've done with the previous one
     * This basically preserves the semantic of Actors
     */
-  def apply(a: A, reply: Reply[F, B]): F[Stop]
+  def apply(msg: A, reply: Reply[F, B]): F[Stop]
 }
 
 object Receive {
@@ -50,11 +49,26 @@ object Receive {
     }
 
 
-    def untyped(implicit F: FlatMap[F], anyToA: Convert[F, Any, A]): Receive[F, Any, Any] = {
-      (a: Any, reply: Reply[F, Any]) => {
+    def convert[A1, B1](implicit
+      F: FlatMap[F],
+      af: A1 => F[A],
+      bf: B => F[B1]
+    ): Receive[F, A1, B1] = {
+      (msg: A1, reply: Reply[F, B1]) => {
         for {
-          a    <- a.convert[F, A]
-          stop <- self(a, reply)
+          msg  <- af(msg)
+          stop <- self(msg, reply.convertF(bf))
+        } yield stop
+      }
+    }
+
+
+    // TODO add widen, untyped
+    def typeless(f: Any => F[A])(implicit F: FlatMap[F]): Receive[F, Any, Any] = {
+      (msg: Any, reply: Reply[F, Any]) => {
+        for {
+          msg  <- f(msg)
+          stop <- self(msg, reply)
         } yield stop
       }
     }

@@ -3,9 +3,10 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, PoisonPill, Props, ReceiveTimeout}
 import akka.testkit.TestActors
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Async, Concurrent, IO, Resource, Sync, Timer}
+import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
+import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite
@@ -413,18 +414,6 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 object ActorOfTest {
 
   val error: Throwable = new RuntimeException("test") with NoStackTrace
-
-  implicit class AnyOps[A](val self: A) extends AnyVal {
-
-    // TODO move out
-    def cast[F[_] : Sync, B <: A](implicit tag: ClassTag[B]): F[B] = {
-      def error = new ClassCastException(s"${self.getClass.getName} cannot be cast to ${tag.runtimeClass.getName}")
-      tag.unapply(self) match {
-        case Some(a) => a.pure[F]
-        case None    => error.raiseError[F, B]
-      }
-    }
-  }
 
   final case class WithCtx[F[_], A](f: ActorCtx[F, Any, Any] => F[A])
 }

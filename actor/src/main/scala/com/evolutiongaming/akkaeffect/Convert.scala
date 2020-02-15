@@ -20,16 +20,6 @@ object Convert {
   implicit def identityConversion[F[_] : Applicative, A]: Convert[F, A, A] = _.pure[F]
 
 
-  def cast[F[_] : Sync, A, B <: A](implicit tag: ClassTag[B]): Convert[F, A, B] = {
-    a: A => {
-      tag.unapply(a) match {
-        case Some(a) => a.pure[F]
-        case None    => ClassCastError(a)(tag).raiseError[F, B]
-      }
-    }
-  }
-
-
   object implicits {
 
     implicit class IdOpsConvert[A](val self: A) extends AnyVal {

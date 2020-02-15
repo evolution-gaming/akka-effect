@@ -2,8 +2,6 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import cats.implicits._
 import cats.{Applicative, FlatMap}
-import com.evolutiongaming.akkaeffect.Convert
-import com.evolutiongaming.akkaeffect.Convert.implicits._
 
 trait Replay[F[_], S, E] {
 
@@ -19,19 +17,43 @@ object Replay {
 
   implicit class ReplayOps[F[_], S, E](val self: Replay[F, S, E]) extends AnyVal {
 
-    def untyped(implicit
-      F: FlatMap[F],
-      anyToS: Convert[F, Any, S],
-      anyToE: Convert[F, Any, E]
-    ): Replay[F, Any, Any] = {
-
-      (state: Any, event: Any, seqNr: SeqNr) => {
+    def convertF[S1, E1](
+      sf: S => F[S1],
+      s1f: S1 => F[S],
+      ef: E1 => F[E])(implicit
+      F: FlatMap[F]
+    ): Replay[F, S1, E1] = {
+      (state: S1, event: E1, seqNr: SeqNr) => {
         for {
-          state <- state.convert[F, S]
-          event <- event.convert[F, E]
-          state <- self(state, event, seqNr)
-        } yield state
+          s <- s1f(state)
+          e <- ef(event)
+          s <- self(s, e, seqNr)
+          s <- sf(s)
+        } yield s
       }
+    }
+
+    def convert[S1, E1](
+      sf: S => S1,
+      s1f: S1 => S,
+      ef: E1 => E)(implicit
+      F: Applicative[F]
+    ): Replay[F, S1, E1] = {
+      (state: S1, event: E1, seqNr: SeqNr) =>
+        for {
+          s <- self(s1f(state), ef(event), seqNr)
+        } yield {
+          sf(s)
+        }
+    }
+
+    def typeless(sf: Any => F[S], ef: Any => F[E])(implicit F: FlatMap[F]): Replay[F, Any, Any] = {
+      (state: Any, event: Any, seqNr: SeqNr) =>
+        for {
+          s <- sf(state)
+          e <- ef(event)
+          s <- self(s, e, seqNr)
+        } yield s
     }
   }
 }

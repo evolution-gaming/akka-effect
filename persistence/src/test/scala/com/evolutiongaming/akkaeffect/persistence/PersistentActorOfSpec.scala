@@ -7,6 +7,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, IO, Resource, Sync}
 import cats.implicits._
+import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.akkaeffect.persistence.InstrumentPersistenceSetup.Action
@@ -75,7 +76,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
             val recovering: Recovering[F, State, Any, Event, Any] = new Recovering[F, State, Any, Event, Any] {
 
-              def initial = 0
+              def initial = 0.pure[F]
 
               val replay = new Replay[F, State, Event] {
 
@@ -93,8 +94,8 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                 } yield {
                   new Receive[F, Any, Any] {
 
-                    def apply(cmd: Any, reply: Reply[F, Any]) = {
-                      cmd match {
+                    def apply(msg: Any, reply: Reply[F, Any]) = {
+                      msg match {
                         case a: Cmd.WithCtx[_] =>
                           for {
                             a <- a.f(ctx)
@@ -125,7 +126,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                             _ <- reply("stopping")
                           } yield true
 
-                        case _ => Error(s"unexpected $cmd").raiseError[F, Boolean]
+                        case _ => Error(s"unexpected $msg").raiseError[F, Boolean]
                       }
                     }
                   }
@@ -135,12 +136,9 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
             recovering.pure[Resource[F, *]]
           }
         }
-
-        implicit val anyToEvent = Convert.cast[F, Any, Event]
-
-        implicit val anyToState = Convert.cast[F, Any, State]
-
-        persistenceSetup.untyped.pure[F]
+        persistenceSetup
+          .typeless(_.cast[F, State], _.pure[F], _.cast[F, Event])
+          .pure[F]
       }
     }
 
@@ -148,7 +146,6 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       actorRef: ActorEffect[F, Any, Any],
       probe: Probe[F],
       receiveTimeout: F[Unit],
-      actorRefOf: ActorRefOf[F]
     ): F[Unit] = {
 
       val timeout = 10.seconds
@@ -199,7 +196,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       actorEffect         = PersistentActorEffect.of[F](actorRefOf, persistenceSetupOf)
       resources           = (actorEffect, probe).tupled
       result             <- resources.use { case (actorEffect, probe) =>
-        persistentActorOf(actorEffect, probe, receiveTimeout.get, actorRefOf)
+        persistentActorOf(actorEffect, probe, receiveTimeout.get)
       }
     } yield result
   }
@@ -231,7 +228,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
           ) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-              def initial = snapshotOffer.fold(0) { _.snapshot }
+              def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
               def replay = Replay.empty[F, S, E]
 
@@ -255,21 +252,21 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       }
     }
 
-    implicit val anyS = Convert.cast[F, Any, S]
-
-
     for {
       started            <- Deferred[F, Unit]
       stopped            <- Deferred[F, Unit]
       actions            <- Ref[F].of(List.empty[Action[S, C, E, R]])
-      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped)).pure[F]
-      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf.convert)
+      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped))
+        .typeless(_.cast[F, S], _.pure[F], _.pure[F], _.pure[F])
+        .pure[F]
+      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf)
       _                  <- actorEffect.use { _ => started.get }
       _                  <- stopped.get
       actions            <- actions.get
       _                   = actions.reverse shouldEqual List(
         Action.Created("0", akka.persistence.Recovery(), PluginIds.default),
         Action.RecoveryAllocated(None,0),
+        Action.Initial(0),
         Action.ReceiveAllocated(0, 0L),
         Action.RecoveryReleased)
     } yield {}
@@ -302,7 +299,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
           ) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-              def initial = snapshotOffer.fold(0) { _.snapshot }
+              def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
               def replay = Replay.empty[F, S, E]
 
@@ -328,15 +325,14 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       }
     }
 
-    implicit val anyS = Convert.cast[F, Any, S]
-
-
     def actions = for {
       started            <- Deferred[F, Unit]
       stopped            <- Deferred[F, Unit]
       actions            <- Ref[F].of(List.empty[Action[S, C, E, R]])
-      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped)).pure[F]
-      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf.convert)
+      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped))
+        .typeless(_.cast[F, S], _.pure[F], _.cast[F, E], _.pure[F])
+        .pure[F]
+      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf)
       _                  <- actorEffect.use { _ => started.get }
       _                  <- stopped.get
       actions            <- actions.get
@@ -349,6 +345,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       _ = saveSnapshot shouldEqual List(
         Action.Created("1", akka.persistence.Recovery(), PluginIds.default),
         Action.RecoveryAllocated(none, 0),
+        Action.Initial(0),
         Action.AppendEvents(Nel.of(Nel.of(0L))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(1),
@@ -361,6 +358,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       _ = recover shouldEqual List(
         Action.Created("1", akka.persistence.Recovery(), PluginIds.default),
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("1", 1), 1).some, 1),
+        Action.Initial(1),
         Action.AppendEvents(Nel.of(Nel.of(0L))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(2),
@@ -399,7 +397,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
           ) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-              def initial = snapshotOffer.fold(0) { _.snapshot }
+              def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
               def replay = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
 
@@ -424,15 +422,15 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       }
     }
 
-    implicit val anyS = Convert.cast[F, Any, S]
-
-
+    
     def actions = for {
       started            <- Deferred[F, Unit]
       stopped            <- Deferred[F, Unit]
       actions            <- Ref[F].of(List.empty[Action[S, C, E, R]])
-      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped)).pure[F]
-      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf.convert)
+      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped))
+        .typeless(_.cast[F, S], _.pure[F], _.cast[F, E], _.pure[F])
+        .pure[F]
+      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf)
       _                  <- actorEffect.use { _ => started.get }
       _                  <- stopped.get
       actions            <- actions.get
@@ -445,6 +443,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       _ = appendEvents shouldEqual List(
         Action.Created("2", akka.persistence.Recovery(), PluginIds.default),
         Action.RecoveryAllocated(none, 0),
+        Action.Initial(0),
         Action.AppendEvents(Nel.of(Nel.of(0, 1), Nel.of(2))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(3),
@@ -454,6 +453,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       _ = recover shouldEqual List(
         Action.Created("2", akka.persistence.Recovery(), PluginIds.default),
         Action.RecoveryAllocated(none, 0),
+        Action.Initial(0),
         Action.Replayed(0, 0, 1, 0),
         Action.Replayed(0, 1, 2, 1),
         Action.Replayed(1, 2, 3, 3),
@@ -492,7 +492,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
           ) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-              def initial = snapshotOffer.fold(0) { _.snapshot }
+              def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
               def replay = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
 
@@ -519,15 +519,14 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       }
     }
 
-    implicit val anyS = Convert.cast[F, Any, S]
-
-
     def actions = for {
       started            <- Deferred[F, Unit]
       stopped            <- Deferred[F, Unit]
       actions            <- Ref[F].of(List.empty[Action[S, C, E, R]])
-      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped)).pure[F]
-      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf.convert)
+      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped))
+        .typeless(_.cast[F, S], _.pure[F], _.cast[F, E], _.pure[F])
+        .pure[F]
+      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf)
       _                  <- actorEffect.use { _ => started.get }
       _                  <- stopped.get
       actions            <- actions.get
@@ -540,6 +539,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       _ = write shouldEqual List(
         Action.Created("3", akka.persistence.Recovery(), PluginIds.default),
         Action.RecoveryAllocated(none, 0),
+        Action.Initial(0),
         Action.AppendEvents(Nel.of(Nel.of(0))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(1),
@@ -555,6 +555,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       _ = recover shouldEqual List(
         Action.Created("3", akka.persistence.Recovery(), PluginIds.default),
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("3", 1), 1).some, 1),
+        Action.Initial(1),
         Action.Replayed(1, 1, 2, 2),
         Action.AppendEvents(Nel.of(Nel.of(0))),
         Action.AppendEventsOuter,
@@ -572,20 +573,6 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 }
 
 object PersistentActorOfSpec {
-
-
-  implicit class AnyOps[A](val self: A) extends AnyVal {
-
-    // TODO move out
-    def cast[F[_] : Sync, B <: A](implicit tag: ClassTag[B]): F[B] = {
-      def error = new ClassCastException(s"${ self.getClass.getName } cannot be cast to ${ tag.runtimeClass.getName }")
-
-      tag.unapply(self) match {
-        case Some(a) => a.pure[F]
-        case None    => error.raiseError[F, B]
-      }
-    }
-  }
 
   case class Error(msg: String) extends RuntimeException(msg) with NoStackTrace
 }

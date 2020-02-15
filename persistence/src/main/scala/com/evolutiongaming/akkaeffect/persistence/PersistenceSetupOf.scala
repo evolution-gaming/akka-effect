@@ -31,7 +31,24 @@ object PersistenceSetupOf {
       anyR: Convert[F, Any, R]
     ): PersistenceSetupOf[F, Any, Any, Any, Any] = {
 
-      ctx: ActorCtx[F, Any, Any] => self(ctx.convert[C, R]).map { _.untyped }
+      ctx: ActorCtx[F, Any, Any] => self(ctx.convert[C, R]).map { _.convert }
+    }
+
+
+    def typeless(
+      sf: Any => F[S],
+      cf: Any => F[C],
+      ef: Any => F[E],
+      rf: Any => F[R])(implicit
+      F: Monad[F],
+    ): PersistenceSetupOf[F, Any, Any, Any, Any] = {
+      ctx: ActorCtx[F, Any, Any] => {
+        for {
+          persistenceSetup <- self(ctx.typeful(rf))
+        } yield {
+          persistenceSetup.typeless(sf, cf, ef)
+        }
+      }
     }
   }
 }

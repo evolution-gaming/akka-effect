@@ -1,11 +1,12 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence._
+import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Act, PromiseEffect}
+import com.evolutiongaming.akkaeffect.{Act, Convert, PromiseEffect}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 
@@ -19,7 +20,6 @@ import scala.collection.immutable.Queue
   * @see [[akka.persistence.PersistentActor.persistAllAsync]]
   */
 trait Persist[F[_], -A] {
-  import Persist._
 
   /**
     * @param events to be saved, inner Nel[A] will be persisted atomically, outer Nel[_] for batching
@@ -124,6 +124,27 @@ object Persist {
 
         Adapter(persist, onError)
       }
+  }
+
+
+  implicit class AppendOps[F[_], A](val self: Persist[F, A]) extends AnyVal {
+
+    // TODO not use this heavy convert at runtime
+    def convert[B](implicit
+      F: Monad[F],
+      ba: Convert[F, B, A]
+    ): Persist[F, B] = new Persist[F, B] {
+
+      def apply(events: Nel[Nel[B]]) = {
+        for {
+          events <- events.traverse { _.traverse { b => ba(b) } }
+          seqNr  <- self(events)
+        } yield seqNr
+      }
+    }
+
+
+    def narrow[B <: A]: Persist[F, B] = (events: Nel[Nel[B]]) => self(events)
   }
 
 

@@ -1,10 +1,10 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence._
-import cats.data.{NonEmptyList => Nel}
+import cats.Monad
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Act, Adapter}
+import com.evolutiongaming.akkaeffect.{Act, Adapter, Convert}
 import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 
 import scala.util.Try
@@ -13,8 +13,6 @@ import scala.util.Try
 trait Journaller[F[_], -A] {
   /**
     * @see [[akka.persistence.PersistentActor.persistAllAsync]]
-    * @param events to be saved, inner Nel[A] will be persisted atomically, outer Nel[_] for batching
-    * @return SeqNr of last event
     */
   def append: Persist[F, A] // TODO val and rename Persist to Append
 
@@ -91,6 +89,26 @@ object Journaller {
       def lastSequenceNr = actor.lastSequenceNr
 
       def deleteMessages(toSequenceNr: SeqNr) = actor.deleteMessages(toSequenceNr)
+    }
+  }
+
+
+  implicit class JournallerOps[F[_], A](val self: Journaller[F, A]) extends AnyVal {
+
+    // TODO remove Convert
+    def convert[B](implicit F: Monad[F], ba: Convert[F, B, A]): Journaller[F, B] = new Journaller[F, B] {
+
+      val append = self.append.convert[B]
+
+      def deleteTo(seqNr: SeqNr) = self.deleteTo(seqNr)
+    }
+
+
+    def narrow[B <: A]: Journaller[F, B] = new Journaller[F, B] {
+
+      val append = self.append.narrow[B]
+
+      def deleteTo(seqNr: SeqNr) = self.deleteTo(seqNr)
     }
   }
 }

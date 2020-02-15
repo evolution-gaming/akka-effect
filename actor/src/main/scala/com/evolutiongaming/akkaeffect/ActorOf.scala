@@ -6,6 +6,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import com.evolutiongaming.catshelper.CatsHelper._
 
+// Add Unapply and types
 object ActorOf {
 
   def apply[F[_] : Sync : ToFuture : FromFuture](

@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorContext, ActorRef}
-import cats.implicits._
 import cats.FlatMap
 import cats.effect.Sync
 import com.evolutiongaming.catshelper.FromFuture
@@ -61,13 +60,50 @@ object ActorCtx {
   implicit class ActorCtxOps[F[_], A, B](val actorCtx: ActorCtx[F, A, B]) extends AnyVal {
 
     // TODO refactor `narrow` methods
-    def convert[C, D](implicit
+    def convert[A1, B1](implicit
       F: FlatMap[F],
-      ca: Convert[F, C, A],
-      bd: Convert[F, B, D]
-    ): ActorCtx[F, C, D] = new ActorCtx[F, C, D] {
+      ca: Convert[F, A1, A],
+      bd: Convert[F, B, B1]
+    ): ActorCtx[F, A1, B1] = new ActorCtx[F, A1, B1] {
 
-      def self = actorCtx.self.convert[C, D]
+      def self = actorCtx.self.convert[A1, B1]
+
+      def dispatcher = actorCtx.dispatcher
+
+      def setReceiveTimeout(timeout: Duration) = actorCtx.setReceiveTimeout(timeout)
+
+      def child(name: String) = actorCtx.child(name)
+
+      def children = actorCtx.children
+
+      def actorRefOf = actorCtx.actorRefOf
+    }
+
+
+    /*// TODO rename method
+    def untyped[A1, B1](
+    )(implicit F: FlatMap[F],
+    ): ActorCtx[F, A1, B1] = new ActorCtx[F, A1, B1] {
+
+      def self = actorCtx.self.convert[A1, B1]
+
+      def dispatcher = actorCtx.dispatcher
+
+      def setReceiveTimeout(timeout: Duration) = actorCtx.setReceiveTimeout(timeout)
+
+      def child(name: String) = actorCtx.child(name)
+
+      def children = actorCtx.children
+
+      def actorRefOf = actorCtx.actorRefOf
+    }*/
+  }
+
+  implicit class ActorCtxAnyOps[F[_]](val actorCtx: ActorCtx[F, Any, Any]) extends AnyVal {
+
+    def typeful[A, B](f: Any => F[B])(implicit F: FlatMap[F]): ActorCtx[F, A, B] = new ActorCtx[F, A, B] {
+
+      val self = actorCtx.self.typeful(f)
 
       def dispatcher = actorCtx.dispatcher
 

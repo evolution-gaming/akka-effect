@@ -120,12 +120,16 @@ object InstrumentPersistenceSetup {
 
             for {
               recovering <- persistenceSetup.recoveryStarted(snapshotOffer, journaller1, snapshotter1)
-              _          <- resource(Action.RecoveryAllocated(snapshotOffer1, recovering.initial), Action.RecoveryReleased)
+              state      <- Resource.liftF(recovering.initial)
+              _          <- resource(Action.RecoveryAllocated(snapshotOffer1, state), Action.RecoveryReleased)
             } yield {
 
               new Recovering[F, S, C, E, R] {
 
-                def initial = recovering.initial
+                def initial = for {
+                  state <- recovering.initial
+                  _     <- record(Action.Initial(state))
+                } yield state
 
                 def replay = new Replay[F, S, E] {
                   def apply(state: S, event: E, seqNr: SeqNr) = {
@@ -143,19 +147,19 @@ object InstrumentPersistenceSetup {
                     _       <- record(Action.ReceiveAllocated(state, seqNr))
                   } yield {
                     new Receive[F, C, R] {
-                      def apply(a: C, reply: Reply[F, R]) = {
+                      def apply(msg: C, reply: Reply[F, R]) = {
 
                         val reply1 = new Reply[F, R] {
-                          def apply(a: R) = {
+                          def apply(msg: R) = {
                             for {
-                              _ <- record(Action.Replied(a))
-                              a <- reply(a)
+                              _ <- record(Action.Replied(msg))
+                              a <- reply(msg)
                             } yield a
                           }
                         }
                         for {
-                          stop <- receive(a, reply1)
-                          _    <- record(Action.Received(a, stop))
+                          stop <- receive(msg, reply1)
+                          _    <- record(Action.Received(msg, stop))
                         } yield stop
                       }
                     }
@@ -179,6 +183,9 @@ object InstrumentPersistenceSetup {
       recovery: Recovery,
       pluginIds: PluginIds
     ) extends Action[Nothing, Nothing, Nothing, Nothing]
+
+
+    final case class Initial[S, E](state: S) extends Action[S, Nothing, Nothing, Nothing]
 
 
     final case class Replayed[S, E](before: S, event: E, seqNr: SeqNr, after: S) extends Action[S, Nothing, E, Nothing]

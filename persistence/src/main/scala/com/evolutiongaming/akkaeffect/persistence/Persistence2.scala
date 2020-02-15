@@ -33,7 +33,11 @@ private[akkaeffect] object Persistence2 {
       def snapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
         persistenceSetup
           .recoveryStarted(snapshotOffer.some, journaller, snapshotter)
-          .map { recovering => Persistence2.recovering(recovering.initial, recovering) }
+          .flatMap { recovering =>
+            Resource
+              .liftF(recovering.initial)
+              .map { state => Persistence2.recovering(state, recovering) }
+          }
           .toReleasable
           .map { _.some }
       }
@@ -43,12 +47,16 @@ private[akkaeffect] object Persistence2 {
         persistenceSetup
           .recoveryStarted(none, journaller, snapshotter)
           .flatMap { recovering =>
-            val persistence = recovering
-              .replay(recovering.initial, event, seqNr)
-              .map { state =>
-                Persistence2.recovering(state, recovering)
+            Resource
+              .liftF(recovering.initial)
+              .flatMap { state =>
+                val persistence = recovering
+                  .replay(state, event, seqNr)
+                  .map { state =>
+                    Persistence2.recovering(state, recovering)
+                  }
+                Resource.liftF(persistence)
               }
-            Resource.liftF(persistence)
           }
           .toReleasable
           .map { _.some }
@@ -58,10 +66,14 @@ private[akkaeffect] object Persistence2 {
         persistenceSetup
           .recoveryStarted(none, journaller, snapshotter)
           .flatMap { recovering =>
-            val receive = recovering
-              .recoveryCompleted(recovering.initial, seqNr)
-              .map { receive => Persistence2.receive[F, S, C, E, R](replyOf, receive) }
-            Resource.liftF(receive)
+            Resource
+              .liftF(recovering.initial)
+              .flatMap { state =>
+                val receive = recovering
+                  .recoveryCompleted(state, seqNr)
+                  .map { receive => Persistence2.receive[F, S, C, E, R](replyOf, receive) }
+                Resource.liftF(receive)
+              }
           }
           .toReleasable
           .map { _.some }

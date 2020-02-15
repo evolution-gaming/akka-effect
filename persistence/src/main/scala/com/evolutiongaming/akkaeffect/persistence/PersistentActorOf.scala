@@ -13,12 +13,14 @@ import scala.collection.immutable.Seq
 
 object PersistentActorOf {
 
+//   TODO
+//  def apply[F[_] : Concurrent : ToFuture : FromFuture : ToTry, S, C, E, R](
+//    persistenceSetupOf: PersistenceSetupOf[F, S, C, E, R]
   def apply[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
     persistenceSetupOf: PersistenceSetupOf[F, Any, Any, Any, Any]
   ): PersistentActor = {
 
-    new PersistentActor {
-      actor =>
+    new PersistentActor { actor =>
 
       println("new PersistentActor")
       lazy val (act, persistenceSetup) = {
@@ -43,9 +45,9 @@ object PersistentActorOf {
           Sync[F].delay[Throwable] { PersistentActorError(s"$errorPrefix has been stopped") }
         }
         val result = for {
-          stopped <- Resource.liftF(stopped)
-          persist <- Persist.adapter[F, Any](act.value, actor, stopped())
-          journaller <- Journaller.adapter[F, Any](act.value, persist.value, actor, stopped())
+          stopped     <- Resource.liftF(stopped)
+          persist     <- Persist.adapter[F, Any](act.value, actor, stopped())
+          journaller  <- Journaller.adapter[F, Any](act.value, persist.value, actor, stopped())
           snapshotter <- Snapshotter.adapter[F](act.value, actor, stopped())
         } yield {
           (journaller, snapshotter, persist)

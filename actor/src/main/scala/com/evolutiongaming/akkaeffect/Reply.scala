@@ -3,11 +3,11 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.ActorRef
 import cats.effect.Sync
 import cats.implicits._
-import cats.{Applicative, ~>}
+import cats.{Applicative, FlatMap, ~>}
 
 trait Reply[F[_], -A] {
 
-  def apply(a: A): F[Unit]
+  def apply(msg: A): F[Unit]
   // TODO support fail call
 }
 
@@ -25,8 +25,8 @@ object Reply {
   ): Reply[F, Any] = {
     new Reply[F, Any] {
 
-      def apply(a: Any): F[Unit] = {
-        Sync[F].delay { to.tell(a, from.orNull) }
+      def apply(msg: Any): F[Unit] = {
+        Sync[F].delay { to.tell(msg, from.orNull) }
       }
 
       override def toString = {
@@ -45,12 +45,21 @@ object Reply {
 
     def mapK[G[_]](f: F ~> G): Reply[G, A] = new Reply[G, A] {
 
-      def apply(a: A) = f(self(a))
+      def apply(msg: A) = f(self(msg))
 
       override def toString = self.toString
     }
 
 
     def narrow[B <: A]: Reply[F, B] = self
+
+
+    def convertF[B](f: B => F[A])(implicit F: FlatMap[F]): Reply[F, B] = {
+      msg: B =>
+        for {
+          a <- f(msg)
+          a <- self(a)
+        } yield a
+    }
   }
 }
