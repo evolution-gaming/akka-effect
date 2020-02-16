@@ -31,11 +31,19 @@ private[akkaeffect] object Persistence {
   def started[F[_] : Sync : Fail, S, C, E, R](
     eventSourced: EventSourced[F, S, C, E, R],
   ): Resource[F, Option[Persistence[F, S, C, E, R]]] = {
+    eventSourced
+      .start
+      .map { _.map { started => Persistence.started(started) } }
+  }
 
-    val result: Persistence[F, S, C, E, R] = new Persistence[F, S, C, E, R] {
+  def started[F[_] : Sync : Fail, S, C, E, R](
+    started: Started[F, S, C, E, R],
+  ): Persistence[F, S, C, E, R] = {
+
+    new Persistence[F, S, C, E, R] {
 
       def snapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
-        eventSourced
+        started
           .recoveryStarted(snapshotOffer.some)
           .flatMap { recovering =>
             Resource
@@ -48,7 +56,7 @@ private[akkaeffect] object Persistence {
 
       def event(event: E, seqNr: SeqNr) = {
         println(s"Persistence2.event $event")
-        eventSourced
+        started
           .recoveryStarted(none)
           .flatMap { recovering =>
             Resource
@@ -72,7 +80,7 @@ private[akkaeffect] object Persistence {
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S]
       ) = {
-        eventSourced
+        started
           .recoveryStarted(none)
           .flatMap { recovering =>
             Resource
@@ -92,8 +100,6 @@ private[akkaeffect] object Persistence {
         unexpected[F, Result](name = s"command $cmd", state = "started")
       }
     }
-
-    result.some.pure[Resource[F, *]]
   }
 
 

@@ -68,73 +68,79 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
           def id = "persistenceId"
 
-          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[State]]) = {
+          def start = {
+            val started: Started[F, State, Any, Event, Any] = new Started[F, State, Any, Event, Any] {
+              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[State]]) = {
 
-            val recovering: Recovering[F, State, Any, Event, Any] = new Recovering[F, State, Any, Event, Any] {
+                val recovering: Recovering[F, State, Any, Event, Any] = new Recovering[F, State, Any, Event, Any] {
 
-              def initial = 0.pure[F]
+                  def initial = 0.pure[F]
 
-              val replay = new Replay[F, State, Event] {
+                  val replay = new Replay[F, State, Event] {
 
-                def apply(state: State, event: Event, seqNr: SeqNr) = {
-                  println(s"replay state: $state, event: $event, seqNr: $seqNr")
-                  state.pure[F]
-                }
-              }
+                    def apply(state: State, event: Event, seqNr: SeqNr) = {
+                      println(s"replay state: $state, event: $event, seqNr: $seqNr")
+                      state.pure[F]
+                    }
+                  }
 
-              def recoveryCompleted(
-                state: State,
-                seqNr: SeqNr,
-                journaller: Journaller[F, Event],
-                snapshotter: Snapshotter[F, State]
-              ) = {
-                println(s"onRecoveryCompleted state: $state, seqNr: $seqNr")
+                  def recoveryCompleted(
+                    state: State,
+                    seqNr: SeqNr,
+                    journaller: Journaller[F, Event],
+                    snapshotter: Snapshotter[F, State]
+                  ) = {
+                    println(s"onRecoveryCompleted state: $state, seqNr: $seqNr")
 
-                for {
-                  stateRef <- Ref[F].of(state)
-                } yield {
-                  new Receive[F, Any, Any] {
+                    for {
+                      stateRef <- Ref[F].of(state)
+                    } yield {
+                      new Receive[F, Any, Any] {
 
-                    def apply(msg: Any, reply: Reply[F, Any]) = {
-                      msg match {
-                        case a: Cmd.WithCtx[_] =>
-                          for {
-                            a <- a.f(ctx)
-                            _ <- reply(a)
-                          } yield false
+                        def apply(msg: Any, reply: Reply[F, Any]) = {
+                          msg match {
+                            case a: Cmd.WithCtx[_] =>
+                              for {
+                                a <- a.f(ctx)
+                                _ <- reply(a)
+                              } yield false
 
-                        case ReceiveTimeout =>
-                          for {
-                            _ <- ctx.setReceiveTimeout(Duration.Inf)
-                            _ <- receiveTimeout
-                          } yield false
+                            case ReceiveTimeout =>
+                              for {
+                                _ <- ctx.setReceiveTimeout(Duration.Inf)
+                                _ <- receiveTimeout
+                              } yield false
 
-                        case Cmd.Inc =>
-                          for {
-                            _      <- journaller.append(Nel.of(Nel.of("a"))).flatten
-                            _      <- stateRef.update { _ + 1 }
-                            state  <- stateRef.get
-                            result <- snapshotter.save(state)
-                            seqNr  <- journaller.append(Nel.of(Nel.of("b"), Nel.of("c", "d")))
-                            seqNr  <- seqNr
-                            _      <- result.done
-                            _      <- stateRef.update { _ + 1 }
-                            _      <- reply(seqNr)
-                          } yield false
+                            case Cmd.Inc =>
+                              for {
+                                _      <- journaller.append(Nel.of(Nel.of("a"))).flatten
+                                _      <- stateRef.update { _ + 1 }
+                                state  <- stateRef.get
+                                result <- snapshotter.save(state)
+                                seqNr  <- journaller.append(Nel.of(Nel.of("b"), Nel.of("c", "d")))
+                                seqNr  <- seqNr
+                                _      <- result.done
+                                _      <- stateRef.update { _ + 1 }
+                                _      <- reply(seqNr)
+                              } yield false
 
-                        case Cmd.Stop =>
-                          for {
-                            _ <- reply("stopping")
-                          } yield true
+                            case Cmd.Stop =>
+                              for {
+                                _ <- reply("stopping")
+                              } yield true
 
-                        case _ => Error(s"unexpected $msg").raiseError[F, Boolean]
+                            case _ => Error(s"unexpected $msg").raiseError[F, Boolean]
+                          }
+                        }
                       }
                     }
                   }
                 }
+                recovering.pure[Resource[F, *]]
               }
             }
-            recovering.pure[Resource[F, *]]
+
+            started.some.pure[Resource[F, *]]
           }
         }
         eventSourced
@@ -214,40 +220,46 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     type R = Any
 
     def eventSourcedOf(
-      started: Deferred[F, Unit],
-      stopped: Deferred[F, Unit]
+      startedDeferred: Deferred[F, Unit],
+      stoppedDeferred: Deferred[F, Unit]
     ): EventSourcedOf[F, S, C, E, R] = {
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
           def id = "0"
 
-          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
-            val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+          def start = {
+            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
 
-              def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
+              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
+                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-              def replay = Replay.empty[F, S, E]
+                  def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-              def recoveryCompleted(
-                state: S,
-                seqNr: SeqNr,
-                journaller: Journaller[F, E],
-                snapshotter: Snapshotter[F, S]
-              ) = {
+                  def replay = Replay.empty[F, S, E]
+
+                  def recoveryCompleted(
+                    state: S,
+                    seqNr: SeqNr,
+                    journaller: Journaller[F, E],
+                    snapshotter: Snapshotter[F, S]
+                  ) = {
+                    for {
+                      _ <- startedDeferred.complete(())
+                    } yield {
+                      Receive.empty[F, C, R]
+                    }
+                  }
+                }
+
                 for {
-                  _ <- started.complete(())
+                  _ <- Resource.make(().pure[F]) { _ => stoppedDeferred.complete(()) }
                 } yield {
-                  Receive.empty[F, C, R]
+                  recovering
                 }
               }
             }
-
-            for {
-              _ <- Resource.make(().pure[F]) { _ => stopped.complete(()) }
-            } yield {
-              recovering
-            }
+            started.some.pure[Resource[F, *]]
           }
         }
         eventSourced.pure[F]
@@ -267,10 +279,12 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
         Action.Created("0", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
         Action.RecoveryAllocated(None,0),
         Action.Initial(0),
         Action.ReceiveAllocated(0, 0L),
-        Action.RecoveryReleased)
+        Action.RecoveryReleased,
+        Action.Released)
     } yield {}
   }
 
@@ -286,42 +300,48 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     type R = Any
 
     def eventSourcedOf(
-      started: Deferred[F, Unit],
-      stopped: Deferred[F, Unit]
+      startedDeferred: Deferred[F, Unit],
+      stoppedDeferred: Deferred[F, Unit]
     ): EventSourcedOf[F, S, C, E, R] = {
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
           def id = "1"
 
-          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
-            val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+          def start = {
+            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
+              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
+                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-              def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
+                  def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-              def replay = Replay.empty[F, S, E]
+                  def replay = Replay.empty[F, S, E]
 
-              def recoveryCompleted(
-                state: S,
-                seqNr: SeqNr,
-                journaller: Journaller[F, E],
-                snapshotter: Snapshotter[F, S]
-              ) = {
+                  def recoveryCompleted(
+                    state: S,
+                    seqNr: SeqNr,
+                    journaller: Journaller[F, E],
+                    snapshotter: Snapshotter[F, S]
+                  ) = {
+                    for {
+                      _ <- journaller.append(Nel.of(Nel.of(0))).flatten
+                      _ <- snapshotter.save(1).flatMap { _.done }
+                      _ <- startedDeferred.complete(())
+                    } yield {
+                      Receive.empty[F, C, R]
+                    }
+                  }
+                }
+
                 for {
-                  _ <- journaller.append(Nel.of(Nel.of(0))).flatten
-                  _ <- snapshotter.save(1).flatMap { _.done }
-                  _ <- started.complete(())
+                  _ <- Resource.make(().pure[F]) { _ => stoppedDeferred.complete(()) }
                 } yield {
-                  Receive.empty[F, C, R]
+                  recovering
                 }
               }
             }
 
-            for {
-              _ <- Resource.make(().pure[F]) { _ => stopped.complete(()) }
-            } yield {
-              recovering
-            }
+            started.some.pure[Resource[F, *]]
           }
         }
         eventSourced.pure[F]
@@ -347,6 +367,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       saveSnapshot <- actions
       _ = saveSnapshot shouldEqual List(
         Action.Created("1", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
         Action.RecoveryAllocated(none, 0),
         Action.Initial(0),
         Action.AppendEvents(Nel.of(Nel.of(0L))),
@@ -356,10 +377,12 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
         Action.SaveSnapshotOuter(1),
         Action.SaveSnapshotInner,
         Action.ReceiveAllocated(0, 0L),
-        Action.RecoveryReleased)
+        Action.RecoveryReleased,
+        Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
         Action.Created("1", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("1", 1), 1).some, 1),
         Action.Initial(1),
         Action.AppendEvents(Nel.of(Nel.of(0L))),
@@ -369,7 +392,8 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
         Action.SaveSnapshotOuter(2),
         Action.SaveSnapshotInner,
         Action.ReceiveAllocated(1, 1L),
-        Action.RecoveryReleased)
+        Action.RecoveryReleased,
+        Action.Released)
     } yield {}
   }
 
@@ -385,41 +409,47 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     type R = Any
 
     def eventSourcedOf(
-      started: Deferred[F, Unit],
-      stopped: Deferred[F, Unit]
+      startedDeferred: Deferred[F, Unit],
+      stoppedDeferred: Deferred[F, Unit]
     ): EventSourcedOf[F, S, C, E, R] = {
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
           def id = "2"
 
-          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
-            val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+          def start = {
+            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
+              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
+                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-              def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
+                  def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-              def replay = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
+                  def replay = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
 
-              def recoveryCompleted(
-                state: S,
-                seqNr: SeqNr,
-                journaller: Journaller[F, E],
-                snapshotter: Snapshotter[F, S]
-              ) = {
+                  def recoveryCompleted(
+                    state: S,
+                    seqNr: SeqNr,
+                    journaller: Journaller[F, E],
+                    snapshotter: Snapshotter[F, S]
+                  ) = {
+                    for {
+                      _ <- journaller.append(Nel.of(Nel.of(0, 1), Nel.of(2))).flatten
+                      _ <- startedDeferred.complete(())
+                    } yield {
+                      Receive.empty[F, C, R]
+                    }
+                  }
+                }
+
                 for {
-                  _ <- journaller.append(Nel.of(Nel.of(0, 1), Nel.of(2))).flatten
-                  _ <- started.complete(())
+                  _ <- Resource.make(().pure[F]) { _ => stoppedDeferred.complete(()) }
                 } yield {
-                  Receive.empty[F, C, R]
+                  recovering
                 }
               }
             }
 
-            for {
-              _ <- Resource.make(().pure[F]) { _ => stopped.complete(()) }
-            } yield {
-              recovering
-            }
+            started.some.pure[Resource[F, *]]
           }
         }
         eventSourced.pure[F]
@@ -446,16 +476,19 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       appendEvents <- actions
       _ = appendEvents shouldEqual List(
         Action.Created("2", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
         Action.RecoveryAllocated(none, 0),
         Action.Initial(0),
         Action.AppendEvents(Nel.of(Nel.of(0, 1), Nel.of(2))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(3),
         Action.ReceiveAllocated(0, 0L),
-        Action.RecoveryReleased)
+        Action.RecoveryReleased,
+        Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
         Action.Created("2", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
         Action.RecoveryAllocated(none, 0),
         Action.Initial(0),
         Action.Replayed(0, 0, 1, 0),
@@ -465,7 +498,8 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEventsOuter,
         Action.AppendEventsInner(6),
         Action.ReceiveAllocated(3, 3L),
-        Action.RecoveryReleased)
+        Action.RecoveryReleased,
+        Action.Released)
     } yield {}
   }
 
@@ -481,43 +515,49 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     type R = Any
 
     def eventSourcedOf(
-      started: Deferred[F, Unit],
-      stopped: Deferred[F, Unit]
+      startedDeferred: Deferred[F, Unit],
+      stoppedDeferred: Deferred[F, Unit]
     ): EventSourcedOf[F, S, C, E, R] = {
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
           def id = "3"
 
-          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
-            val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+          def start = {
+            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
+              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
+                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-              def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
+                  def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-              def replay = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
+                  def replay = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
 
-              def recoveryCompleted(
-                state: S,
-                seqNr: SeqNr,
-                journaller: Journaller[F, E],
-                snapshotter: Snapshotter[F, S]
-              ) = {
+                  def recoveryCompleted(
+                    state: S,
+                    seqNr: SeqNr,
+                    journaller: Journaller[F, E],
+                    snapshotter: Snapshotter[F, S]
+                  ) = {
+                    for {
+                      _ <- journaller.append(Nel.of(Nel.of(0))).flatten
+                      _ <- snapshotter.save(1).flatMap { _.done }
+                      _ <- journaller.append(Nel.of(Nel.of(1))).flatten
+                      _ <- startedDeferred.complete(())
+                    } yield {
+                      Receive.empty[F, C, R]
+                    }
+                  }
+                }
+
                 for {
-                  _ <- journaller.append(Nel.of(Nel.of(0))).flatten
-                  _ <- snapshotter.save(1).flatMap { _.done }
-                  _ <- journaller.append(Nel.of(Nel.of(1))).flatten
-                  _ <- started.complete(())
+                  _ <- Resource.make(().pure[F]) { _ => stoppedDeferred.complete(()) }
                 } yield {
-                  Receive.empty[F, C, R]
+                  recovering
                 }
               }
             }
 
-            for {
-              _ <- Resource.make(().pure[F]) { _ => stopped.complete(()) }
-            } yield {
-              recovering
-            }
+            started.some.pure[Resource[F, *]]
           }
         }
         eventSourced.pure[F]
@@ -543,6 +583,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       write <- actions
       _ = write shouldEqual List(
         Action.Created("3", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
         Action.RecoveryAllocated(none, 0),
         Action.Initial(0),
         Action.AppendEvents(Nel.of(Nel.of(0))),
@@ -555,10 +596,12 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEventsOuter,
         Action.AppendEventsInner(2),
         Action.ReceiveAllocated(0, 0L),
-        Action.RecoveryReleased)
+        Action.RecoveryReleased,
+        Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
         Action.Created("3", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("3", 1), 1).some, 1),
         Action.Initial(1),
         Action.Replayed(1, 1, 2, 2),
@@ -572,7 +615,8 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEventsOuter,
         Action.AppendEventsInner(4),
         Action.ReceiveAllocated(2, 2L),
-        Action.RecoveryReleased)
+        Action.RecoveryReleased,
+        Action.Released)
     } yield {}
   }
 }

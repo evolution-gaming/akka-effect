@@ -30,7 +30,7 @@ trait EventSourced[F[_], S, C, E, R] {
   // TODO onPreStart phase is missing
 
   // TODO describe resource release scope
-  def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]): Resource[F, Recovering[F, S, C, E, R]]
+  def start: Resource[F, Option[Started[F, S, C, E, R]]]
 }
 
 
@@ -52,19 +52,7 @@ object EventSourced {
 
       def id = self.id
 
-      def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S1]]) = {
-
-        val snapshotOffer1 = snapshotOffer.traverse { offer =>
-          s1f(offer.snapshot).map { snapshot => offer.copy(snapshot = snapshot) }
-        }
-
-        for {
-          snapshotOffer <- Resource.liftF(snapshotOffer1)
-          recovering    <- self.recoveryStarted(snapshotOffer)
-        } yield {
-          recovering.convert(sf, s1f, cf, ef, e1f, rf)
-        }
-      }
+      val start = self.start.map { _.map { _.convert(sf, s1f, cf, ef, e1f, rf) } }
     }
 
 
@@ -77,19 +65,7 @@ object EventSourced {
 
       def id = self.id
 
-      def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S1]]) = {
-
-        val snapshotOffer1 = snapshotOffer.traverse { snapshotOffer =>
-          sf(snapshotOffer.snapshot).map { snapshot => snapshotOffer.copy(snapshot = snapshot)}
-        }
-
-        for {
-          snapshotOffer <- Resource.liftF(snapshotOffer1)
-          recovering    <- self.recoveryStarted(snapshotOffer)
-        } yield {
-          recovering.widen(sf, cf, ef)
-        }
-      }
+      val start = self.start.map { _.map { _.widen(sf, cf, ef) } }
     }
 
 

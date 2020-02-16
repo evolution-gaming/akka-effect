@@ -36,134 +36,143 @@ object InstrumentEventSourced {
 
           def id = eventSourced.id
 
-          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
-
-            val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
-              val metadata = snapshotOffer.metadata.copy(timestamp = 0)
-              snapshotOffer.copy(metadata = metadata)
-            }
-
+          def start = {
             for {
-              recovering <- eventSourced.recoveryStarted(snapshotOffer)
-              state      <- Resource.liftF(recovering.initial)
-              _          <- resource(Action.RecoveryAllocated(snapshotOffer1, state), Action.RecoveryReleased)
+              started <- eventSourced.start
+              _       <- resource(Action.Started, Action.Released)
+            } yield for {
+              started <- started
             } yield {
+              snapshotOffer: Option[SnapshotOffer[S]] => {
 
-              new Recovering[F, S, C, E, R] {
-
-                def initial = for {
-                  state <- recovering.initial
-                  _     <- record(Action.Initial(state))
-                } yield state
-
-                def replay = new Replay[F, S, E] {
-                  def apply(state: S, event: E, seqNr: SeqNr) = {
-                    for {
-                      after <- recovering.replay(state, event, seqNr)
-                      _     <- record(Action.Replayed(state, event, seqNr, after))
-                    } yield after
-                  }
+                val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
+                  val metadata = snapshotOffer.metadata.copy(timestamp = 0)
+                  snapshotOffer.copy(metadata = metadata)
                 }
 
-                def recoveryCompleted(
-                  state: S,
-                  seqNr: SeqNr,
-                  journaller: Journaller[F, E],
-                  snapshotter: Snapshotter[F, S]
-                ) = {
+                for {
+                  recovering <- started.recoveryStarted(snapshotOffer)
+                  state      <- Resource.liftF(recovering.initial)
+                  _          <- resource(Action.RecoveryAllocated(snapshotOffer1, state), Action.RecoveryReleased)
+                } yield {
 
-                  val journaller1 = new Journaller[F, E] {
+                  new Recovering[F, S, C, E, R] {
 
-                    def append = (events: Nel[Nel[E]]) => {
-                      for {
-                        _     <- record(Action.AppendEvents(events))
-                        seqNr <- journaller.append(events)
-                        _     <- record(Action.AppendEventsOuter)
-                      } yield {
+                    def initial = for {
+                      state <- recovering.initial
+                      _     <- record(Action.Initial(state))
+                    } yield state
+
+                    def replay = new Replay[F, S, E] {
+                      def apply(state: S, event: E, seqNr: SeqNr) = {
                         for {
-                          seqNr <- seqNr
-                          _     <- record(Action.AppendEventsInner(seqNr))
-                        } yield seqNr
+                          after <- recovering.replay(state, event, seqNr)
+                          _     <- record(Action.Replayed(state, event, seqNr, after))
+                        } yield after
                       }
                     }
 
-                    def deleteTo(seqNr: SeqNr) = {
-                      for {
-                        _ <- record(Action.DeleteEventsTo(seqNr))
-                        a <- journaller.deleteTo(seqNr)
-                        _ <- record(Action.DeleteEventsToOuter)
-                      } yield {
-                        for {
-                          a <- a
-                          _ <- record(Action.DeleteEventsToInner)
-                        } yield a
-                      }
-                    }
-                  }
+                    def recoveryCompleted(
+                      state: S,
+                      seqNr: SeqNr,
+                      journaller: Journaller[F, E],
+                      snapshotter: Snapshotter[F, S]
+                    ) = {
 
-                  val snapshotter1 = new Snapshotter[F, S] {
+                      val journaller1 = new Journaller[F, E] {
 
-                    def save(snapshot: S) = {
-                      for {
-                        _ <- record(Action.SaveSnapshot(snapshot))
-                        a <- snapshotter.save(snapshot)
-                        _ <- record(Action.SaveSnapshotOuter(a.seqNr))
-                      } yield {
-                        val done = for {
-                          a <- a.done
-                          _ <- record(Action.SaveSnapshotInner)
-                        } yield a
-                        a.copy(done = done)
-                      }
-                    }
-
-                    def delete(seqNr: SeqNr) = {
-                      for {
-                        _ <- record(Action.DeleteSnapshot(seqNr))
-                        a <- snapshotter.delete(seqNr)
-                        _ <- record(Action.DeleteSnapshotOuter)
-                      } yield {
-                        for {
-                          a <- a
-                          _ <- record(Action.DeleteSnapshotInner)
-                        } yield a
-                      }
-                    }
-
-                    def delete(criteria: SnapshotSelectionCriteria) = {
-                      for {
-                        _ <- record(Action.DeleteSnapshots(criteria))
-                        a <- snapshotter.delete(criteria)
-                        _ <- record(Action.DeleteSnapshotsOuter)
-                      } yield {
-                        for {
-                          a <- a
-                          _ <- record(Action.DeleteSnapshotsInner)
-                        } yield a
-                      }
-                    }
-                  }
-
-                  // TODO resource
-                  for {
-                    receive <- recovering.recoveryCompleted(state, seqNr, journaller1, snapshotter1)
-                    _       <- record(Action.ReceiveAllocated(state, seqNr))
-                  } yield {
-                    new Receive[F, C, R] {
-                      def apply(msg: C, reply: Reply[F, R]) = {
-
-                        val reply1 = new Reply[F, R] {
-                          def apply(msg: R) = {
+                        def append = (events: Nel[Nel[E]]) => {
+                          for {
+                            _     <- record(Action.AppendEvents(events))
+                            seqNr <- journaller.append(events)
+                            _     <- record(Action.AppendEventsOuter)
+                          } yield {
                             for {
-                              _ <- record(Action.Replied(msg))
-                              a <- reply(msg)
+                              seqNr <- seqNr
+                              _     <- record(Action.AppendEventsInner(seqNr))
+                            } yield seqNr
+                          }
+                        }
+
+                        def deleteTo(seqNr: SeqNr) = {
+                          for {
+                            _ <- record(Action.DeleteEventsTo(seqNr))
+                            a <- journaller.deleteTo(seqNr)
+                            _ <- record(Action.DeleteEventsToOuter)
+                          } yield {
+                            for {
+                              a <- a
+                              _ <- record(Action.DeleteEventsToInner)
                             } yield a
                           }
                         }
-                        for {
-                          stop <- receive(msg, reply1)
-                          _    <- record(Action.Received(msg, stop))
-                        } yield stop
+                      }
+
+                      val snapshotter1 = new Snapshotter[F, S] {
+
+                        def save(snapshot: S) = {
+                          for {
+                            _ <- record(Action.SaveSnapshot(snapshot))
+                            a <- snapshotter.save(snapshot)
+                            _ <- record(Action.SaveSnapshotOuter(a.seqNr))
+                          } yield {
+                            val done = for {
+                              a <- a.done
+                              _ <- record(Action.SaveSnapshotInner)
+                            } yield a
+                            a.copy(done = done)
+                          }
+                        }
+
+                        def delete(seqNr: SeqNr) = {
+                          for {
+                            _ <- record(Action.DeleteSnapshot(seqNr))
+                            a <- snapshotter.delete(seqNr)
+                            _ <- record(Action.DeleteSnapshotOuter)
+                          } yield {
+                            for {
+                              a <- a
+                              _ <- record(Action.DeleteSnapshotInner)
+                            } yield a
+                          }
+                        }
+
+                        def delete(criteria: SnapshotSelectionCriteria) = {
+                          for {
+                            _ <- record(Action.DeleteSnapshots(criteria))
+                            a <- snapshotter.delete(criteria)
+                            _ <- record(Action.DeleteSnapshotsOuter)
+                          } yield {
+                            for {
+                              a <- a
+                              _ <- record(Action.DeleteSnapshotsInner)
+                            } yield a
+                          }
+                        }
+                      }
+
+                      // TODO resource
+                      for {
+                        receive <- recovering.recoveryCompleted(state, seqNr, journaller1, snapshotter1)
+                        _       <- record(Action.ReceiveAllocated(state, seqNr))
+                      } yield {
+                        new Receive[F, C, R] {
+                          def apply(msg: C, reply: Reply[F, R]) = {
+
+                            val reply1 = new Reply[F, R] {
+                              def apply(msg: R) = {
+                                for {
+                                  _ <- record(Action.Replied(msg))
+                                  a <- reply(msg)
+                                } yield a
+                              }
+                            }
+                            for {
+                              stop <- receive(msg, reply1)
+                              _    <- record(Action.Received(msg, stop))
+                            } yield stop
+                          }
+                        }
                       }
                     }
                   }
@@ -171,6 +180,7 @@ object InstrumentEventSourced {
               }
             }
           }
+
         }
       }
     }
@@ -186,6 +196,11 @@ object InstrumentEventSourced {
       recovery: Recovery,
       pluginIds: PluginIds
     ) extends Action[Nothing, Nothing, Nothing, Nothing]
+
+
+    final case object Started extends Action[Nothing, Nothing, Nothing, Nothing]
+
+    final case object Released extends Action[Nothing, Nothing, Nothing, Nothing]
 
 
     final case class Initial[S, E](state: S) extends Action[S, Nothing, Nothing, Nothing]

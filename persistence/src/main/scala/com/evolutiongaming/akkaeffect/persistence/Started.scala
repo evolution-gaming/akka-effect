@@ -6,6 +6,7 @@ import cats.implicits._
 
 trait Started[F[_], S, C, E, R] {
 
+  // TODO describe resource release scope
   def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]): Resource[F, Recovering[F, S, C, E, R]]
 }
 
