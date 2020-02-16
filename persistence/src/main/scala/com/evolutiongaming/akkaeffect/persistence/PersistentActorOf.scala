@@ -63,7 +63,7 @@ object PersistentActorOf {
         implicit val fail: Fail[F] = new Fail[F] {
           def apply[A](msg: String) = PersistentActorError(s"$errorPrefix $msg").raiseError[F, A]
         }
-        PersistenceVar[F, Any, Any, Any, Any](act.value, context)
+        PersistenceVar[F, Any, Any, Any, Any](act.value, context, journaller.value, snapshotter.value)
       }
 
       override def preStart(): Unit = {
@@ -71,7 +71,7 @@ object PersistentActorOf {
         super.preStart()
 
         act.sync {
-          persistence.preStart(persistenceSetup, journaller.value, snapshotter.value)
+          persistence.preStart(persistenceSetup)
         }
       }
 

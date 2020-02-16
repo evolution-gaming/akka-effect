@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.FlatMap
+import cats.{FlatMap, Monad}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Receive
 
@@ -17,7 +17,12 @@ trait Recovering[F[_], S, C, E, R] {
   /**
     * Called when recovery completed, resource will be released upon actor termination
     */
-  def recoveryCompleted(state: S, seqNr: SeqNr): F[Receive[F, C, R]] // TODO resource
+  def recoveryCompleted(
+    state: S,
+    seqNr: SeqNr,
+    journaller: Journaller[F, E],
+    snapshotter: Snapshotter[F, S]
+  ): F[Receive[F, C, R]] // TODO resource option
 }
 
 object Recovering {
@@ -28,19 +33,29 @@ object Recovering {
       sf: S => F[S1],
       s1f: S1 => F[S],
       cf: C1 => F[C],
-      ef: E1 => F[E],
+      ef: E => F[E1],
+      e1f: E1 => F[E],
       rf: R => F[R1])(implicit
-      F: FlatMap[F],
+      F: Monad[F],
     ): Recovering[F, S1, C1, E1, R1] = new Recovering[F, S1, C1, E1, R1] {
 
       val initial = self.initial.flatMap(sf)
 
-      val replay = self.replay.convert(sf, s1f, ef)
+      val replay = self.replay.convert(sf, s1f, e1f)
 
-      def recoveryCompleted(state: S1, seqNr: SeqNr) = {
+      def recoveryCompleted(
+        state: S1,
+        seqNr: SeqNr,
+        journaller: Journaller[F, E1],
+        snapshotter: Snapshotter[F, S1]
+      ) = {
+
+        val journaller1 = journaller.convert(ef)
+        val snapshotter1 = snapshotter.convert(sf)
+
         for {
           state   <- s1f(state)
-          receive <- self.recoveryCompleted(state, seqNr)
+          receive <- self.recoveryCompleted(state, seqNr, journaller1, snapshotter1)
         } yield {
           receive.convert(cf, rf)
         }
@@ -59,10 +74,15 @@ object Recovering {
 
       val replay = self.replay.widen(sf, ef)
 
-      def recoveryCompleted(state: S1, seqNr: SeqNr) = {
+      def recoveryCompleted(
+        state: S1,
+        seqNr: SeqNr,
+        journaller: Journaller[F, E1],
+        snapshotter: Snapshotter[F, S1]
+      ) = {
         for {
           state   <- sf(state)
-          receive <- self.recoveryCompleted(state, seqNr)
+          receive <- self.recoveryCompleted(state, seqNr, journaller, snapshotter)
         } yield {
           receive.widen(cf)
         }

@@ -36,90 +36,15 @@ object InstrumentPersistenceSetup {
 
           def persistenceId = persistenceSetup.persistenceId
 
-          def recoveryStarted(
-            snapshotOffer: Option[SnapshotOffer[S]],
-            journaller: Journaller[F, E],
-            snapshotter: Snapshotter[F, S]
-          ) = {
+          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
 
-            val journaller1 = new Journaller[F, E] {
-
-              def append = (events: Nel[Nel[E]]) => {
-                for {
-                  _     <- record(Action.AppendEvents(events))
-                  seqNr <- journaller.append(events)
-                  _     <- record(Action.AppendEventsOuter)
-                } yield {
-                  for {
-                    seqNr <- seqNr
-                    _     <- record(Action.AppendEventsInner(seqNr))
-                  } yield seqNr
-                }
-              }
-
-              def deleteTo(seqNr: SeqNr) = {
-                for {
-                  _ <- record(Action.DeleteEventsTo(seqNr))
-                  a <- journaller.deleteTo(seqNr)
-                  _ <- record(Action.DeleteEventsToOuter)
-                } yield {
-                  for {
-                    a <- a
-                    _ <- record(Action.DeleteEventsToInner)
-                  } yield a
-                }
-              }
-            }
-
-            val snapshotter1 = new Snapshotter[F, S] {
-
-              def save(snapshot: S) = {
-                for {
-                  _ <- record(Action.SaveSnapshot(snapshot))
-                  a <- snapshotter.save(snapshot)
-                  _ <- record(Action.SaveSnapshotOuter(a.seqNr))
-                } yield {
-                  val done = for {
-                    a <- a.done
-                    _ <- record(Action.SaveSnapshotInner)
-                  } yield a
-                  a.copy(done = done)
-                }
-              }
-
-              def delete(seqNr: SeqNr) = {
-                for {
-                  _ <- record(Action.DeleteSnapshot(seqNr))
-                  a <- snapshotter.delete(seqNr)
-                  _ <- record(Action.DeleteSnapshotOuter)
-                } yield {
-                  for {
-                    a <- a
-                    _ <- record(Action.DeleteSnapshotInner)
-                  } yield a
-                }
-              }
-
-              def delete(criteria: SnapshotSelectionCriteria) = {
-                for {
-                  _ <- record(Action.DeleteSnapshots(criteria))
-                  a <- snapshotter.delete(criteria)
-                  _ <- record(Action.DeleteSnapshotsOuter)
-                } yield {
-                  for {
-                    a <- a
-                    _ <- record(Action.DeleteSnapshotsInner)
-                  } yield a
-                }
-              }
-            }
             val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
               val metadata = snapshotOffer.metadata.copy(timestamp = 0)
               snapshotOffer.copy(metadata = metadata)
             }
 
             for {
-              recovering <- persistenceSetup.recoveryStarted(snapshotOffer, journaller1, snapshotter1)
+              recovering <- persistenceSetup.recoveryStarted(snapshotOffer)
               state      <- Resource.liftF(recovering.initial)
               _          <- resource(Action.RecoveryAllocated(snapshotOffer1, state), Action.RecoveryReleased)
             } yield {
@@ -140,10 +65,88 @@ object InstrumentPersistenceSetup {
                   }
                 }
 
-                def recoveryCompleted(state: S, seqNr: SeqNr) = {
+                def recoveryCompleted(
+                  state: S,
+                  seqNr: SeqNr,
+                  journaller: Journaller[F, E],
+                  snapshotter: Snapshotter[F, S]
+                ) = {
+
+                  val journaller1 = new Journaller[F, E] {
+
+                    def append = (events: Nel[Nel[E]]) => {
+                      for {
+                        _     <- record(Action.AppendEvents(events))
+                        seqNr <- journaller.append(events)
+                        _     <- record(Action.AppendEventsOuter)
+                      } yield {
+                        for {
+                          seqNr <- seqNr
+                          _     <- record(Action.AppendEventsInner(seqNr))
+                        } yield seqNr
+                      }
+                    }
+
+                    def deleteTo(seqNr: SeqNr) = {
+                      for {
+                        _ <- record(Action.DeleteEventsTo(seqNr))
+                        a <- journaller.deleteTo(seqNr)
+                        _ <- record(Action.DeleteEventsToOuter)
+                      } yield {
+                        for {
+                          a <- a
+                          _ <- record(Action.DeleteEventsToInner)
+                        } yield a
+                      }
+                    }
+                  }
+
+                  val snapshotter1 = new Snapshotter[F, S] {
+
+                    def save(snapshot: S) = {
+                      for {
+                        _ <- record(Action.SaveSnapshot(snapshot))
+                        a <- snapshotter.save(snapshot)
+                        _ <- record(Action.SaveSnapshotOuter(a.seqNr))
+                      } yield {
+                        val done = for {
+                          a <- a.done
+                          _ <- record(Action.SaveSnapshotInner)
+                        } yield a
+                        a.copy(done = done)
+                      }
+                    }
+
+                    def delete(seqNr: SeqNr) = {
+                      for {
+                        _ <- record(Action.DeleteSnapshot(seqNr))
+                        a <- snapshotter.delete(seqNr)
+                        _ <- record(Action.DeleteSnapshotOuter)
+                      } yield {
+                        for {
+                          a <- a
+                          _ <- record(Action.DeleteSnapshotInner)
+                        } yield a
+                      }
+                    }
+
+                    def delete(criteria: SnapshotSelectionCriteria) = {
+                      for {
+                        _ <- record(Action.DeleteSnapshots(criteria))
+                        a <- snapshotter.delete(criteria)
+                        _ <- record(Action.DeleteSnapshotsOuter)
+                      } yield {
+                        for {
+                          a <- a
+                          _ <- record(Action.DeleteSnapshotsInner)
+                        } yield a
+                      }
+                    }
+                  }
+
                   // TODO resource
                   for {
-                    receive <- recovering.recoveryCompleted(state, seqNr)
+                    receive <- recovering.recoveryCompleted(state, seqNr, journaller1, snapshotter1)
                     _       <- record(Action.ReceiveAllocated(state, seqNr))
                   } yield {
                     new Receive[F, C, R] {

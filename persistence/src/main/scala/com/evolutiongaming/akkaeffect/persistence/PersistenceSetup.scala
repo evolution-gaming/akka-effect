@@ -16,11 +16,7 @@ trait PersistenceSetup[F[_], S, C, E, R] {
   // TODO onPreStart phase is missing
 
   // TODO describe resource release scope
-  def recoveryStarted(
-    snapshotOffer: Option[SnapshotOffer[S]],
-    journaller: Journaller[F, E], // TODO move to onRecoveryCompleted
-    snapshotter: Snapshotter[F, S] // TODO move to onRecoveryCompleted
-  ): Resource[F, Recovering[F, S, C, E, R]]
+  def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]): Resource[F, Recovering[F, S, C, E, R]]
 }
 
 
@@ -44,11 +40,7 @@ object PersistenceSetup {
 
         def persistenceId = self.persistenceId
 
-        def recoveryStarted(
-          snapshotOffer: Option[SnapshotOffer[S1]],
-          journaller: Journaller[F, E1],
-          snapshotter: Snapshotter[F, S1]
-        ) = {
+        def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S1]]) = {
 
           val snapshotOffer1 = snapshotOffer.traverse { offer =>
             s1f(offer.snapshot).map { snapshot => offer.copy(snapshot = snapshot) }
@@ -56,9 +48,9 @@ object PersistenceSetup {
 
           for {
             snapshotOffer <- Resource.liftF(snapshotOffer1)
-            recovering    <- self.recoveryStarted(snapshotOffer, journaller.convert(ef), snapshotter.convert(sf))
+            recovering    <- self.recoveryStarted(snapshotOffer)
           } yield {
-            recovering.convert(sf, s1f, cf, e1f, rf)
+            recovering.convert(sf, s1f, cf, ef, e1f, rf)
           }
         }
       }
@@ -74,7 +66,7 @@ object PersistenceSetup {
 
       def persistenceId = self.persistenceId
 
-      def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S1]], journaller: Journaller[F, E1], snapshotter: Snapshotter[F, S1]) = {
+      def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S1]]) = {
 
         val snapshotOffer1 = snapshotOffer.traverse { snapshotOffer =>
           sf(snapshotOffer.snapshot).map { snapshot => snapshotOffer.copy(snapshot = snapshot)}
@@ -82,7 +74,7 @@ object PersistenceSetup {
 
         for {
           snapshotOffer <- Resource.liftF(snapshotOffer1)
-          recovering    <- self.recoveryStarted(snapshotOffer, journaller, snapshotter)
+          recovering    <- self.recoveryStarted(snapshotOffer)
         } yield {
           recovering.widen(sf, cf, ef)
         }

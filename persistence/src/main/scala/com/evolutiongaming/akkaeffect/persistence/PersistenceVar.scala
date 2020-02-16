@@ -7,11 +7,7 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 private[akkaeffect] trait PersistenceVar[F[_], S, C, E, R] {
 
-  def preStart(
-    persistenceSetup: PersistenceSetup[F, S, C, E, R],
-    journaller: Journaller[F, E],
-    snapshotter: Snapshotter[F, S]
-  ): Unit
+  def preStart(persistenceSetup: PersistenceSetup[F, S, C, E, R]): Unit
 
   def snapshotOffer(snapshotOffer: SnapshotOffer[S]): Unit
 
@@ -28,24 +24,29 @@ private[akkaeffect] object PersistenceVar {
 
   def apply[F[_] : Sync : ToFuture : FromFuture : Fail, S, C, E, R](
     act: Act,
-    context: ActorContext
+    context: ActorContext,
+    journaller: Journaller[F, E],
+    snapshotter: Snapshotter[F, S]
   ): PersistenceVar[F, S, C, E, R] = {
-    apply(ActorVar[F, Persistence2[F, S, C, E, R]](act, context))
+    apply(
+      ActorVar[F, Persistence2[F, S, C, E, R]](act, context),
+      journaller,
+      snapshotter)
   }
 
   def apply[F[_] : Sync : Fail, S, C, E, R](
-    actorVar: ActorVar[F, Persistence2[F, S, C, E, R]]
+    actorVar: ActorVar[F, Persistence2[F, S, C, E, R]],
+    journaller: Journaller[F, E],
+    snapshotter: Snapshotter[F, S]
   ): PersistenceVar[F, S, C, E, R] = {
 
     new PersistenceVar[F, S, C, E, R] {
 
       def preStart(
         persistenceSetup: PersistenceSetup[F, S, C, E, R],
-        journaller: Journaller[F, E],
-        snapshotter: Snapshotter[F, S]
       ) = {
         actorVar.preStart {
-          Persistence2.started(persistenceSetup, journaller, snapshotter)
+          Persistence2.started(persistenceSetup)
         }
       }
 
@@ -58,7 +59,7 @@ private[akkaeffect] object PersistenceVar {
       }
 
       def recoveryCompleted(seqNr: SeqNr, replyOf: ReplyOf[F, R]) = {
-        actorVar.receive { _.recoveryCompleted(seqNr, replyOf) }
+        actorVar.receive { _.recoveryCompleted(seqNr, replyOf, journaller, snapshotter) }
       }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {

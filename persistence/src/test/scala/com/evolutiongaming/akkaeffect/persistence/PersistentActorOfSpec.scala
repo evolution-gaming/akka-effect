@@ -68,11 +68,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
           def persistenceId = "persistenceId"
 
-          def recoveryStarted(
-            snapshotOffer: Option[SnapshotOffer[State]],
-            journaller: Journaller[F, Event],
-            snapshotter: Snapshotter[F, State]
-          ) = {
+          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[State]]) = {
 
             val recovering: Recovering[F, State, Any, Event, Any] = new Recovering[F, State, Any, Event, Any] {
 
@@ -86,7 +82,12 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                 }
               }
 
-              def recoveryCompleted(state: State, seqNr: SeqNr) = {
+              def recoveryCompleted(
+                state: State,
+                seqNr: SeqNr,
+                journaller: Journaller[F, Event],
+                snapshotter: Snapshotter[F, State]
+              ) = {
                 println(s"onRecoveryCompleted state: $state, seqNr: $seqNr")
 
                 for {
@@ -221,18 +222,19 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
           def persistenceId = "0"
 
-          def recoveryStarted(
-            snapshotOffer: Option[SnapshotOffer[S]],
-            journaller: Journaller[F, E],
-            snapshotter: Snapshotter[F, S]
-          ) = {
+          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
               def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
               def replay = Replay.empty[F, S, E]
 
-              def recoveryCompleted(state: S, seqNr: SeqNr) = {
+              def recoveryCompleted(
+                state: S,
+                seqNr: SeqNr,
+                journaller: Journaller[F, E],
+                snapshotter: Snapshotter[F, S]
+              ) = {
                 for {
                   _ <- started.complete(())
                 } yield {
@@ -292,18 +294,19 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
           def persistenceId = "1"
 
-          def recoveryStarted(
-            snapshotOffer: Option[SnapshotOffer[S]],
-            journaller: Journaller[F, E],
-            snapshotter: Snapshotter[F, S]
-          ) = {
+          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
               def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
               def replay = Replay.empty[F, S, E]
 
-              def recoveryCompleted(state: S, seqNr: SeqNr) = {
+              def recoveryCompleted(
+                state: S,
+                seqNr: SeqNr,
+                journaller: Journaller[F, E],
+                snapshotter: Snapshotter[F, S]
+              ) = {
                 for {
                   _ <- journaller.append(Nel.of(Nel.of(0))).flatten
                   _ <- snapshotter.save(1).flatMap { _.done }
@@ -390,18 +393,19 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
           def persistenceId = "2"
 
-          def recoveryStarted(
-            snapshotOffer: Option[SnapshotOffer[S]],
-            journaller: Journaller[F, E],
-            snapshotter: Snapshotter[F, S]
-          ) = {
+          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
               def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
               def replay = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
 
-              def recoveryCompleted(state: S, seqNr: SeqNr) = {
+              def recoveryCompleted(
+                state: S,
+                seqNr: SeqNr,
+                journaller: Journaller[F, E],
+                snapshotter: Snapshotter[F, S]
+              ) = {
                 for {
                   _ <- journaller.append(Nel.of(Nel.of(0, 1), Nel.of(2))).flatten
                   _ <- started.complete(())
@@ -485,18 +489,19 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
           def persistenceId = "3"
 
-          def recoveryStarted(
-            snapshotOffer: Option[SnapshotOffer[S]],
-            journaller: Journaller[F, E],
-            snapshotter: Snapshotter[F, S]
-          ) = {
+          def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
               def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
               def replay = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
 
-              def recoveryCompleted(state: S, seqNr: SeqNr) = {
+              def recoveryCompleted(
+                state: S,
+                seqNr: SeqNr,
+                journaller: Journaller[F, E],
+                snapshotter: Snapshotter[F, S]
+              ) = {
                 for {
                   _ <- journaller.append(Nel.of(Nel.of(0))).flatten
                   _ <- snapshotter.save(1).flatMap { _.done }
