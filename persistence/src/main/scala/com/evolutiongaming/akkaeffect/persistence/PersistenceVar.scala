@@ -29,13 +29,13 @@ private[akkaeffect] object PersistenceVar {
     snapshotter: Snapshotter[F, S]
   ): PersistenceVar[F, S, C, E, R] = {
     apply(
-      ActorVar[F, Persistence2[F, S, C, E, R]](act, context),
+      ActorVar[F, Persistence[F, S, C, E, R]](act, context),
       journaller,
       snapshotter)
   }
 
   def apply[F[_] : Sync : Fail, S, C, E, R](
-    actorVar: ActorVar[F, Persistence2[F, S, C, E, R]],
+    actorVar: ActorVar[F, Persistence[F, S, C, E, R]],
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]
   ): PersistenceVar[F, S, C, E, R] = {
@@ -44,7 +44,7 @@ private[akkaeffect] object PersistenceVar {
 
       def preStart(eventSourced: EventSourced[F, S, C, E, R]) = {
         actorVar.preStart {
-          Persistence2.started(eventSourced)
+          Persistence.started(eventSourced)
         }
       }
 

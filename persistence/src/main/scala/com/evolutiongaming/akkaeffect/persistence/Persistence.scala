@@ -8,9 +8,9 @@ import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.akkaeffect.persistence.Fail.implicits._
 
 // TODO rename
-private[akkaeffect] trait Persistence2[F[_], S, C, E, R] {
+private[akkaeffect] trait Persistence[F[_], S, C, E, R] {
 
-  type Result = Option[Releasable[F, Persistence2[F, S, C, E, R]]]
+  type Result = Option[Releasable[F, Persistence[F, S, C, E, R]]]
 
   def snapshotOffer(snapshotOffer: SnapshotOffer[S]): F[Result]
 
@@ -26,13 +26,13 @@ private[akkaeffect] trait Persistence2[F[_], S, C, E, R] {
   def command(cmd: C, seqNr: SeqNr, sender: ActorRef): F[Result]
 }
 
-private[akkaeffect] object Persistence2 {
+private[akkaeffect] object Persistence {
 
   def started[F[_] : Sync : Fail, S, C, E, R](
     eventSourced: EventSourced[F, S, C, E, R],
-  ): Resource[F, Option[Persistence2[F, S, C, E, R]]] = {
+  ): Resource[F, Option[Persistence[F, S, C, E, R]]] = {
 
-    val result: Persistence2[F, S, C, E, R] = new Persistence2[F, S, C, E, R] {
+    val result: Persistence[F, S, C, E, R] = new Persistence[F, S, C, E, R] {
 
       def snapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
         eventSourced
@@ -40,7 +40,7 @@ private[akkaeffect] object Persistence2 {
           .flatMap { recovering =>
             Resource
               .liftF(recovering.initial)
-              .map { state => Persistence2.recovering(state, recovering) }
+              .map { state => Persistence.recovering(state, recovering) }
           }
           .toReleasable
           .map { _.some }
@@ -57,7 +57,7 @@ private[akkaeffect] object Persistence2 {
                 val persistence = recovering
                   .replay(state, event, seqNr)
                   .map { state =>
-                    Persistence2.recovering(state, recovering)
+                    Persistence.recovering(state, recovering)
                   }
                 Resource.liftF(persistence)
               }
@@ -80,7 +80,7 @@ private[akkaeffect] object Persistence2 {
               .flatMap { state =>
                 val receive = recovering
                   .recoveryCompleted(state, seqNr, journaller, snapshotter)
-                  .map { receive => Persistence2.receive[F, S, C, E, R](replyOf, receive) }
+                  .map { receive => Persistence.receive[F, S, C, E, R](replyOf, receive) }
                 Resource.liftF(receive)
               }
           }
@@ -100,9 +100,9 @@ private[akkaeffect] object Persistence2 {
   def recovering[F[_] : Sync : Fail, S, C, E, R](
     state: S,
     recovering: Recovering[F, S, C, E, R]
-  ): Persistence2[F, S, C, E, R] = {
+  ): Persistence[F, S, C, E, R] = {
 
-    new Persistence2[F, S, C, E, R] {
+    new Persistence[F, S, C, E, R] {
 
       def snapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
         unexpected[F, Result](name = s"snapshotOffer $snapshotOffer", state = "receive")
@@ -113,7 +113,7 @@ private[akkaeffect] object Persistence2 {
         recovering
           .replay(state, event, seqNr)
           .map { state =>
-            val persistence = Persistence2.recovering(state, recovering)
+            val persistence = Persistence.recovering(state, recovering)
             persistence.pure[Releasable[F, *]].some
           }
       }
@@ -127,7 +127,7 @@ private[akkaeffect] object Persistence2 {
         recovering
           .recoveryCompleted(state, seqNr, journaller, snapshotter)
           .map { receive =>
-            val persistence = Persistence2.receive[F, S, C, E, R](replyOf, receive)
+            val persistence = Persistence.receive[F, S, C, E, R](replyOf, receive)
             Releasable(persistence).some
           }
       }
@@ -142,9 +142,9 @@ private[akkaeffect] object Persistence2 {
   def receive[F[_] : Sync : Fail, S, C, E, R](
     replyOf: ReplyOf[F, R],
     receive: Receive[F, C, R]
-  ): Persistence2[F, S, C, E, R] = {
+  ): Persistence[F, S, C, E, R] = {
 
-    new Persistence2[F, S, C, E, R] { self =>
+    new Persistence[F, S, C, E, R] { self =>
 
       def snapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
         unexpected[F, Result](name = s"snapshotOffer $snapshotOffer", state = "receive")
