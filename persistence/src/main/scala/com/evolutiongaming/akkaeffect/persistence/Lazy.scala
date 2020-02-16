@@ -31,7 +31,7 @@ object Lazy {
   }
 
 
-  def apply[F[_] : Async]: ApplyBuilders[F] = new ApplyBuilders(Async[F])
+  def apply[F[_] : Sync]: ApplyBuilders[F] = new ApplyBuilders(Sync[F])
 
 
   def of[F[_] : Sync : FromFuture, A](load: => F[A]): F[Lazy[F, A]] = {

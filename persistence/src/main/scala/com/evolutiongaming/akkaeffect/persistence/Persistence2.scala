@@ -29,13 +29,13 @@ private[akkaeffect] trait Persistence2[F[_], S, C, E, R] {
 private[akkaeffect] object Persistence2 {
 
   def started[F[_] : Sync : Fail, S, C, E, R](
-    persistenceSetup: PersistenceSetup[F, S, C, E, R],
+    eventSourced: EventSourced[F, S, C, E, R],
   ): Resource[F, Option[Persistence2[F, S, C, E, R]]] = {
 
     val result: Persistence2[F, S, C, E, R] = new Persistence2[F, S, C, E, R] {
 
       def snapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
-        persistenceSetup
+        eventSourced
           .recoveryStarted(snapshotOffer.some)
           .flatMap { recovering =>
             Resource
@@ -48,7 +48,7 @@ private[akkaeffect] object Persistence2 {
 
       def event(event: E, seqNr: SeqNr) = {
         println(s"Persistence2.event $event")
-        persistenceSetup
+        eventSourced
           .recoveryStarted(none)
           .flatMap { recovering =>
             Resource
@@ -72,7 +72,7 @@ private[akkaeffect] object Persistence2 {
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S]
       ) = {
-        persistenceSetup
+        eventSourced
           .recoveryStarted(none)
           .flatMap { recovering =>
             Resource

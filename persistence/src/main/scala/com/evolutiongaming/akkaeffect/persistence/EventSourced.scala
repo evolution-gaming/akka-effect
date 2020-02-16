@@ -5,9 +5,9 @@ import cats.Monad
 import cats.effect.Resource
 import cats.implicits._
 
-trait PersistenceSetup[F[_], S, C, E, R] {
+trait EventSourced[F[_], S, C, E, R] {
 
-  def persistenceId: String
+  def id: String
 
   def recovery: Recovery = Recovery()
 
@@ -20,10 +20,10 @@ trait PersistenceSetup[F[_], S, C, E, R] {
 }
 
 
-object PersistenceSetup {
+object EventSourced {
 
-  implicit class PersistenceSetupOps[F[_], S, C, E, R](
-    val self: PersistenceSetup[F, S, C, E, R]
+  implicit class EventSourcedOps[F[_], S, C, E, R](
+    val self: EventSourced[F, S, C, E, R]
   ) extends AnyVal {
 
     def convert[S1, C1, E1, R1](
@@ -34,11 +34,11 @@ object PersistenceSetup {
       e1f: E1 => F[E],
       rf: R => F[R1])(implicit
       F: Monad[F],
-    ): PersistenceSetup[F, S1, C1, E1, R1] = {
+    ): EventSourced[F, S1, C1, E1, R1] = {
 
-      new PersistenceSetup[F, S1, C1, E1, R1] {
+      new EventSourced[F, S1, C1, E1, R1] {
 
-        def persistenceId = self.persistenceId
+        def id = self.id
 
         def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S1]]) = {
 
@@ -62,9 +62,9 @@ object PersistenceSetup {
       cf: C1 => F[C],
       ef: E1 => F[E])(implicit
       F: Monad[F],
-    ): PersistenceSetup[F, S1, C1, E1, R1] = new PersistenceSetup[F, S1, C1, E1, R1] {
+    ): EventSourced[F, S1, C1, E1, R1] = new EventSourced[F, S1, C1, E1, R1] {
 
-      def persistenceId = self.persistenceId
+      def id = self.id
 
       def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S1]]) = {
 
@@ -87,6 +87,6 @@ object PersistenceSetup {
       cf: Any => F[C],
       ef: Any => F[E])(implicit
       F: Monad[F],
-    ): PersistenceSetup[F, Any, Any, Any, Any] = widen[Any, Any, Any, Any](sf, cf, ef)
+    ): EventSourced[F, Any, Any, Any, Any] = widen[Any, Any, Any, Any](sf, cf, ef)
   }
 }

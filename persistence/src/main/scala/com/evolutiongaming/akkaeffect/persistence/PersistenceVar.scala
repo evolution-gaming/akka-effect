@@ -7,7 +7,7 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 private[akkaeffect] trait PersistenceVar[F[_], S, C, E, R] {
 
-  def preStart(persistenceSetup: PersistenceSetup[F, S, C, E, R]): Unit
+  def preStart(eventSourced: EventSourced[F, S, C, E, R]): Unit
 
   def snapshotOffer(snapshotOffer: SnapshotOffer[S]): Unit
 
@@ -42,11 +42,9 @@ private[akkaeffect] object PersistenceVar {
 
     new PersistenceVar[F, S, C, E, R] {
 
-      def preStart(
-        persistenceSetup: PersistenceSetup[F, S, C, E, R],
-      ) = {
+      def preStart(eventSourced: EventSourced[F, S, C, E, R]) = {
         actorVar.preStart {
-          Persistence2.started(persistenceSetup)
+          Persistence2.started(eventSourced)
         }
       }
 

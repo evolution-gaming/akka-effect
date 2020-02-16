@@ -11,11 +11,11 @@ object PersistentActorEffect {
   // TODO not use Any
   def of[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
     actorRefOf: ActorRefOf[F],
-    persistenceSetupOf: PersistenceSetupOf[F, Any, Any, Any, Any],
+    eventSourcedOf: EventSourcedOf[F, Any, Any, Any, Any],
     name: Option[String] = None
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 
-    def actor = PersistentActorOf[F](persistenceSetupOf)
+    def actor = PersistentActorOf[F](eventSourcedOf)
 
     val props = Props(actor)
 

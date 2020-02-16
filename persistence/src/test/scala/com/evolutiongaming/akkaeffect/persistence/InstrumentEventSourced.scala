@@ -7,12 +7,12 @@ import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect._
 
-object InstrumentPersistenceSetup {
+object InstrumentEventSourced {
 
   def apply[F[_] : Sync, S, C, E, R](
     actions: Ref[F, List[Action[S, C, E, R]]],
-    persistenceSetupOf: PersistenceSetupOf[F, S, C, E, R]
-  ): PersistenceSetupOf[F, S, C, E, R] = {
+    eventSourcedOf: EventSourcedOf[F, S, C, E, R]
+  ): EventSourcedOf[F, S, C, E, R] = {
 
     def record(action: Action[S, C, E, R]) = actions.update { action :: _ }
 
@@ -26,15 +26,15 @@ object InstrumentPersistenceSetup {
 
     ctx: ActorCtx[F, C, R] => {
       for {
-        persistenceSetup <- persistenceSetupOf(ctx)
-        _                <- record(Action.Created(
-          persistenceSetup.persistenceId,
-          persistenceSetup.recovery,
-          persistenceSetup.pluginIds))
+        eventSourced <- eventSourcedOf(ctx)
+        _            <- record(Action.Created(
+          eventSourced.id,
+          eventSourced.recovery,
+          eventSourced.pluginIds))
       } yield {
-        new PersistenceSetup[F, S, C, E, R] {
+        new EventSourced[F, S, C, E, R] {
 
-          def persistenceId = persistenceSetup.persistenceId
+          def id = eventSourced.id
 
           def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
 
@@ -44,7 +44,7 @@ object InstrumentPersistenceSetup {
             }
 
             for {
-              recovering <- persistenceSetup.recoveryStarted(snapshotOffer)
+              recovering <- eventSourced.recoveryStarted(snapshotOffer)
               state      <- Resource.liftF(recovering.initial)
               _          <- resource(Action.RecoveryAllocated(snapshotOffer1, state), Action.RecoveryReleased)
             } yield {

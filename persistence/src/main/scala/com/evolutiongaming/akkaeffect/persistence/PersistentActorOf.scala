@@ -16,25 +16,25 @@ object PersistentActorOf {
 //   TODO
 //  def apply[F[_] : Concurrent : ToFuture : FromFuture : ToTry, S, C, E, R](
 //    persistenceSetupOf: PersistenceSetupOf[F, S, C, E, R]
-  def apply[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
-    persistenceSetupOf: PersistenceSetupOf[F, Any, Any, Any, Any]
+  def apply[F[_] : Sync : ToFuture : FromFuture : ToTry](
+    eventSourcedOf: EventSourcedOf[F, Any, Any, Any, Any]
   ): PersistentActor = {
 
     new PersistentActor { actor =>
 
       println("new PersistentActor")
-      lazy val (act, persistenceSetup) = {
+      lazy val (act, eventSourced) = {
         val act = Act.adapter(self)
-        val persistenceSetup = {
+        val eventSourced = {
           println("setup")
           val ctx = ActorCtx[F](act.value, context)
-          persistenceSetupOf(ctx)
-            .adaptError { case error => PersistentActorError(s"$self failed to allocate persistenceSetup with $error", error) }
+          eventSourcedOf(ctx)
+            .adaptError { case error => PersistentActorError(s"$self failed to allocate eventSourced with $error", error) }
             .toTry
             .get
         }
 
-        (act, persistenceSetup)
+        (act, eventSourced)
       }
 
       def errorPrefix = s"${ self.path.toStringWithoutAddress } $persistenceId"
@@ -71,21 +71,21 @@ object PersistentActorOf {
         super.preStart()
 
         act.sync {
-          persistence.preStart(persistenceSetup)
+          persistence.preStart(eventSourced)
         }
       }
 
-      def persistenceId = persistenceSetup.persistenceId
+      def persistenceId = eventSourced.id
 
       override def journalPluginId = {
-        persistenceSetup.pluginIds.journal getOrElse super.journalPluginId
+        eventSourced.pluginIds.journal getOrElse super.journalPluginId
       }
 
       override def snapshotPluginId = {
-        persistenceSetup.pluginIds.snapshot getOrElse super.snapshotPluginId
+        eventSourced.pluginIds.snapshot getOrElse super.snapshotPluginId
       }
 
-      override def recovery = persistenceSetup.recovery
+      override def recovery = eventSourced.recovery
 
       override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]) = {
         println("onRecoveryFailure")

@@ -95,7 +95,7 @@ trait ActorCtx[F[_], A, B] {
 
 ### PersistentActorOf.scala
 
-Constructs `PersistentActor.scala` out of `receive: ActorCtx[F, Any, Any] => Resource[F, Option[PersistenceSetup[F, S, C, E]]`
+Constructs `PersistentActor.scala` out of `receive: ActorCtx[F, Any, Any] => Resource[F, Option[EventSourced[F, S, C, E]]`
  
 
 ## Setup

@@ -10,7 +10,7 @@ import cats.implicits._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
-import com.evolutiongaming.akkaeffect.persistence.InstrumentPersistenceSetup.Action
+import com.evolutiongaming.akkaeffect.persistence.InstrumentEventSourced.Action
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -61,12 +61,12 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       final case class WithCtx[A](f: ActorCtx[F, Any, Any] => F[A]) extends Cmd
     }
 
-    def persistenceSetupOf(receiveTimeout: F[Unit]): PersistenceSetupOf[F, Any, Any, Any, Any] = {
+    def eventSourcedOf(receiveTimeout: F[Unit]): EventSourcedOf[F, Any, Any, Any, Any] = {
       ctx: ActorCtx[F, Any, Any] => {
 
-        val persistenceSetup = new PersistenceSetup[F, State, Any, Event, Any] {
+        val eventSourced = new EventSourced[F, State, Any, Event, Any] {
 
-          def persistenceId = "persistenceId"
+          def id = "persistenceId"
 
           def recoveryStarted(snapshotOffer: Option[SnapshotOffer[State]]) = {
 
@@ -137,7 +137,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
             recovering.pure[Resource[F, *]]
           }
         }
-        persistenceSetup
+        eventSourced
           .typeless(_.cast[F, State], _.pure[F], _.cast[F, Event])
           .pure[F]
       }
@@ -190,13 +190,13 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     }
 
     for {
-      receiveTimeout     <- Deferred[F, Unit]
-      persistenceSetupOf <- persistenceSetupOf(receiveTimeout.complete(())).pure[F]
-      actorRefOf          = ActorRefOf[F](actorSystem)
-      probe               = Probe.of[F](actorRefOf)
-      actorEffect         = PersistentActorEffect.of[F](actorRefOf, persistenceSetupOf)
-      resources           = (actorEffect, probe).tupled
-      result             <- resources.use { case (actorEffect, probe) =>
+      receiveTimeout <- Deferred[F, Unit]
+      eventSourcedOf <- eventSourcedOf(receiveTimeout.complete(())).pure[F]
+      actorRefOf      = ActorRefOf[F](actorSystem)
+      probe           = Probe.of[F](actorRefOf)
+      actorEffect     = PersistentActorEffect.of[F](actorRefOf, eventSourcedOf)
+      resources       = (actorEffect, probe).tupled
+      result         <- resources.use { case (actorEffect, probe) =>
         persistentActorOf(actorEffect, probe, receiveTimeout.get)
       }
     } yield result
@@ -213,14 +213,14 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     type E = Any
     type R = Any
 
-    def persistenceSetupOf(
+    def eventSourcedOf(
       started: Deferred[F, Unit],
       stopped: Deferred[F, Unit]
-    ): PersistenceSetupOf[F, S, C, E, R] = {
+    ): EventSourcedOf[F, S, C, E, R] = {
       _: ActorCtx[F, C, R] => {
-        val persistenceSetup: PersistenceSetup[F, S, C, E, R] = new PersistenceSetup[F, S, C, E, R] {
+        val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def persistenceId = "0"
+          def id = "0"
 
           def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
@@ -250,22 +250,22 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
             }
           }
         }
-        persistenceSetup.pure[F]
+        eventSourced.pure[F]
       }
     }
 
     for {
-      started            <- Deferred[F, Unit]
-      stopped            <- Deferred[F, Unit]
-      actions            <- Ref[F].of(List.empty[Action[S, C, E, R]])
-      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped))
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E, R]])
+      eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.cast[F, S], _.pure[F], _.pure[F], _.pure[F])
         .pure[F]
-      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf)
-      _                  <- actorEffect.use { _ => started.get }
-      _                  <- stopped.get
-      actions            <- actions.get
-      _                   = actions.reverse shouldEqual List(
+      actorEffect     = PersistentActorEffect.of(actorRefOf, eventSourcedOf)
+      _              <- actorEffect.use { _ => started.get }
+      _              <- stopped.get
+      actions        <- actions.get
+      _               = actions.reverse shouldEqual List(
         Action.Created("0", akka.persistence.Recovery(), PluginIds.default),
         Action.RecoveryAllocated(None,0),
         Action.Initial(0),
@@ -285,14 +285,14 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     type E = Int
     type R = Any
 
-    def persistenceSetupOf(
+    def eventSourcedOf(
       started: Deferred[F, Unit],
       stopped: Deferred[F, Unit]
-    ): PersistenceSetupOf[F, S, C, E, R] = {
+    ): EventSourcedOf[F, S, C, E, R] = {
       _: ActorCtx[F, C, R] => {
-        val persistenceSetup: PersistenceSetup[F, S, C, E, R] = new PersistenceSetup[F, S, C, E, R] {
+        val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def persistenceId = "1"
+          def id = "1"
 
           def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
@@ -324,21 +324,21 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
             }
           }
         }
-        persistenceSetup.pure[F]
+        eventSourced.pure[F]
       }
     }
 
     def actions = for {
-      started            <- Deferred[F, Unit]
-      stopped            <- Deferred[F, Unit]
-      actions            <- Ref[F].of(List.empty[Action[S, C, E, R]])
-      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped))
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E, R]])
+      eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.cast[F, S], _.pure[F], _.cast[F, E], _.pure[F])
         .pure[F]
-      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf)
-      _                  <- actorEffect.use { _ => started.get }
-      _                  <- stopped.get
-      actions            <- actions.get
+      actorEffect     = PersistentActorEffect.of(actorRefOf, eventSourcedOf)
+      _              <- actorEffect.use { _ => started.get }
+      _              <- stopped.get
+      actions        <- actions.get
     } yield {
       actions.reverse
     }
@@ -384,14 +384,14 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     type E = Int
     type R = Any
 
-    def persistenceSetupOf(
+    def eventSourcedOf(
       started: Deferred[F, Unit],
       stopped: Deferred[F, Unit]
-    ): PersistenceSetupOf[F, S, C, E, R] = {
+    ): EventSourcedOf[F, S, C, E, R] = {
       _: ActorCtx[F, C, R] => {
-        val persistenceSetup: PersistenceSetup[F, S, C, E, R] = new PersistenceSetup[F, S, C, E, R] {
+        val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def persistenceId = "2"
+          def id = "2"
 
           def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
@@ -422,22 +422,22 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
             }
           }
         }
-        persistenceSetup.pure[F]
+        eventSourced.pure[F]
       }
     }
 
     
     def actions = for {
-      started            <- Deferred[F, Unit]
-      stopped            <- Deferred[F, Unit]
-      actions            <- Ref[F].of(List.empty[Action[S, C, E, R]])
-      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped))
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E, R]])
+      eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.cast[F, S], _.pure[F], _.cast[F, E], _.pure[F])
         .pure[F]
-      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf)
-      _                  <- actorEffect.use { _ => started.get }
-      _                  <- stopped.get
-      actions            <- actions.get
+      actorEffect     = PersistentActorEffect.of(actorRefOf, eventSourcedOf)
+      _              <- actorEffect.use { _ => started.get }
+      _              <- stopped.get
+      actions        <- actions.get
     } yield {
       actions.reverse
     }
@@ -480,14 +480,14 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     type E = Int
     type R = Any
 
-    def persistenceSetupOf(
+    def eventSourcedOf(
       started: Deferred[F, Unit],
       stopped: Deferred[F, Unit]
-    ): PersistenceSetupOf[F, S, C, E, R] = {
+    ): EventSourcedOf[F, S, C, E, R] = {
       _: ActorCtx[F, C, R] => {
-        val persistenceSetup: PersistenceSetup[F, S, C, E, R] = new PersistenceSetup[F, S, C, E, R] {
+        val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def persistenceId = "3"
+          def id = "3"
 
           def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
             val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
@@ -520,21 +520,21 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
             }
           }
         }
-        persistenceSetup.pure[F]
+        eventSourced.pure[F]
       }
     }
 
     def actions = for {
-      started            <- Deferred[F, Unit]
-      stopped            <- Deferred[F, Unit]
-      actions            <- Ref[F].of(List.empty[Action[S, C, E, R]])
-      persistenceSetupOf <- InstrumentPersistenceSetup(actions, persistenceSetupOf(started, stopped))
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E, R]])
+      eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.cast[F, S], _.pure[F], _.cast[F, E], _.pure[F])
         .pure[F]
-      actorEffect         = PersistentActorEffect.of(actorRefOf, persistenceSetupOf)
-      _                  <- actorEffect.use { _ => started.get }
-      _                  <- stopped.get
-      actions            <- actions.get
+      actorEffect     = PersistentActorEffect.of(actorRefOf, eventSourcedOf)
+      _              <- actorEffect.use { _ => started.get }
+      _              <- stopped.get
+      actions        <- actions.get
     } yield {
       actions.reverse
     }
