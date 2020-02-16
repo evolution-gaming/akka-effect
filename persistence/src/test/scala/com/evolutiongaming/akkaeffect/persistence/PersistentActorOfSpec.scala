@@ -251,15 +251,12 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                     }
                   }
                 }
-
-                for {
-                  _ <- Resource.make(().pure[F]) { _ => stoppedDeferred.complete(()) }
-                } yield {
-                  recovering
-                }
+                recovering.pure[Resource[F, *]]
               }
             }
-            started.some.pure[Resource[F, *]]
+            Resource
+              .make(().pure[F]) { _ => stoppedDeferred.complete(()) }
+              .as(started.some)
           }
         }
         eventSourced.pure[F]
@@ -333,15 +330,13 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                   }
                 }
 
-                for {
-                  _ <- Resource.make(().pure[F]) { _ => stoppedDeferred.complete(()) }
-                } yield {
-                  recovering
-                }
+                recovering.pure[Resource[F, *]]
               }
             }
 
-            started.some.pure[Resource[F, *]]
+            Resource
+              .make(().pure[F]) { _ => stoppedDeferred.complete(()) }
+              .as(started.some)
           }
         }
         eventSourced.pure[F]
@@ -441,15 +436,13 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                   }
                 }
 
-                for {
-                  _ <- Resource.make(().pure[F]) { _ => stoppedDeferred.complete(()) }
-                } yield {
-                  recovering
-                }
+                recovering.pure[Resource[F, *]]
               }
             }
 
-            started.some.pure[Resource[F, *]]
+            Resource
+              .make(().pure[F]) { _ => stoppedDeferred.complete(()) }
+              .as(started.some)
           }
         }
         eventSourced.pure[F]
@@ -549,15 +542,13 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                   }
                 }
 
-                for {
-                  _ <- Resource.make(().pure[F]) { _ => stoppedDeferred.complete(()) }
-                } yield {
-                  recovering
-                }
+                recovering.pure[Resource[F, *]]
               }
             }
 
-            started.some.pure[Resource[F, *]]
+            Resource
+              .make(().pure[F]) { _ => stoppedDeferred.complete(()) }
+              .as(started.some)
           }
         }
         eventSourced.pure[F]
