@@ -5,7 +5,7 @@ import cats.FlatMap
 import cats.effect.{Async, Resource, Sync}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
-trait ActorEffect[F[_], -A/*TODO remove variance everywhere*/, B] { self =>
+trait ActorEffect[F[_], -A, B] { self =>
 
   def path: ActorPath
 
@@ -53,9 +53,6 @@ object ActorEffect {
 
   implicit class ActorEffectOps[F[_], A, B](val self: ActorEffect[F, A, B]) extends AnyVal {
 
-    def narrow[C <: A]: ActorEffect[F, C, B] = self
-
-
     def convert[A1, B1](
       af: A1 => F[A],
       bf: B => F[B1])(implicit
@@ -70,20 +67,23 @@ object ActorEffect {
 
       def toUnsafe = self.toUnsafe
     }
-  }
 
 
-  implicit class ActorEffectAnyOps[F[_]](val self: ActorEffect[F, Any, Any]) extends AnyVal {
-
-    def typeful[A, B](f: Any => F[B])(implicit F: FlatMap[F]): ActorEffect[F, A, B] = new ActorEffect[F, A, B] {
+    def narrow[A1 <: A, B1](f: B => F[B1])(implicit F: FlatMap[F]): ActorEffect[F, A1, B1] = new ActorEffect[F, A1, B1] {
 
       def path = self.path
 
-      val ask = self.ask.typeful(f)
+      val ask = self.ask.narrow[A1, B1](f)
 
       val tell = self.tell
 
       def toUnsafe = self.toUnsafe
     }
+  }
+
+
+  implicit class ActorEffectAnyOps[F[_]](val self: ActorEffect[F, Any, Any]) extends AnyVal {
+
+    def typeful[A, B](f: Any => F[B])(implicit F: FlatMap[F]): ActorEffect[F, A, B] = self.narrow(f)
   }
 }

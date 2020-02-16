@@ -33,27 +33,17 @@ object Replay {
       }
     }
 
-    def map[S1, E1](
-      sf: S => S1,
-      s1f: S1 => S,
-      ef: E1 => E)(implicit
-      F: Applicative[F]
-    ): Replay[F, S1, E1] = {
-      (state: S1, event: E1, seqNr: SeqNr) =>
-        for {
-          s <- self(s1f(state), ef(event), seqNr)
-        } yield {
-          sf(s)
-        }
-    }
 
-    def typeless(sf: Any => F[S], ef: Any => F[E])(implicit F: FlatMap[F]): Replay[F, Any, Any] = {
-      (state: Any, event: Any, seqNr: SeqNr) =>
+    def widen[S1 >: S, E1 >: E](sf: S1 => F[S], ef: E1 => F[E])(implicit F: FlatMap[F]): Replay[F, S1, E1] = {
+      (state: S1, event: E1, seqNr: SeqNr) =>
         for {
           s <- sf(state)
           e <- ef(event)
           s <- self(s, e, seqNr)
         } yield s
     }
+    
+
+    def typeless(sf: Any => F[S], ef: Any => F[E])(implicit F: FlatMap[F]): Replay[F, Any, Any] = widen(sf, ef)
   }
 }

@@ -45,21 +45,31 @@ object PersistenceSetupOf {
       }
     }
 
+
+    def widen[S1 >: S, C1 >: C, E1 >: E, R1 >: R](
+      sf: Any => F[S],
+      cf: Any => F[C],
+      ef: Any => F[E],
+      rf: Any => F[R])(implicit
+      F: Monad[F],
+    ): PersistenceSetupOf[F, S1, C1, E1, R1] = {
+      ctx: ActorCtx[F, C1, R1] => {
+        val ctx1 = ctx.narrow[C, R](rf)
+        for {
+          persistenceSetup <- self(ctx1)
+        } yield {
+          persistenceSetup.widen(sf, cf, ef)
+        }
+      }
+    }
+
+
     def typeless(
       sf: Any => F[S],
       cf: Any => F[C],
       ef: Any => F[E],
       rf: Any => F[R])(implicit
       F: Monad[F],
-    ): PersistenceSetupOf[F, Any, Any, Any, Any] = {
-      ctx: ActorCtx[F, Any, Any] => {
-        val ctx1 = ctx.typeful[C, R](rf)
-        for {
-          persistenceSetup <- self(ctx1)
-        } yield {
-          persistenceSetup.typeless(sf, cf, ef)
-        }
-      }
-    }
+    ): PersistenceSetupOf[F, Any, Any, Any, Any] = widen(sf, cf, ef, rf)
   }
 }

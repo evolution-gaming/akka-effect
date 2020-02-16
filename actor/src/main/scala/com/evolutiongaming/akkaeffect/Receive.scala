@@ -63,14 +63,16 @@ object Receive {
     }
 
 
-    // TODO add widen, untyped
-    def typeless(f: Any => F[A])(implicit F: FlatMap[F]): Receive[F, Any, Any] = {
-      (msg: Any, reply: Reply[F, Any]) => {
+    def widen[A1 >: A, B1 >: B](f: A1 => F[A])(implicit F: FlatMap[F]): Receive[F, A1, B1] = {
+      (msg: A1, reply: Reply[F, B1]) => {
         for {
           msg  <- f(msg)
           stop <- self(msg, reply)
         } yield stop
       }
     }
+
+
+    def typeless(f: Any => F[A])(implicit F: FlatMap[F]): Receive[F, Any, Any] = widen(f)
   }
 }

@@ -92,7 +92,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
       for {
 
         result   <- actorRef.use { actorRef0 =>
-          val ref    = actorRef0.narrow[Msg]
+          val ref    = actorRef0.narrow[Msg, Any](_.pure[F])
           val tell   = (msg: Msg) => ref.tell(msg, probe.actor.toUnsafe.some)
           val inc    = tell(Msg.Inc)
           val expect = (n: Int) => {

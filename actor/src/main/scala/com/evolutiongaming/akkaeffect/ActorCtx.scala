@@ -10,7 +10,7 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
 
 // TODO add watch/unwatch
-trait ActorCtx[F[_], A, B] {
+trait ActorCtx[F[_], -A, B] {
 
   def self: ActorEffect[F, A, B]
 
@@ -78,13 +78,11 @@ object ActorCtx {
 
       def actorRefOf = actorCtx.actorRefOf
     }
-  }
 
-  implicit class ActorCtxAnyOps[F[_]](val actorCtx: ActorCtx[F, Any, Any]) extends AnyVal {
 
-    def typeful[A, B](f: Any => F[B])(implicit F: FlatMap[F]): ActorCtx[F, A, B] = new ActorCtx[F, A, B] {
+    def narrow[A1 <: A, B1](f: B => F[B1])(implicit F: FlatMap[F]): ActorCtx[F, A1, B1] = new ActorCtx[F, A1, B1] {
 
-      val self = actorCtx.self.typeful(f)
+      val self = actorCtx.self.narrow(f)
 
       def dispatcher = actorCtx.dispatcher
 
@@ -96,5 +94,10 @@ object ActorCtx {
 
       def actorRefOf = actorCtx.actorRefOf
     }
+  }
+
+  implicit class ActorCtxAnyOps[F[_]](val self: ActorCtx[F, Any, Any]) extends AnyVal {
+
+    def typeful[A, B](f: Any => F[B])(implicit F: FlatMap[F]): ActorCtx[F, A, B] = self.narrow[A, B](f)
   }
 }

@@ -65,17 +65,16 @@ object PersistenceSetup {
     }
 
 
-    // TODO add more performant untyped
-    def typeless(
-      sf: Any => F[S],
-      cf: Any => F[C],
-      ef: Any => F[E])(implicit
+    def widen[S1 >: S, C1 >: C, E1 >: E, R1 >: R](
+      sf: S1 => F[S],
+      cf: C1 => F[C],
+      ef: E1 => F[E])(implicit
       F: Monad[F],
-    ): PersistenceSetup[F, Any, Any, Any, Any] = new PersistenceSetup[F, Any, Any, Any, Any] {
+    ): PersistenceSetup[F, S1, C1, E1, R1] = new PersistenceSetup[F, S1, C1, E1, R1] {
 
       def persistenceId = self.persistenceId
 
-      def recoveryStarted(snapshotOffer: Option[SnapshotOffer[Any]], journaller: Journaller[F, Any], snapshotter: Snapshotter[F, Any]) = {
+      def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S1]], journaller: Journaller[F, E1], snapshotter: Snapshotter[F, S1]) = {
 
         val snapshotOffer1 = snapshotOffer.traverse { snapshotOffer =>
           sf(snapshotOffer.snapshot).map { snapshot => snapshotOffer.copy(snapshot = snapshot)}
@@ -85,9 +84,17 @@ object PersistenceSetup {
           snapshotOffer <- Resource.liftF(snapshotOffer1)
           recovering    <- self.recoveryStarted(snapshotOffer, journaller, snapshotter)
         } yield {
-          recovering.typeless(sf, cf, ef)
+          recovering.widen(sf, cf, ef)
         }
       }
     }
+
+
+    def typeless(
+      sf: Any => F[S],
+      cf: Any => F[C],
+      ef: Any => F[E])(implicit
+      F: Monad[F],
+    ): PersistenceSetup[F, Any, Any, Any, Any] = widen[Any, Any, Any, Any](sf, cf, ef)
   }
 }
