@@ -54,7 +54,7 @@ object Reply {
     def narrow[B <: A]: Reply[F, B] = self
 
 
-    def convertF[B](f: B => F[A])(implicit F: FlatMap[F]): Reply[F, B] = {
+    def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Reply[F, B] = {
       msg: B =>
         for {
           a <- f(msg)

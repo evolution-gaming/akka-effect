@@ -95,10 +95,9 @@ object Journaller {
 
   implicit class JournallerOps[F[_], A](val self: Journaller[F, A]) extends AnyVal {
 
-    // TODO remove Convert
-    def convert[B](implicit F: Monad[F], ba: Convert[F, B, A]): Journaller[F, B] = new Journaller[F, B] {
+    def convert[B](f: B => F[A])(implicit F: Monad[F]): Journaller[F, B] = new Journaller[F, B] {
 
-      val append = self.append.convert[B]
+      val append = self.append.convert(f)
 
       def deleteTo(seqNr: SeqNr) = self.deleteTo(seqNr)
     }

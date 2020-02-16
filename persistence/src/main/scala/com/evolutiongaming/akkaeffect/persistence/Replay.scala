@@ -17,7 +17,7 @@ object Replay {
 
   implicit class ReplayOps[F[_], S, E](val self: Replay[F, S, E]) extends AnyVal {
 
-    def convertF[S1, E1](
+    def convert[S1, E1](
       sf: S => F[S1],
       s1f: S1 => F[S],
       ef: E1 => F[E])(implicit
@@ -33,7 +33,7 @@ object Replay {
       }
     }
 
-    def convert[S1, E1](
+    def map[S1, E1](
       sf: S => S1,
       s1f: S1 => S,
       ef: E1 => E)(implicit

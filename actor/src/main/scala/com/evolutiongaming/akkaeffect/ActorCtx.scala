@@ -60,13 +60,13 @@ object ActorCtx {
   implicit class ActorCtxOps[F[_], A, B](val actorCtx: ActorCtx[F, A, B]) extends AnyVal {
 
     // TODO refactor `narrow` methods
-    def convert[A1, B1](implicit
+    def convert[A1, B1](
+      af: A1 => F[A],
+      bf: B => F[B1])(implicit
       F: FlatMap[F],
-      ca: Convert[F, A1, A],
-      bd: Convert[F, B, B1]
     ): ActorCtx[F, A1, B1] = new ActorCtx[F, A1, B1] {
 
-      def self = actorCtx.self.convert[A1, B1]
+      val self = actorCtx.self.convert(af, bf)
 
       def dispatcher = actorCtx.dispatcher
 
@@ -78,25 +78,6 @@ object ActorCtx {
 
       def actorRefOf = actorCtx.actorRefOf
     }
-
-
-    /*// TODO rename method
-    def untyped[A1, B1](
-    )(implicit F: FlatMap[F],
-    ): ActorCtx[F, A1, B1] = new ActorCtx[F, A1, B1] {
-
-      def self = actorCtx.self.convert[A1, B1]
-
-      def dispatcher = actorCtx.dispatcher
-
-      def setReceiveTimeout(timeout: Duration) = actorCtx.setReceiveTimeout(timeout)
-
-      def child(name: String) = actorCtx.child(name)
-
-      def children = actorCtx.children
-
-      def actorRefOf = actorCtx.actorRefOf
-    }*/
   }
 
   implicit class ActorCtxAnyOps[F[_]](val actorCtx: ActorCtx[F, Any, Any]) extends AnyVal {

@@ -56,20 +56,20 @@ object ActorEffect {
     def narrow[C <: A]: ActorEffect[F, C, B] = self
 
 
-    def convert[C, D](implicit
-      F: FlatMap[F],
-      ca: Convert[F, C, A],
-      bd: Convert[F, B, D]
-    ): ActorEffect[F, C, D] = ??? /*new ActorEffect[F, C, D] {
+    def convert[A1, B1](
+      af: A1 => F[A],
+      bf: B => F[B1])(implicit
+      F: FlatMap[F]
+    ): ActorEffect[F, A1, B1] = new ActorEffect[F, A1, B1] {
 
       def path = self.path
 
-      val ask = self.ask.convert[C, D]
+      val ask = self.ask.convert(af, bf)
 
-      val tell = self.tell.convert[C]
+      val tell = self.tell.convert(af)
 
       def toUnsafe = self.toUnsafe
-    }*/
+    }
   }
 
 

@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import cats.FlatMap
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Convert, Receive}
+import com.evolutiongaming.akkaeffect.Receive
 
 trait Recovering[F[_], S, C, E, R] {
 
@@ -59,30 +59,27 @@ object Recovering {
 
   implicit class RecoveringOps[F[_], S, C, E, R](val self: Recovering[F, S, C, E, R]) extends AnyVal {
 
-    def convert[S1, C1, E1, R1](implicit
+    def convert[S1, C1, E1, R1](
+      sf: S => F[S1],
+      s1f: S1 => F[S],
+      cf: C1 => F[C],
+      ef: E1 => F[E],
+      rf: R => F[R1])(implicit
       F: FlatMap[F],
-      sToS1: Convert[F, S1, S],
-      s1ToS: Convert[F, S, S1],
-      cc: Convert[F, C1, C],
-      ec: Convert[F, E1, E]
-    ): Recovering[F, S1, C1, E1, R1] = {
+    ): Recovering[F, S1, C1, E1, R1] = new Recovering[F, S1, C1, E1, R1] {
 
-      /*new Recovering[F, S1, C1, E1, R1] {
+      val initial = self.initial.flatMap(sf)
 
-        def initial = self.initial
+      val replay = self.replay.convert(sf, s1f, ef)
 
-        def replay = self.replay.convert
-
-        def recoveryCompleted(state: S1, seqNr: SeqNr) = {
-          for {
-            state   <- state.convert[F, S]
-            receive <- self.recoveryCompleted(state, seqNr)
-          } yield {
-            receive.convert
-          }
+      def recoveryCompleted(state: S1, seqNr: SeqNr) = {
+        for {
+          state   <- s1f(state)
+          receive <- self.recoveryCompleted(state, seqNr)
+        } yield {
+          receive.convert(cf, rf)
         }
-      }*/
-      ???
+      }
     }
 
     def typeless(

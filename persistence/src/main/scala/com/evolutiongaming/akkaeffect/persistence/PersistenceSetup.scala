@@ -4,8 +4,6 @@ import akka.persistence.Recovery
 import cats.Monad
 import cats.effect.Resource
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.Convert
-import com.evolutiongaming.akkaeffect.Convert.implicits._
 
 trait PersistenceSetup[F[_], S, C, E, R] {
 
@@ -32,27 +30,17 @@ object PersistenceSetup {
     val self: PersistenceSetup[F, S, C, E, R]
   ) extends AnyVal {
 
-
-    /*def untypedS(sS1: 1 => S1, s1S: S1 => S): PersistenceSetup[F, S, C, E, R] = new PersistenceSetup[F, S, C, E, R] {
-
-      def persistenceId = self.persistenceId
-
-      def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]], journaller: Journaller[F, E], snapshotter: Snapshotter[F, S]) = {
-        snapshotOffer.map { snapshotOffer => sna}
-      }
-    }*/
-
-    def convert[S1, C1, E1, R1](implicit
+    def convert[S1, C1, E1, R1](
+      sf: S => F[S1],
+      s1f: S1 => F[S],
+      cf: C1 => F[C],
+      ef: E => F[E1],
+      e1f: E1 => F[E],
+      rf: R => F[R1])(implicit
       F: Monad[F],
-      s1S: Convert[F, S1, S],
-      c1C: Convert[F, C1, C],
-      e1E: Convert[F, E1, E],
-      eE1: Convert[F, E, E1],
     ): PersistenceSetup[F, S1, C1, E1, R1] = {
 
-      ???
-
-      /*new PersistenceSetup[F, S1, C1, E1, R1] {
+      new PersistenceSetup[F, S1, C1, E1, R1] {
 
         def persistenceId = self.persistenceId
 
@@ -62,18 +50,18 @@ object PersistenceSetup {
           snapshotter: Snapshotter[F, S1]
         ) = {
 
-          val offer1 = snapshotOffer.traverse { offer =>
-            s1S(offer.snapshot).map { snapshot => offer.copy(snapshot = snapshot) }
+          val snapshotOffer1 = snapshotOffer.traverse { offer =>
+            s1f(offer.snapshot).map { snapshot => offer.copy(snapshot = snapshot) }
           }
 
           for {
-            offer      <- Resource.liftF(offer1)
-            recovering <- self.recoveryStarted(offer, journaller.convert[E], snapshotter.convert)
+            snapshotOffer <- Resource.liftF(snapshotOffer1)
+            recovering    <- self.recoveryStarted(snapshotOffer, journaller.convert(ef), snapshotter.convert(sf))
           } yield {
-            recovering.convert
+            recovering.convert(sf, s1f, cf, e1f, rf)
           }
         }
-      }*/
+      }
     }
 
 

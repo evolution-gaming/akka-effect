@@ -69,15 +69,15 @@ object Ask {
 
 
     def convert[A1, B1](
-      fa: A1 => F[A],
-      fb: B => F[B1])(implicit
+      af: A1 => F[A],
+      bf: B => F[B1])(implicit
       F: FlatMap[F],
     ): Ask[F, A1, B1] = {
       (msg: A1, timeout: FiniteDuration, sender: Option[ActorRef]) => {
         for {
-          a <- fa(msg)
+          a <- af(msg)
           b <- self(a, timeout, sender)
-          d <- fb(b)
+          d <- bf(b)
         } yield d
       }
     }

@@ -117,9 +117,9 @@ object Snapshotter {
   implicit class SnapshotterOps[F[_], A](val self: Snapshotter[F, A]) extends AnyVal {
 
     // TODO
-    def convert[B](implicit F: Monad[F], ba: Convert[F, B, A]): Snapshotter[F, B] = new Snapshotter[F, B] {
+    def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Snapshotter[F, B] = new Snapshotter[F, B] {
 
-      def save(snapshot: B) = ba(snapshot).flatMap(self.save)
+      def save(snapshot: B) = f(snapshot).flatMap(self.save)
 
       def delete(seqNr: SeqNr) = self.delete(seqNr)
 

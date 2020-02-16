@@ -6,7 +6,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Act, Convert, PromiseEffect}
+import com.evolutiongaming.akkaeffect.{Act, PromiseEffect}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 
@@ -130,14 +130,11 @@ object Persist {
   implicit class AppendOps[F[_], A](val self: Persist[F, A]) extends AnyVal {
 
     // TODO not use this heavy convert at runtime
-    def convert[B](implicit
-      F: Monad[F],
-      ba: Convert[F, B, A]
-    ): Persist[F, B] = new Persist[F, B] {
+    def convert[B](f: B => F[A])(implicit F: Monad[F]): Persist[F, B] = new Persist[F, B] {
 
       def apply(events: Nel[Nel[B]]) = {
         for {
-          events <- events.traverse { _.traverse { b => ba(b) } }
+          events <- events.traverse { _.traverse(f) }
           seqNr  <- self(events)
         } yield seqNr
       }

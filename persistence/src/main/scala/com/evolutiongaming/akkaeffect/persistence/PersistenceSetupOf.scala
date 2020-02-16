@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import cats.implicits._
 import cats.{Applicative, Monad}
-import com.evolutiongaming.akkaeffect.{ActorCtx, Convert}
+import com.evolutiongaming.akkaeffect.ActorCtx
 
 trait PersistenceSetupOf[F[_], S, C, E, R] {
 
@@ -23,17 +23,27 @@ object PersistenceSetupOf {
     val self: PersistenceSetupOf[F, S, C, E, R]
   ) extends AnyVal {
 
-    def convert(implicit
-      F: Monad[F],
-      anyS: Convert[F, Any, S],
-      anyC: Convert[F, Any, C],
-      anyE: Convert[F, Any, E],
-      anyR: Convert[F, Any, R]
-    ): PersistenceSetupOf[F, Any, Any, Any, Any] = {
-
-      ctx: ActorCtx[F, Any, Any] => self(ctx.convert[C, R]).map { _.convert }
+    def convert[S1, C1, E1, R1](
+      sf: S => F[S1],
+      s1f: S1 => F[S],
+      cf: C => F[C1],
+      c1f: C1 => F[C],
+      ef: E => F[E1],
+      e1f: E1 => F[E],
+      rf: R => F[R1],
+      r1f: R1 => F[R],
+    )(implicit
+      F: Monad[F]
+    ): PersistenceSetupOf[F, S1, C1, E1, R1] = {
+      ctx: ActorCtx[F, C1, R1] => {
+        val ctx1 = ctx.convert(cf, r1f)
+        for {
+          persistenceSetup <- self(ctx1)
+        } yield {
+          persistenceSetup.convert(sf, s1f, c1f, ef, e1f, rf)
+        }
+      }
     }
-
 
     def typeless(
       sf: Any => F[S],
@@ -43,8 +53,9 @@ object PersistenceSetupOf {
       F: Monad[F],
     ): PersistenceSetupOf[F, Any, Any, Any, Any] = {
       ctx: ActorCtx[F, Any, Any] => {
+        val ctx1 = ctx.typeful[C, R](rf)
         for {
-          persistenceSetup <- self(ctx.typeful(rf))
+          persistenceSetup <- self(ctx1)
         } yield {
           persistenceSetup.typeless(sf, cf, ef)
         }

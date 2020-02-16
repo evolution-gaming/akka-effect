@@ -51,9 +51,9 @@ object Tell {
     def narrow[B <: A]: Tell[F, B] = self
 
 
-    def convert[B](implicit F: FlatMap[F], ba: Convert[F, B, A]): Tell[F, B] = {
+    def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Tell[F, B] = {
       (a: B, sender: Option[ActorRef]) => for {
-        a <- ba(a)
+        a <- f(a)
         a <- self(a, sender)
       } yield a
     }

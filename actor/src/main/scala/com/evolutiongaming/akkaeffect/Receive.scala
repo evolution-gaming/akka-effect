@@ -49,15 +49,15 @@ object Receive {
     }
 
 
-    def convert[A1, B1](implicit
-      F: FlatMap[F],
+    def convert[A1, B1](
       af: A1 => F[A],
-      bf: B => F[B1]
+      bf: B => F[B1])(implicit
+      F: FlatMap[F],
     ): Receive[F, A1, B1] = {
       (msg: A1, reply: Reply[F, B1]) => {
         for {
           msg  <- af(msg)
-          stop <- self(msg, reply.convertF(bf))
+          stop <- self(msg, reply.convert(bf))
         } yield stop
       }
     }
