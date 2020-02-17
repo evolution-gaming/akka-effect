@@ -3,7 +3,6 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.persistence.Recovery
 import cats.Monad
 import cats.effect.Resource
-import cats.implicits._
 
 /**
   * EventSourced describes lifecycle entity with regards to event sourcing
@@ -12,7 +11,7 @@ import cats.implicits._
   * 1. Started: we have id in place and can decide whether we should continue with recovery
   * 2. Recovering: reading snapshot and replaying events
   * 3. Receiving: receiving commands and potentially storing events & snapshots
-  * 4. Terminating: triggers all release hooks of allocated resources within previous phases
+  * 4. Termination: triggers all release hooks of allocated resources within previous phases
   *
   * @tparam S snapshot
   * @tparam C command
@@ -21,15 +20,28 @@ import cats.implicits._
   */
 trait EventSourced[F[_], S, C, E, R] {
 
+  /**
+    * @see [[akka.persistence.PersistentActor.persistenceId]]
+    */
   def id: String
 
+  /**
+    * @see [[akka.persistence.PersistentActor.recovery]]
+    */
   def recovery: Recovery = Recovery()
 
+  /**
+    * @see [[akka.persistence.PersistentActor.journalPluginId]]
+    * @see [[akka.persistence.PersistentActor.snapshotPluginId]]
+    */
   def pluginIds: PluginIds = PluginIds.default
 
-  // TODO onPreStart phase is missing
-
-  // TODO describe resource release scope
+  /**
+    * Called just after actor is started, resource will be released upon actor termination
+    *
+    * @see [[akka.persistence.PersistentActor.preStart]]
+    * @return None to stop actor, Some to continue
+    */
   def start: Resource[F, Option[Started[F, S, C, E, R]]]
 }
 

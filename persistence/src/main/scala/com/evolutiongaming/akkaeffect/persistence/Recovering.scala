@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.effect.Resource
-import cats.{FlatMap, Monad}
+import cats.Monad
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Receive
 
@@ -17,6 +17,9 @@ trait Recovering[F[_], S, C, E, R] {
 
   /**
     * Called when recovery completed, resource will be released upon actor termination
+    *
+    * @see [[akka.persistence.RecoveryCompleted]]
+    * @return None to stop actor, Some to continue
     */
   def recoveryCompleted(
     state: S,

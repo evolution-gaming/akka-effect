@@ -22,7 +22,7 @@ import scala.collection.immutable.Queue
 trait Persist[F[_], -A] {
 
   /**
-    * @param events to be saved, inner Nel[A] will be persisted atomically, outer Nel[_] for batching
+    * @param events to be saved, inner Nel[A] will be persisted atomically, outer Nel[_] is for batching
     * @return SeqNr of last event
     */
   def apply(events: Nel[Nel[A]]): F[F[SeqNr]]

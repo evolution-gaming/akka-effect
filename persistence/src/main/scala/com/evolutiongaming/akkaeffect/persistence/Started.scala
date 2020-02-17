@@ -6,7 +6,12 @@ import cats.implicits._
 
 trait Started[F[_], S, C, E, R] {
 
-  // TODO describe resource release scope
+  /**
+    * Called upon starting recovery, resource will be released upon actor termination
+    *
+    * @see [[akka.persistence.SnapshotOffer]]
+    * @return None to stop actor, Some to continue
+    */
   def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]): Resource[F, Option[Recovering[F, S, C, E, R]]]
 }
 
