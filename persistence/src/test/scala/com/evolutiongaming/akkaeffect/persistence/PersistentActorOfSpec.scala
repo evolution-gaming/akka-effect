@@ -42,6 +42,18 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
     `recover from snapshot and events`(actorSystem).run()
   }
 
+  test("start returns none") {
+    `start returns none`(actorSystem).run()
+  }
+
+  test("recoveryStarted returns none") {
+    `recoveryStarted returns none`(actorSystem).run()
+  }
+
+  test("recoveryCompleted returns none") {
+    `recoveryCompleted returns none`(actorSystem).run()
+  }
+
   test("append events") {
     ().pure[IO].run()
   }
@@ -66,7 +78,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
         val eventSourced = new EventSourced[F, State, Any, Event, Any] {
 
-          def id = "persistenceId"
+          def id = "id"
 
           def start = {
             val started: Started[F, State, Any, Event, Any] = new Started[F, State, Any, Event, Any] {
@@ -609,6 +621,65 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
         Action.RecoveryReleased,
         Action.Released)
     } yield {}
+  }
+
+
+  private def `start returns none`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+    actorSystem: ActorSystem
+  ): F[Unit] = {
+    val actorRefOf = ActorRefOf[F](actorSystem)
+
+    type S = Any
+    type C = Any
+    type E = Any
+    type R = Any
+
+    def eventSourcedOf(
+      stopped: Deferred[F, Unit]
+    ): EventSourcedOf[F, S, C, E, R] = {
+      _: ActorCtx[F, C, R] => {
+        val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
+
+          def id = "id"
+
+          def start = {
+            Resource
+              .make(().pure[F]) { _ => stopped.complete(()) }
+              .as(none[Started[F, S, C, E, R]])
+          }
+        }
+        eventSourced.pure[F]
+      }
+    }
+
+    for {
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E, R]])
+      eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(stopped)).pure[F]
+      actorEffect     = PersistentActorEffect.of(actorRefOf, eventSourcedOf)
+      _              <- actorEffect.allocated
+      _              <- stopped.get
+      actions        <- actions.get
+    } yield {
+      actions.reverse shouldEqual List(
+        Action.Created("id", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
+        Action.Released)
+    }
+  }
+
+
+  private def `recoveryStarted returns none`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+    actorSystem: ActorSystem
+  ): F[Unit] = {
+    ().pure[F]
+  }
+
+
+  private def `recoveryCompleted returns none`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+    actorSystem: ActorSystem
+  ): F[Unit] = {
+    ().pure[F]
   }
 }
 
