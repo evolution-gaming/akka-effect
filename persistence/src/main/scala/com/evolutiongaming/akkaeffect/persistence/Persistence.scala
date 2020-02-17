@@ -1,6 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.ActorRef
+import cats.data.OptionT
 import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Releasable.implicits._
@@ -46,12 +47,13 @@ private[akkaeffect] object Persistence {
         started
           .recoveryStarted(snapshotOffer.some)
           .flatMap { recovering =>
-            Resource
-              .liftF(recovering.initial)
-              .map { state => Persistence.recovering(state, recovering) }
+            recovering.traverse { recovering =>
+              Resource
+                .liftF(recovering.initial)
+                .map { state => Persistence.recovering(state, recovering) }
+            }
           }
-          .toReleasable
-          .map { _.some }
+          .toReleasableOpt
       }
 
       def event(event: E, seqNr: SeqNr) = {
@@ -59,19 +61,18 @@ private[akkaeffect] object Persistence {
         started
           .recoveryStarted(none)
           .flatMap { recovering =>
-            Resource
-              .liftF(recovering.initial)
-              .flatMap { state =>
-                val persistence = recovering
-                  .replay(state, event, seqNr)
-                  .map { state =>
-                    Persistence.recovering(state, recovering)
-                  }
-                Resource.liftF(persistence)
-              }
+            recovering.traverse { recovering =>
+              Resource
+                .liftF(recovering.initial)
+                .flatMap { state =>
+                  val persistence = recovering
+                    .replay(state, event, seqNr)
+                    .map { state => Persistence.recovering(state, recovering) }
+                  Resource.liftF(persistence)
+                }
+            }
           }
-          .toReleasable
-          .map { _.some }
+          .toReleasableOpt
       }
 
       def recoveryCompleted(
@@ -80,20 +81,18 @@ private[akkaeffect] object Persistence {
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S]
       ) = {
-        started
-          .recoveryStarted(none)
-          .flatMap { recovering =>
-            Resource
-              .liftF(recovering.initial)
-              .flatMap { state =>
-                val receive = recovering
-                  .recoveryCompleted(state, seqNr, journaller, snapshotter)
-                  .map { receive => Persistence.receive[F, S, C, E, R](replyOf, receive) }
-                Resource.liftF(receive)
-              }
-          }
-          .toReleasable
-          .map { _.some }
+
+        val receive = for {
+          recovering <- OptionT(started.recoveryStarted(none))
+          state      <- OptionT.liftF(Resource.liftF(recovering.initial))
+          receive    <- OptionT(recovering.recoveryCompleted(state, seqNr, journaller, snapshotter))
+        } yield {
+          Persistence.receive[F, S, C, E, R](replyOf, receive)
+        }
+
+        receive
+          .value
+          .toReleasableOpt
       }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {
@@ -132,10 +131,8 @@ private[akkaeffect] object Persistence {
       ) = {
         recovering
           .recoveryCompleted(state, seqNr, journaller, snapshotter)
-          .map { receive =>
-            val persistence = Persistence.receive[F, S, C, E, R](replyOf, receive)
-            Releasable(persistence).some
-          }
+          .map { _.map { receive => Persistence.receive[F, S, C, E, R](replyOf, receive) } }
+          .toReleasableOpt
       }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {

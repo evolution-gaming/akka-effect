@@ -52,8 +52,9 @@ object InstrumentEventSourced {
 
                 for {
                   recovering <- started.recoveryStarted(snapshotOffer)
-                  state      <- Resource.liftF(recovering.initial)
-                  _          <- resource(Action.RecoveryAllocated(snapshotOffer1, state), Action.RecoveryReleased)
+                  _          <- resource(Action.RecoveryAllocated(snapshotOffer1), Action.RecoveryReleased)
+                } yield for {
+                  recovering <- recovering
                 } yield {
 
                   new Recovering[F, S, C, E, R] {
@@ -154,7 +155,9 @@ object InstrumentEventSourced {
                       // TODO resource
                       for {
                         receive <- recovering.recoveryCompleted(state, seqNr, journaller1, snapshotter1)
-                        _       <- record(Action.ReceiveAllocated(state, seqNr))
+                        _       <- resource(Action.ReceiveAllocated(state, seqNr), Action.ReceiveReleased)
+                      } yield for {
+                        receive <- receive
                       } yield {
                         new Receive[F, C, R] {
                           def apply(msg: C, reply: Reply[F, R]) = {
@@ -211,7 +214,6 @@ object InstrumentEventSourced {
 
     final case class RecoveryAllocated[S](
       snapshotOffer: Option[SnapshotOffer[S]],
-      initial: S
     ) extends Action[S, Nothing, Nothing, Nothing]
 
     final case object RecoveryReleased extends Action[Nothing, Nothing, Nothing, Nothing]

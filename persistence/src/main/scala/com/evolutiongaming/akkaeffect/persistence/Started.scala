@@ -7,7 +7,7 @@ import cats.implicits._
 trait Started[F[_], S, C, E, R] {
 
   // TODO describe resource release scope
-  def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]): Resource[F, Recovering[F, S, C, E, R]]
+  def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]): Resource[F, Option[Recovering[F, S, C, E, R]]]
 }
 
 object Started {
@@ -33,6 +33,8 @@ object Started {
         for {
           snapshotOffer <- Resource.liftF(snapshotOffer1)
           recovering    <- self.recoveryStarted(snapshotOffer)
+        } yield for {
+          recovering <- recovering
         } yield {
           recovering.convert(sf, s1f, cf, ef, e1f, rf)
         }
@@ -55,6 +57,8 @@ object Started {
         for {
           snapshotOffer <- Resource.liftF(snapshotOffer1)
           recovering    <- self.recoveryStarted(snapshotOffer)
+        } yield for {
+          recovering <- recovering
         } yield {
           recovering.widen(sf, cf, ef)
         }

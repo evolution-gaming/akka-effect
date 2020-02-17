@@ -1,5 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import cats.effect.Resource
 import cats.{FlatMap, Monad}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Receive
@@ -22,7 +23,7 @@ trait Recovering[F[_], S, C, E, R] {
     seqNr: SeqNr,
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]
-  ): F[Receive[F, C, R]] // TODO resource option
+  ): Resource[F, Option[Receive[F, C, R]]]
 }
 
 object Recovering {
@@ -54,8 +55,10 @@ object Recovering {
         val snapshotter1 = snapshotter.convert(sf)
 
         for {
-          state   <- s1f(state)
+          state   <- Resource.liftF(s1f(state))
           receive <- self.recoveryCompleted(state, seqNr, journaller1, snapshotter1)
+        } yield for {
+          receive <- receive
         } yield {
           receive.convert(cf, rf)
         }
@@ -67,7 +70,7 @@ object Recovering {
       sf: S1 => F[S],
       cf: C1 => F[C],
       ef: E1 => F[E])(implicit
-      F: FlatMap[F]
+      F: Monad[F]
     ): Recovering[F, S1, C1, E1, R1] = new Recovering[F, S1, C1, E1, R1] {
 
       val initial = self.initial.asInstanceOf[F[S1]]
@@ -81,8 +84,10 @@ object Recovering {
         snapshotter: Snapshotter[F, S1]
       ) = {
         for {
-          state   <- sf(state)
+          state   <- Resource.liftF(sf(state))
           receive <- self.recoveryCompleted(state, seqNr, journaller, snapshotter)
+        } yield for {
+          receive <- receive
         } yield {
           receive.widen(cf)
         }
@@ -94,7 +99,7 @@ object Recovering {
       sf: Any => F[S],
       cf: Any => F[C],
       ef: Any => F[E])(implicit
-      F: FlatMap[F]
+      F: Monad[F]
     ): Recovering[F, Any, Any, Any, Any] = widen(sf, cf, ef)
   }
 }

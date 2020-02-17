@@ -69,5 +69,18 @@ object Releasable {
 
       def toReleasable(implicit F: BracketThrowable[F]): F[Releasable[F, A]] = fromResource(self)
     }
+
+
+    implicit class ResourceOptOpsReleasable[F[_], A](val self: Resource[F, Option[A]]) extends AnyVal {
+
+      def toReleasableOpt(implicit F: BracketThrowable[F]): F[Option[Releasable[F, A]]] = {
+        self
+          .allocated
+          .flatMap {
+            case (Some(a), release) => Releasable(a, release.some).some.pure[F]
+            case (None, release)    => release as none[Releasable[F, A]]
+          }
+      }
+    }
   }
 }
