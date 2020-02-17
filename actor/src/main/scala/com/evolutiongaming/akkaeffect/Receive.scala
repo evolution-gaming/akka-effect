@@ -4,7 +4,11 @@ import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
 
 /**
+  * Typesafe api for Actor.receive
+  *
   * @see [[akka.actor.Actor.receive]]
+  * @tparam A message
+  * @tparam B reply
   */
 trait Receive[F[_], -A, B] {
   import Receive._
@@ -38,7 +42,7 @@ object Receive {
     }
 
 
-    def mapA[AA](f: AA => F[Option[A]])(implicit F: Monad[F]): Receive[F, AA, B] = new Receive[F, AA, B] {
+    def collect[AA](f: AA => F[Option[A]])(implicit F: Monad[F]): Receive[F, AA, B] = new Receive[F, AA, B] {
 
       def apply(msg: AA, reply: Reply[F, B]) = {
         for {

@@ -9,24 +9,44 @@ import scala.collection.immutable.Iterable
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
 
-// TODO add watch/unwatch
+/**
+  * Typesafe api for ActorContext
+  *
+  * @see [[akka.actor.ActorContext]]
+  * @tparam A message
+  * @tparam B reply
+  */
 trait ActorCtx[F[_], -A, B] {
 
+  /**
+    * @see [[akka.actor.ActorContext.self]]
+    */
   def self: ActorEffect[F, A, B]
 
+  /**
+    * @see [[akka.actor.ActorContext.dispatcher]]
+    */
   def dispatcher: ExecutionContextExecutor
 
+  /**
+    * @see [[akka.actor.ActorContext.setReceiveTimeout]]
+    */
   def setReceiveTimeout(timeout: Duration): F[Unit]
 
+  /**
+    * @see [[akka.actor.ActorContext.child]]
+    */
   def child(name: String): F[Option[ActorRef]]
 
+  /**
+    * @see [[akka.actor.ActorContext.children]]
+    */
   def children: F[Iterable[ActorRef]]
 
+  /**
+    * @see [[akka.actor.ActorContext.actorOf]]
+    */
   def actorRefOf: ActorRefOf[F]
-
-
-  // TODO
-//  def allocate[A](resource: Resource[F, A]): F[(A, F[Unit])]
 }
 
 object ActorCtx {
@@ -59,7 +79,6 @@ object ActorCtx {
 
   implicit class ActorCtxOps[F[_], A, B](val actorCtx: ActorCtx[F, A, B]) extends AnyVal {
 
-    // TODO refactor `narrow` methods
     def convert[A1, B1](
       af: A1 => F[A],
       bf: B => F[B1])(implicit
@@ -80,7 +99,10 @@ object ActorCtx {
     }
 
 
-    def narrow[A1 <: A, B1](f: B => F[B1])(implicit F: FlatMap[F]): ActorCtx[F, A1, B1] = new ActorCtx[F, A1, B1] {
+    def narrow[A1 <: A, B1](
+      f: B => F[B1])(implicit
+      F: FlatMap[F]
+    ): ActorCtx[F, A1, B1] = new ActorCtx[F, A1, B1] {
 
       val self = actorCtx.self.narrow(f)
 
@@ -95,6 +117,7 @@ object ActorCtx {
       def actorRefOf = actorCtx.actorRefOf
     }
   }
+
 
   implicit class ActorCtxAnyOps[F[_]](val self: ActorCtx[F, Any, Any]) extends AnyVal {
 

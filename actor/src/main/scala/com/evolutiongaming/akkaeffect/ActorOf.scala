@@ -3,10 +3,14 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.{Actor, ActorRef}
 import cats.effect._
 import cats.implicits._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
-// Add Unapply and types
+// TODO Add Unapply and types
+
+/**
+  * Creates instance of [[akka.actor.Actor]] out of [[ReceiveOf]]
+  */
 object ActorOf {
 
   def apply[F[_] : Sync : ToFuture : FromFuture](

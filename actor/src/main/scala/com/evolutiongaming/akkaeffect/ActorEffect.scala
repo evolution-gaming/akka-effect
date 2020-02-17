@@ -5,14 +5,33 @@ import cats.FlatMap
 import cats.effect.{Async, Resource, Sync}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
-trait ActorEffect[F[_], -A, B] { self =>
+/**
+  * Typesafe api for ActorRef
+  *
+  * @see [[akka.actor.ActorRef]]
+  * @tparam A message
+  * @tparam B reply
+  */
+trait ActorEffect[F[_], -A, B] {
 
+  /**
+    * @see [[akka.actor.ActorRef.path]]
+    */
   def path: ActorPath
 
+  /**
+    * @see [[akka.pattern.ask]]
+    */
   def ask: Ask[F, A, B]
 
+  /**
+    * @see [[akka.actor.ActorRef.tell]]
+    */
   def tell: Tell[F, A]
 
+  /**
+    * @return underlying ActorRef
+    */
   def toUnsafe: ActorRef
 }
 

@@ -10,7 +10,7 @@ import scala.concurrent.{Future, Promise}
 import scala.util.Try
 
 /**
-  * executes function in `receive` thread of an actor
+  * Act executes function in `receive` thread of an actor
   */
 // TODO  as F
 private[akkaeffect] trait Act {

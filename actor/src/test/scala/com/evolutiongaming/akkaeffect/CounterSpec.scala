@@ -79,7 +79,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
         Resource
           .make { counter[F] } { _ => onStop }
           .map { receive =>
-            val receiveAny = receive.mapA[Any] {
+            val receiveAny = receive.collect[Any] {
               case msg: Msg => msg.some.pure[F]
               case _        => none[Msg].pure[F]
             }

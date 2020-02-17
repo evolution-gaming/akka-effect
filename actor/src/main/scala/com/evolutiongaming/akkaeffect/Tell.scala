@@ -5,6 +5,11 @@ import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, FlatMap, ~>}
 
+/**
+  * Typesafe api for ActorRef.tell
+  *
+  * @see [[akka.actor.ActorRef.tell]]
+  */
 trait Tell[F[_], -A] {
 
   def apply(msg: A, sender: Option[ActorRef] = None): F[Unit]
@@ -52,10 +57,11 @@ object Tell {
 
 
     def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Tell[F, B] = {
-      (a: B, sender: Option[ActorRef]) => for {
-        a <- f(a)
-        a <- self(a, sender)
-      } yield a
+      (a: B, sender: Option[ActorRef]) =>
+        for {
+          a <- f(a)
+          a <- self(a, sender)
+        } yield a
     }
   }
 }

@@ -4,6 +4,11 @@ import akka.actor.{ActorRef, ActorRefFactory, Props}
 import cats.effect.{Bracket, Resource, Sync}
 import cats.{Applicative, Defer, ~>}
 
+/**
+  * Resource-full api for ActorRefFactory
+  *
+  * @see [[akka.actor.ActorRefFactory]]
+  */
 trait ActorRefOf[F[_]] {
 
   def apply(
