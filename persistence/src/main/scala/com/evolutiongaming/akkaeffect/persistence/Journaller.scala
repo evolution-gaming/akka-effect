@@ -4,7 +4,7 @@ import akka.persistence._
 import cats.Monad
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Act, Adapter, Convert}
+import com.evolutiongaming.akkaeffect.{Act, Adapter}
 import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 
 import scala.util.Try
@@ -14,7 +14,7 @@ trait Journaller[F[_], -A] {
   /**
     * @see [[akka.persistence.PersistentActor.persistAllAsync]]
     */
-  def append: Append[F, A] // TODO val and rename Persist to Append
+  def append: Append[F, A]
 
   /**
     * @see [[akka.persistence.Eventsourced.deleteMessages]]

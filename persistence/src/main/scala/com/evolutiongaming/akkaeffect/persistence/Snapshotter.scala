@@ -4,7 +4,7 @@ import akka.persistence.{SnapshotSelectionCriteria, Snapshotter => _, _}
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
 import cats.{FlatMap, Monad}
-import com.evolutiongaming.akkaeffect.{Act, Adapter, Convert}
+import com.evolutiongaming.akkaeffect.{Act, Adapter}
 import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 
 import scala.util.Try
@@ -116,7 +116,6 @@ object Snapshotter {
 
   implicit class SnapshotterOps[F[_], A](val self: Snapshotter[F, A]) extends AnyVal {
 
-    // TODO
     def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Snapshotter[F, B] = new Snapshotter[F, B] {
 
       def save(snapshot: B) = f(snapshot).flatMap(self.save)
@@ -125,14 +124,5 @@ object Snapshotter {
 
       def delete(criteria: SnapshotSelectionCriteria) = self.delete(criteria)
     }
-
-    /*def narrow[B <: A]: Snapshotter[F, B] = new Snapshotter[F, B] {
-
-      def save(snapshot: B) = self.save(snapshot)
-
-      def delete(seqNr: SeqNr) = self.dele
-
-      def delete(criteria: SnapshotSelectionCriteria) = ???
-    } */
   }
 }

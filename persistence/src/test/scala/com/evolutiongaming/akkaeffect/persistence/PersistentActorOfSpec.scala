@@ -679,12 +679,11 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       }
       _              <- stopped.get
       actions        <- actions.get
-    } yield {
-      actions.reverse shouldEqual List(
+      _               = actions.reverse shouldEqual List(
         Action.Created("id", akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.Released)
-    }
+    } yield {}
   }
 
 
@@ -738,14 +737,13 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       }
       _              <- stopped.get
       actions        <- actions.get
-    } yield {
-      actions.reverse shouldEqual List(
+      _               = actions.reverse shouldEqual List(
         Action.Created("4", akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.RecoveryReleased,
         Action.Released)
-    }
+    } yield {}
   }
 
 
@@ -817,8 +815,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       }
       _              <- stopped.get
       actions        <- actions.get
-    } yield {
-      actions.reverse shouldEqual List(
+      _               = actions.reverse shouldEqual List(
         Action.Created("5", akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
@@ -827,7 +824,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
         Action.ReceiveReleased,
         Action.RecoveryReleased,
         Action.Released)
-    }
+    } yield {}
   }
 }
 
