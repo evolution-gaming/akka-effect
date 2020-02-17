@@ -57,7 +57,6 @@ private[akkaeffect] object Persistence {
       }
 
       def event(event: E, seqNr: SeqNr) = {
-        println(s"Persistence2.event $event")
         started
           .recoveryStarted(none)
           .flatMap { recovering =>
@@ -114,7 +113,6 @@ private[akkaeffect] object Persistence {
       }
 
       def event(event: E, seqNr: SeqNr) = {
-        println(s"Persistence2.event $event")
         recovering
           .replay(state, event, seqNr)
           .map { state =>

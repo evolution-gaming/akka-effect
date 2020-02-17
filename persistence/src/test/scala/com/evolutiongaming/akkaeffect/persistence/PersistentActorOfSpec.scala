@@ -91,7 +91,6 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                   val replay = new Replay[F, State, Event] {
 
                     def apply(state: State, event: Event, seqNr: SeqNr) = {
-                      println(s"replay state: $state, event: $event, seqNr: $seqNr")
                       state.pure[F]
                     }
                   }
@@ -102,7 +101,6 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
                     journaller: Journaller[F, Event],
                     snapshotter: Snapshotter[F, State]
                   ) = {
-                    println(s"onRecoveryCompleted state: $state, seqNr: $seqNr")
 
                     for {
                       stateRef <- Resource.liftF(Ref[F].of(state))

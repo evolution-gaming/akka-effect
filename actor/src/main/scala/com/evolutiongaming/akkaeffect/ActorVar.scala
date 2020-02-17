@@ -122,7 +122,6 @@ object ActorVar {
                         .pure[F]
 
                     case None =>
-                      println("none")
                       state
                         .release
                         .handleError { _ => () }

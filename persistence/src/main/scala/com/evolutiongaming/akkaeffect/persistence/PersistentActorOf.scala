@@ -22,11 +22,9 @@ object PersistentActorOf {
 
     new PersistentActor { actor =>
 
-      println("new PersistentActor")
       lazy val (act, eventSourced) = {
         val act = Act.adapter(self)
         val eventSourced = {
-          println("setup")
           val ctx = ActorCtx[F](act.value, context)
           eventSourcedOf(ctx)
             .adaptError { case error => PersistentActorError(s"$self failed to allocate eventSourced with $error", error) }
@@ -67,9 +65,7 @@ object PersistentActorOf {
       }
 
       override def preStart(): Unit = {
-        println("preStart")
         super.preStart()
-
         act.sync {
           persistence.preStart(eventSourced)
         }
