@@ -13,13 +13,11 @@ import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 import scala.collection.immutable.Queue
 
 
-// TODO make public and rename to append and reuse ?
-
 // TODO write tests to ensure PersistentActor does not write in parallel
 /**
   * @see [[akka.persistence.PersistentActor.persistAllAsync]]
   */
-trait Persist[F[_], -A] {
+trait Append[F[_], -A] {
 
   /**
     * @param events to be saved, inner Nel[A] will be persisted atomically, outer Nel[_] is for batching
@@ -28,7 +26,7 @@ trait Persist[F[_], -A] {
   def apply(events: Nel[Nel[A]]): F[F[SeqNr]]
 }
 
-object Persist {
+object Append {
 
   private[akkaeffect] def adapter[F[_] : Sync : FromFuture : ToTry, A](
     act: Act,
@@ -67,7 +65,7 @@ object Persist {
       }
       .map { ref =>
 
-        val persist: Persist[F, A] = {
+        val append: Append[F, A] = {
           events: Nel[Nel[A]] => {
 
             val size = events.foldLeft(0) { _ + _.size }
@@ -122,15 +120,15 @@ object Persist {
               .get
         }
 
-        Adapter(persist, onError)
+        Adapter(append, onError)
       }
   }
 
 
-  implicit class AppendOps[F[_], A](val self: Persist[F, A]) extends AnyVal {
+  implicit class AppendOps[F[_], A](val self: Append[F, A]) extends AnyVal {
 
     // TODO not use this heavy convert at runtime
-    def convert[B](f: B => F[A])(implicit F: Monad[F]): Persist[F, B] = new Persist[F, B] {
+    def convert[B](f: B => F[A])(implicit F: Monad[F]): Append[F, B] = new Append[F, B] {
 
       def apply(events: Nel[Nel[B]]) = {
         for {
@@ -141,7 +139,7 @@ object Persist {
     }
 
 
-    def narrow[B <: A]: Persist[F, B] = (events: Nel[Nel[B]]) => self(events)
+    def narrow[B <: A]: Append[F, B] = (events: Nel[Nel[B]]) => self(events)
   }
 
 
@@ -168,5 +166,5 @@ object Persist {
   }
 
 
-  private[akkaeffect] final case class Adapter[F[_], A](value: Persist[F, A], onError: OnError[A])
+  private[akkaeffect] final case class Adapter[F[_], A](value: Append[F, A], onError: OnError[A])
 }

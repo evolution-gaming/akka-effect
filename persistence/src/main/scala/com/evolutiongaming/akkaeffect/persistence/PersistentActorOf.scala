@@ -39,18 +39,18 @@ object PersistentActorOf {
 
       def errorPrefix = s"${ self.path.toStringWithoutAddress } $persistenceId"
 
-      val ((journaller, snapshotter, persist), release) = {
+      val ((journaller, snapshotter, append), release) = {
 
         val stopped = Lazy[F].of {
           Sync[F].delay[Throwable] { PersistentActorError(s"$errorPrefix has been stopped") }
         }
         val result = for {
           stopped     <- Resource.liftF(stopped)
-          persist     <- Persist.adapter[F, Any](act.value, actor, stopped())
-          journaller  <- Journaller.adapter[F, Any](act.value, persist.value, actor, stopped())
+          append      <- Append.adapter[F, Any](act.value, actor, stopped())
+          journaller  <- Journaller.adapter[F, Any](act.value, append.value, actor, stopped())
           snapshotter <- Snapshotter.adapter[F](act.value, actor, stopped())
         } yield {
-          (journaller, snapshotter, persist)
+          (journaller, snapshotter, append)
         }
 
         result
@@ -97,7 +97,7 @@ object PersistentActorOf {
         println("onPersistFailure")
         val error = PersistentActorError(s"$errorPrefix persist failed for $event", cause)
         act.sync {
-          persist.onError(error, event, seqNr)
+          append.onError(error, event, seqNr)
         }
         super.onPersistFailure(cause, event, seqNr)
       }
@@ -105,7 +105,7 @@ object PersistentActorOf {
       override protected def onPersistRejected(cause: Throwable, event: Any, seqNr: Long) = {
         val error = PersistentActorError(s"$errorPrefix persist rejected for $event", cause)
         act.sync {
-          persist.onError(error, event, seqNr)
+          append.onError(error, event, seqNr)
         }
         super.onPersistRejected(cause, event, seqNr)
       }

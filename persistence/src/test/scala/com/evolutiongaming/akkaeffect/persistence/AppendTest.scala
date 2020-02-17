@@ -13,7 +13,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.collection.immutable.Queue
 import scala.util.control.NoStackTrace
 
-class PersistTest extends AsyncFunSuite with Matchers {
+class AppendTest extends AsyncFunSuite with Matchers {
 
   test("adapter") {
 
@@ -22,11 +22,11 @@ class PersistTest extends AsyncFunSuite with Matchers {
 
     case class Event(fa: IO[Unit])
 
-    def eventsourced(act: Act, ref: Ref[IO, Queue[IO[Unit]]]): IO[Persist.Eventsourced] = {
+    def eventsourced(act: Act, ref: Ref[IO, Queue[IO[Unit]]]): IO[Append.Eventsourced] = {
       Ref[IO]
         .of(0L)
         .map { seqNr =>
-          new Persist.Eventsourced {
+          new Append.Eventsourced {
 
             def lastSequenceNr = seqNr.get.toTry.get
 
@@ -51,9 +51,9 @@ class PersistTest extends AsyncFunSuite with Matchers {
       ref          <- Ref[IO].of(Queue.empty[IO[Unit]])
       act          <- Act.of[IO]
       eventsourced <- eventsourced(act, ref)
-      result       <- Persist
+      result       <- Append
         .adapter[IO, Int](act, eventsourced, stopped.pure[IO])
-        .use { persist =>
+        .use { append =>
 
           def dequeue = {
             ref
@@ -67,8 +67,8 @@ class PersistTest extends AsyncFunSuite with Matchers {
           }
 
           for {
-            seqNr0 <- persist.value(Nel.of(Nel.of(0, 1), Nel.of(2)))
-            seqNr1 <- persist.value(Nel.of(Nel.of(3)))
+            seqNr0 <- append.value(Nel.of(Nel.of(0, 1), Nel.of(2)))
+            seqNr1 <- append.value(Nel.of(Nel.of(3)))
             queue  <- ref.get
             _       = queue.size shouldEqual 3
             _      <- dequeue
@@ -81,16 +81,16 @@ class PersistTest extends AsyncFunSuite with Matchers {
             seqNr  <- seqNr1
             _       = seqNr shouldEqual 4L
             _      <- dequeue
-            seqNr0 <- persist.value(Nel.of(Nel.of(3)))
-            seqNr1 <- persist.value(Nel.of(Nel.of(4)))
+            seqNr0 <- append.value(Nel.of(Nel.of(3)))
+            seqNr1 <- append.value(Nel.of(Nel.of(4)))
             queue  <- ref.get
             _       = queue.size shouldEqual 2
-            _      <- IO { persist.onError(error, 2, 2L) }
+            _      <- IO { append.onError(error, 2, 2L) }
             seqNr  <- seqNr0.attempt
             _       = seqNr shouldEqual error.asLeft
             seqNr  <- seqNr1.attempt
             _       = seqNr shouldEqual error.asLeft
-            result <- persist.value(Nel.of(Nel.of(4)))
+            result <- append.value(Nel.of(Nel.of(4)))
           } yield result
         }
       result   <- result.attempt

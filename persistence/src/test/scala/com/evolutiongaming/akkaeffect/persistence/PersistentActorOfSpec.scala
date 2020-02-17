@@ -22,7 +22,7 @@ import scala.util.control.NoStackTrace
 class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import PersistentActorOfSpec._
 
-  test("PersistentActor") {
+  test("all") {
     `persistentActorOf`[IO](actorSystem).run()
   }
 

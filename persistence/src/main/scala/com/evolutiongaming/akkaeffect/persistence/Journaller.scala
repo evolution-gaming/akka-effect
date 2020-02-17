@@ -14,7 +14,7 @@ trait Journaller[F[_], -A] {
   /**
     * @see [[akka.persistence.PersistentActor.persistAllAsync]]
     */
-  def append: Persist[F, A] // TODO val and rename Persist to Append
+  def append: Append[F, A] // TODO val and rename Persist to Append
 
   /**
     * @see [[akka.persistence.Eventsourced.deleteMessages]]
@@ -28,26 +28,26 @@ object Journaller {
 
   private[akkaeffect] def adapter[F[_] : Sync : ToTry : FromFuture, A](
     act: Act,
-    persist: Persist[F, A],
+    append: Append[F, A],
     actor: PersistentActor,
     stopped: F[Throwable]
   ): Resource[F, Adapter[Journaller[F, A]]] = {
 
     adapter(
       act,
-      persist,
+      append,
       Eventsourced(actor),
       stopped)
   }
 
   private[akkaeffect] def adapter[F[_] : Sync : ToTry : FromFuture, A](
     act: Act,
-    persist: Persist[F, A],
+    append: Append[F, A],
     eventsourced: Eventsourced,
     stopped: F[Throwable]
   ): Resource[F, Adapter[Journaller[F, A]]] = {
 
-    val append1 = persist
+    val append1 = append
 
     val deleteMessages = Call.adapter[F, SeqNr, Unit](act, stopped.void) {
       case DeleteMessagesSuccess(a)    => (a, ().pure[Try])
