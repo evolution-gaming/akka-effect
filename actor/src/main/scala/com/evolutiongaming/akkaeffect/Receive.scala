@@ -6,7 +6,7 @@ import cats.{Applicative, FlatMap, Monad, ~>}
 /**
   * @see [[akka.actor.Actor.receive]]
   */
-trait Receive[F[_], A, B] {
+trait Receive[F[_], -A, B] {
   import Receive._
 
   /**

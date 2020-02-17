@@ -55,13 +55,11 @@ trait Reply[F[_], -A] {
 This is what you need to implement instead of familiar `new Actor { ... }`  
 
 ```scala
-trait Receive[F[_], A, B] {
+trait Receive[F[_], -A, B] {
 
   type Stop = Boolean
 
   def apply(msg: A, reply: Reply[F, B]): F[Stop]
-
-  def postStop: F[Unit]
 }
 ```
 
