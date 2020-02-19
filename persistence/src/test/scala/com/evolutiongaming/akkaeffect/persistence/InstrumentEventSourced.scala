@@ -64,12 +64,19 @@ object InstrumentEventSourced {
                       _     <- record(Action.Initial(state))
                     } yield state
 
-                    def replay = new Replay[F, S, E] {
-                      def apply(state: S, event: E, seqNr: SeqNr) = {
-                        for {
-                          after <- recovering.replay(state, event, seqNr)
-                          _     <- record(Action.Replayed(state, event, seqNr, after))
-                        } yield after
+                    def replay = {
+                      for {
+                        _      <- resource(Action.ReplayAllocated, Action.ReplayReleased)
+                        replay <- recovering.replay
+                      } yield {
+                        new Replay[F, S, E] {
+                          def apply(state: S, event: E, seqNr: SeqNr) = {
+                            for {
+                              after <- replay(state, event, seqNr)
+                              _     <- record(Action.Replayed(state, event, seqNr, after))
+                            } yield after
+                          }
+                        }
                       }
                     }
 
@@ -152,7 +159,6 @@ object InstrumentEventSourced {
                         }
                       }
 
-                      // TODO resource
                       for {
                         receive <- recovering.recoveryCompleted(state, seqNr, journaller1, snapshotter1)
                         _       <- resource(Action.ReceiveAllocated(state, seqNr), Action.ReceiveReleased)
@@ -206,17 +212,22 @@ object InstrumentEventSourced {
     final case object Released extends Action[Nothing, Nothing, Nothing, Nothing]
 
 
-    final case class Initial[S, E](state: S) extends Action[S, Nothing, Nothing, Nothing]
-
-
-    final case class Replayed[S, E](before: S, event: E, seqNr: SeqNr, after: S) extends Action[S, Nothing, E, Nothing]
-
-
     final case class RecoveryAllocated[S](
       snapshotOffer: Option[SnapshotOffer[S]],
     ) extends Action[S, Nothing, Nothing, Nothing]
 
     final case object RecoveryReleased extends Action[Nothing, Nothing, Nothing, Nothing]
+
+
+    final case class Initial[S, E](state: S) extends Action[S, Nothing, Nothing, Nothing]
+
+
+    final case object ReplayAllocated extends Action[Nothing, Nothing, Nothing, Nothing]
+
+    final case object ReplayReleased extends Action[Nothing, Nothing, Nothing, Nothing]
+
+
+    final case class Replayed[S, E](before: S, event: E, seqNr: SeqNr, after: S) extends Action[S, Nothing, E, Nothing]
 
 
     final case class AppendEvents[E](events: Nel[Nel[E]]) extends Action[Nothing, Nothing, E, Nothing]

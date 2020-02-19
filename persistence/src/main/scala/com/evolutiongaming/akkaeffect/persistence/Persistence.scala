@@ -2,13 +2,13 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.ActorRef
 import cats.data.OptionT
+import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Releasable.implicits._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.akkaeffect.persistence.Fail.implicits._
 
-// TODO rename
 private[akkaeffect] trait Persistence[F[_], S, C, E, R] {
 
   type Result = Option[Releasable[F, Persistence[F, S, C, E, R]]]
@@ -50,7 +50,7 @@ private[akkaeffect] object Persistence {
             recovering.traverse { recovering =>
               Resource
                 .liftF(recovering.initial)
-                .map { state => Persistence.recovering(state, recovering) }
+                .map { state => Persistence.recovering(state, none, recovering) }
             }
           }
           .toReleasableOpt
@@ -61,14 +61,13 @@ private[akkaeffect] object Persistence {
           .recoveryStarted(none)
           .flatMap { recovering =>
             recovering.traverse { recovering =>
-              Resource
-                .liftF(recovering.initial)
-                .flatMap { state =>
-                  val persistence = recovering
-                    .replay(state, event, seqNr)
-                    .map { state => Persistence.recovering(state, recovering) }
-                  Resource.liftF(persistence)
-                }
+              for {
+                state  <- Resource.liftF(recovering.initial)
+                replay <- Allocated.of(recovering.replay)
+                state  <- Resource.liftF(replay.value(state, event, seqNr))
+              } yield {
+                Persistence.recovering(state, replay.some, recovering)
+              }
             }
           }
           .toReleasableOpt
@@ -103,6 +102,7 @@ private[akkaeffect] object Persistence {
 
   def recovering[F[_] : Sync : Fail, S, C, E, R](
     state: S,
+    replay: Option[Allocated[F, Replay[F, S, E]]],
     recovering: Recovering[F, S, C, E, R]
   ): Persistence[F, S, C, E, R] = {
 
@@ -113,12 +113,28 @@ private[akkaeffect] object Persistence {
       }
 
       def event(event: E, seqNr: SeqNr) = {
-        recovering
-          .replay(state, event, seqNr)
-          .map { state =>
-            val persistence = Persistence.recovering(state, recovering)
-            persistence.pure[Releasable[F, *]].some
-          }
+        replay match {
+          case Some(replay) =>
+            replay
+              .value(state, event, seqNr)
+              .map { state =>
+                Persistence
+                  .recovering(state, replay.some, recovering)
+                  .pure[Releasable[F, *]]
+                  .some
+              }
+
+          case None =>
+            val result = for {
+              replay <- Allocated.of(recovering.replay)
+              state  <- Resource.liftF(replay.value(state, event, seqNr))
+            } yield {
+              Persistence.recovering(state, replay.some, recovering)
+            }
+            result
+              .toReleasable
+              .map { _.some }
+        }
       }
 
       def recoveryCompleted(
@@ -127,9 +143,13 @@ private[akkaeffect] object Persistence {
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S]
       ) = {
-        recovering
-          .recoveryCompleted(state, seqNr, journaller, snapshotter)
-          .map { _.map { receive => Persistence.receive[F, S, C, E, R](replyOf, receive) } }
+        Resource
+          .liftF(replay.foldMapM { _.release })
+          .flatMap { _ =>
+            recovering
+              .recoveryCompleted(state, seqNr, journaller, snapshotter)
+              .map { _.map { receive => Persistence.receive[F, S, C, E, R](replyOf, receive) } }
+          }
           .toReleasableOpt
       }
 
@@ -177,5 +197,24 @@ private[akkaeffect] object Persistence {
 
   private def unexpected[F[_] : Fail, A](name: String, state: String): F[A] = {
     s"$name is not expected in $state".fail[F, A]
+  }
+
+
+  final case class Allocated[F[_], A](value: A, release: F[Unit])
+
+  object Allocated {
+
+    def of[F[_] : Sync, A](a: Resource[F, A]): Resource[F, Allocated[F, A]] = {
+      Resource.make {
+        for {
+          ab           <- a.allocated
+          (a, release)  = ab
+          ref          <- Ref[F].of(release)
+        } yield {
+          val release = ref.getAndSet(().pure[F]).flatten
+          Allocated(a, release)
+        }
+      } { _.release }
+    }
   }
 }

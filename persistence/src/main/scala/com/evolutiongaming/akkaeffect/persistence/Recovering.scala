@@ -12,8 +12,7 @@ trait Recovering[F[_], S, C, E, R] {
   /**
     * Used to replay events during recovery against passed state, resource will be released when recovery is completed
     */
-  // TODO Resource
-  def replay: Replay[F, S, E]
+  def replay: Resource[F, Replay[F, S, E]]
 
   /**
     * Called when recovery completed, resource will be released upon actor termination
@@ -45,7 +44,7 @@ object Recovering {
 
       val initial = self.initial.flatMap(sf)
 
-      val replay = self.replay.convert(sf, s1f, e1f)
+      val replay = self.replay.map { _.convert(sf, s1f, e1f) }
 
       def recoveryCompleted(
         state: S1,
@@ -78,7 +77,7 @@ object Recovering {
 
       val initial = self.initial.asInstanceOf[F[S1]]
 
-      val replay = self.replay.widen(sf, ef)
+      val replay = self.replay.map { _.widen(sf, ef) }
 
       def recoveryCompleted(
         state: S1,

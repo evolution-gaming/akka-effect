@@ -88,12 +88,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
                   def initial = 0.pure[F]
 
-                  val replay = new Replay[F, State, Event] {
-
-                    def apply(state: State, event: Event, seqNr: SeqNr) = {
-                      state.pure[F]
-                    }
-                  }
+                  val replay = Replay.empty[F, State, Event].pure[Resource[F, *]]
 
                   def recoveryCompleted(
                     state: State,
@@ -248,7 +243,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
                   def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-                  def replay = Replay.empty[F, S, E]
+                  def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
 
                   def recoveryCompleted(
                     state: S,
@@ -323,7 +318,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
                   def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-                  def replay = Replay.empty[F, S, E]
+                  def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
 
                   def recoveryCompleted(
                     state: S,
@@ -433,7 +428,10 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
                   def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-                  def replay = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
+                  def replay = {
+                    val replay: Replay[F, S, E] = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
+                    replay.pure[Resource[F, *]]
+                  }
 
                   def recoveryCompleted(
                     state: S,
@@ -500,9 +498,11 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.Initial(0),
+        Action.ReplayAllocated,
         Action.Replayed(0, 0, 1, 0),
         Action.Replayed(0, 1, 2, 1),
         Action.Replayed(1, 2, 3, 3),
+        Action.ReplayReleased,
         Action.AppendEvents(Nel.of(Nel.of(0, 1), Nel.of(2))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(6),
@@ -540,7 +540,10 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
                   def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-                  def replay = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
+                  def replay = {
+                    val replay: Replay[F, S, E] = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
+                    replay.pure[Resource[F, *]]
+                  }
 
                   def recoveryCompleted(
                     state: S,
@@ -615,7 +618,9 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("3", 1), 1).some),
         Action.Initial(1),
+        Action.ReplayAllocated,
         Action.Replayed(1, 1, 2, 2),
+        Action.ReplayReleased,
         Action.AppendEvents(Nel.of(Nel.of(0))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(3),
@@ -773,7 +778,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
 
                   def initial = ().pure[F]
 
-                  def replay = Replay.empty
+                  def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
 
                   def recoveryCompleted(
                     state: S,

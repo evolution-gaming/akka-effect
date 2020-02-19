@@ -6,7 +6,6 @@ import com.evolutiongaming.akkaeffect.ActorCtx
 
 trait EventSourcedOf[F[_], S, C, E, R] {
 
-  // TODO Option
   def apply(ctx: ActorCtx[F, C, R]): F[EventSourced[F, S, C, E, R]]
 }
 
