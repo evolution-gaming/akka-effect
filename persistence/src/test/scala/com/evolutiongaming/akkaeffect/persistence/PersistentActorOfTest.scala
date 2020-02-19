@@ -34,8 +34,16 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     `recover from snapshot`(actorSystem).run()
   }
 
+  test("recover from snapshot with deleted events") {
+    `recover from snapshot with deleted events`(actorSystem).run()
+  }
+
   test("recover from events") {
     `recover from events`(actorSystem).run()
+  }
+
+  test("recover from events with deleted snapshot") {
+    `recover from events with deleted snapshot`(actorSystem).run()
   }
 
   test("recover from snapshot and events") {
@@ -402,6 +410,130 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
+  private def `recover from snapshot with deleted events`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+    actorSystem: ActorSystem
+  ): F[Unit] = {
+    val actorRefOf = ActorRefOf[F](actorSystem)
+
+    type S = Int
+    type C = Any
+    type E = Int
+    type R = Any
+
+    def eventSourcedOf(
+      startedDeferred: Deferred[F, Unit],
+      stoppedDeferred: Deferred[F, Unit]
+    ): EventSourcedOf[F, S, C, E, R] = {
+      _: ActorCtx[F, C, R] => {
+        val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
+
+          def id = "6"
+
+          def start = {
+            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
+              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
+                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+
+                  def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
+
+                  def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
+
+                  def recoveryCompleted(
+                    state: S,
+                    seqNr: SeqNr,
+                    journaller: Journaller[F, E],
+                    snapshotter: Snapshotter[F, S]
+                  ) = {
+                    val receive = for {
+                      _     <- journaller.append(Nel.of(Nel.of(0))).flatten
+                      _     <- snapshotter.save(1).flatMap { _.done }
+                      seqNr <- journaller.append(Nel.of(Nel.of(1))).flatten
+                      _     <- journaller.deleteTo(seqNr).flatten
+                      _     <- startedDeferred.complete(())
+                    } yield {
+                      Receive.empty[F, C, R].some
+                    }
+                    Resource.liftF(receive)
+                  }
+                }
+
+                recovering.some.pure[Resource[F, *]]
+              }
+            }
+
+            Resource
+              .make(().pure[F]) { _ => stoppedDeferred.complete(()) }
+              .as(started.some)
+          }
+        }
+        eventSourced.pure[F]
+      }
+    }
+
+    def actions = for {
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E, R]])
+      eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
+        .typeless(_.cast[F, S], _.pure[F], _.cast[F, E], _.pure[F])
+        .pure[F]
+      actorEffect     = PersistentActorEffect.of(actorRefOf, eventSourcedOf)
+      _              <- actorEffect.use { _ => started.get }
+      _              <- stopped.get
+      actions        <- actions.get
+    } yield {
+      actions.reverse
+    }
+
+    for {
+      saveSnapshot <- actions
+      _ = saveSnapshot shouldEqual List(
+        Action.Created("6", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
+        Action.RecoveryAllocated(none),
+        Action.Initial(0),
+        Action.AppendEvents(Nel.of(Nel.of(0L))),
+        Action.AppendEventsOuter,
+        Action.AppendEventsInner(1),
+        Action.SaveSnapshot(1),
+        Action.SaveSnapshotOuter(1),
+        Action.SaveSnapshotInner,
+        Action.AppendEvents(Nel.of(Nel.of(1L))),
+        Action.AppendEventsOuter,
+        Action.AppendEventsInner(2),
+        Action.DeleteEventsTo(2),
+        Action.DeleteEventsToOuter,
+        Action.DeleteEventsToInner,
+        Action.ReceiveAllocated(0, 0L),
+        Action.ReceiveReleased,
+        Action.RecoveryReleased,
+        Action.Released)
+      recover <- actions
+      _ = recover shouldEqual List(
+        Action.Created("6", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
+        Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("6", 1), 1).some),
+        Action.Initial(1),
+        Action.AppendEvents(Nel.of(Nel.of(0L))),
+        Action.AppendEventsOuter,
+        Action.AppendEventsInner(3),
+        Action.SaveSnapshot(1),
+        Action.SaveSnapshotOuter(3),
+        Action.SaveSnapshotInner,
+        Action.AppendEvents(Nel.of(Nel.of(1L))),
+        Action.AppendEventsOuter,
+        Action.AppendEventsInner(4),
+        Action.DeleteEventsTo(4),
+        Action.DeleteEventsToOuter,
+        Action.DeleteEventsToInner,
+        Action.ReceiveAllocated(1, 2L),
+        Action.ReceiveReleased,
+        Action.RecoveryReleased,
+        Action.Released)
+    } yield {}
+  }
+
+
   private def `recover from events`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
@@ -507,6 +639,138 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEventsOuter,
         Action.AppendEventsInner(6),
         Action.ReceiveAllocated(3, 3L),
+        Action.ReceiveReleased,
+        Action.RecoveryReleased,
+        Action.Released)
+    } yield {}
+  }
+
+
+  private def `recover from events with deleted snapshot`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+    actorSystem: ActorSystem
+  ): F[Unit] = {
+    val actorRefOf = ActorRefOf[F](actorSystem)
+
+    type S = Int
+    type C = Any
+    type E = Int
+    type R = Any
+
+    def eventSourcedOf(
+      startedDeferred: Deferred[F, Unit],
+      stoppedDeferred: Deferred[F, Unit]
+    ): EventSourcedOf[F, S, C, E, R] = {
+      _: ActorCtx[F, C, R] => {
+        val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
+
+          def id = "7"
+
+          def start = {
+            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
+              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
+                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+
+                  def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
+
+                  def replay = {
+                    val replay: Replay[F, S, E] = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
+                    replay.pure[Resource[F, *]]
+                  }
+
+                  def recoveryCompleted(
+                    state: S,
+                    seqNr: SeqNr,
+                    journaller: Journaller[F, E],
+                    snapshotter: Snapshotter[F, S]
+                  ) = {
+                    val receive = for {
+                      seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
+                      _     <- snapshotter.save(1).flatMap { _.done }
+                      _     <- journaller.append(Nel.of(Nel.of(1))).flatten
+                      _     <- snapshotter.delete(seqNr).flatten
+                      _     <- startedDeferred.complete(())
+                    } yield {
+                      Receive.empty[F, C, R].some
+                    }
+                    Resource.liftF(receive)
+                  }
+                }
+
+                recovering.some.pure[Resource[F, *]]
+              }
+            }
+
+            Resource
+              .make(().pure[F]) { _ => stoppedDeferred.complete(()) }
+              .as(started.some)
+          }
+        }
+        eventSourced.pure[F]
+      }
+    }
+
+
+    def actions = for {
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E, R]])
+      eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
+        .typeless(_.cast[F, S], _.pure[F], _.cast[F, E], _.pure[F])
+        .pure[F]
+      actorEffect     = PersistentActorEffect.of(actorRefOf, eventSourcedOf)
+      _              <- actorEffect.use { _ => started.get }
+      _              <- stopped.get
+      actions        <- actions.get
+    } yield {
+      actions.reverse
+    }
+
+    for {
+      appendEvents <- actions
+      _ = appendEvents shouldEqual List(
+        Action.Created("7", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
+        Action.RecoveryAllocated(none),
+        Action.Initial(0),
+        Action.AppendEvents(Nel.of(Nel.of(0))),
+        Action.AppendEventsOuter,
+        Action.AppendEventsInner(1),
+        Action.SaveSnapshot(1),
+        Action.SaveSnapshotOuter(1),
+        Action.SaveSnapshotInner,
+        Action.AppendEvents(Nel.of(Nel.of(1))),
+        Action.AppendEventsOuter,
+        Action.AppendEventsInner(2),
+        Action.DeleteSnapshot(1),
+        Action.DeleteSnapshotOuter,
+        Action.DeleteSnapshotInner,
+        Action.ReceiveAllocated(0, 0L),
+        Action.ReceiveReleased,
+        Action.RecoveryReleased,
+        Action.Released)
+      recover <- actions
+      _ = recover shouldEqual List(
+        Action.Created("7", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
+        Action.RecoveryAllocated(none),
+        Action.Initial(0),
+        Action.ReplayAllocated,
+        Action.Replayed(0, 0, 1, 0),
+        Action.Replayed(0, 1, 2, 1),
+        Action.ReplayReleased,
+        Action.AppendEvents(Nel.of(Nel.of(0))),
+        Action.AppendEventsOuter,
+        Action.AppendEventsInner(3),
+        Action.SaveSnapshot(1),
+        Action.SaveSnapshotOuter(3),
+        Action.SaveSnapshotInner,
+        Action.AppendEvents(Nel.of(Nel.of(1))),
+        Action.AppendEventsOuter,
+        Action.AppendEventsInner(4),
+        Action.DeleteSnapshot(3),
+        Action.DeleteSnapshotOuter,
+        Action.DeleteSnapshotInner,
+        Action.ReceiveAllocated(1, 2L),
         Action.ReceiveReleased,
         Action.RecoveryReleased,
         Action.Released)
