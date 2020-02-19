@@ -51,19 +51,19 @@ private[akkaeffect] object PersistenceVar {
       }
 
       def snapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
-        actorVar.receive { _.snapshotOffer(snapshotOffer) }
+        actorVar.receiveUpdate { _.snapshotOffer(snapshotOffer) }
       }
 
       def event(event: E, seqNr: SeqNr) = {
-        actorVar.receive { _.event(event, seqNr) }
+        actorVar.receiveUpdate { _.event(event, seqNr) }
       }
 
       def recoveryCompleted(seqNr: SeqNr, replyOf: ReplyOf[F, R]) = {
-        actorVar.receive { _.recoveryCompleted(seqNr, replyOf, journaller, snapshotter) }
+        actorVar.receiveUpdate { _.recoveryCompleted(seqNr, replyOf, journaller, snapshotter) }
       }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {
-        actorVar.receive { _.command(cmd, seqNr, sender) }
+        actorVar.receiveUpdate { _.command(cmd, seqNr, sender) }
       }
 
       def postStop(seqNr: SeqNr) = {

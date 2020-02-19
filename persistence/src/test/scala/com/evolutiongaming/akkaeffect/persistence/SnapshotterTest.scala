@@ -52,7 +52,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
         def snapshotSequenceNr = 0
 
         def receiveMsg: Receive = {
-          case Msg(f) => actorVar.receive1 { _ => f(snapshotter.value).as(false) }
+          case Msg(f) => actorVar.receive { _ => f(snapshotter.value).as(false) }
         }
 
         def receive = {

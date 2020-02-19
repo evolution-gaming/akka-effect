@@ -271,7 +271,6 @@ object InstrumentEventSourced {
 
     final case class Received[C](cmd: C, stop: Receive.Stop) extends Action[Nothing, C, Nothing, Nothing]
 
-    // TODO add seqNr
     final case class Replied[R](reply: R) extends Action[Nothing, Nothing, Nothing, R]
   }
 }

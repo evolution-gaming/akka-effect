@@ -13,9 +13,6 @@ import scala.collection.immutable.Seq
 
 object PersistentActorOf {
 
-//   TODO
-//  def apply[F[_] : Concurrent : ToFuture : FromFuture : ToTry, S, C, E, R](
-//    persistenceSetupOf: PersistenceSetupOf[F, S, C, E, R]
   def apply[F[_] : Sync : ToFuture : FromFuture : ToTry](
     eventSourcedOf: EventSourcedOf[F, Any, Any, Any, Any]
   ): PersistentActor = {

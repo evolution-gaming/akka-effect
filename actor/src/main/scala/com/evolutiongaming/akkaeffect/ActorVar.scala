@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorContext
-import cats.FlatMap
 import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._
@@ -21,12 +20,13 @@ trait ActorVar[F[_], A] {
   /**
     * @param f takes current state and returns tuple from next state and optional release callback
     */
-  def receive(f: A => F[Option[Releasable[F, A]]]): Unit
+  def receiveUpdate(f: A => F[Option[Releasable[F, A]]]): Unit
 
-  // TODO rename
-  def receive1(f: A => F[Boolean]): Unit
+  /**
+    * @param f takes current state and returns boolean whether to stop an actor
+    */
+  def receive(f: A => F[Boolean]): Unit
 
-  // TODO return F[Unit]
   def postStop(): F[Unit]
 }
 
@@ -104,7 +104,7 @@ object ActorVar {
         }
       }
 
-      def receive(f: A => F[Option[Releasable[F, A]]]) = {
+      def receiveUpdate(f: A => F[Option[Releasable[F, A]]]) = {
         stateVar.foreach { state =>
           run {
             FromFuture[F]
@@ -139,8 +139,8 @@ object ActorVar {
         }
       }
 
-      def receive1(f: A => F[Boolean]): Unit = {
-        receive { a =>
+      def receive(f: A => F[Boolean]): Unit = {
+        receiveUpdate { a =>
           f(a).map {
             case false => Releasable(a).some
             case true  => none
@@ -161,18 +161,4 @@ object ActorVar {
       }
     }
   }
-/*
-
-  implicit class ActorVarOps[F[_], A](val self: ActorVar[F, A]) extends AnyVal {
-
-    // TODO rename
-    def receive1(f: A => F[Boolean])(implicit F: FlatMap[F]): Unit = {
-      self.receive { a =>
-        f(a).map {
-          case false => Releasable(a).some
-          case true  => none
-        }
-      }
-    }
-  }*/
 }

@@ -6,8 +6,6 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
-// TODO Add Unapply and types
-
 /**
   * Creates instance of [[akka.actor.Actor]] out of [[ReceiveOf]]
   */
@@ -52,7 +50,7 @@ object ActorOf {
       }
 
       def receive: Receive = act.receive {
-        case a => actorVar.receive1 { onReceive(a, self = self, sender = sender()) }
+        case a => actorVar.receive { onReceive(a, self = self, sender = sender()) }
       }
 
       override def postStop(): Unit = {
