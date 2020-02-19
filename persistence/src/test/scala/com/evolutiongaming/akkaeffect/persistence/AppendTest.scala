@@ -22,7 +22,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
 
     case class Event(fa: IO[Unit])
 
-    def eventsourced(act: Act, ref: Ref[IO, Queue[IO[Unit]]]): IO[Append.Eventsourced] = {
+    def eventsourced(act: Act[IO], ref: Ref[IO, Queue[IO[Unit]]]): IO[Append.Eventsourced] = {
       Ref[IO]
         .of(0L)
         .map { seqNr =>
@@ -33,7 +33,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
             def persistAllAsync[A](events: List[A])(handler: A => Unit) = {
               val handlers = for {
                 _ <- seqNr.update { _ + events.size }
-                _ <- events.foldMapM { event => act.ask { handler(event) } }
+                _ <- events.foldMapM { event => act { handler(event) } }
               } yield {}
               ref
                 .update { _.enqueue(handlers) }

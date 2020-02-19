@@ -1,9 +1,9 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.{SnapshotSelectionCriteria, Snapshotter => _, _}
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.{Resource, Sync}
 import cats.implicits._
-import cats.{FlatMap, Monad}
+import cats.FlatMap
 import com.evolutiongaming.akkaeffect.{Act, Adapter}
 import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 
@@ -73,7 +73,7 @@ object Snapshotter {
   }
 
   def adapter[F[_] : Sync : ToTry : FromFuture](
-    act: Act,
+    act: Act[F],
     actor: akka.persistence.Snapshotter,
     stopped: F[Throwable],
   ): Resource[F, Adapter[Snapshotter[F, Any]]] = {

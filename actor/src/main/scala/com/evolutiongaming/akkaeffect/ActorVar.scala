@@ -39,7 +39,7 @@ object ActorVar {
   type Stop = () => Unit
 
   def apply[F[_] : BracketThrowable : ToFuture : FromFuture, A](
-    act: Act,
+    act: Act[Future],
     context: ActorContext
   ): ActorVar[F, A] = {
     val stop = () => context.stop(context.self)
@@ -48,7 +48,7 @@ object ActorVar {
   }
 
   def apply[F[_] : BracketThrowable : ToFuture : FromFuture, A](
-    act: Act,
+    act: Act[Future],
     stop: Stop)(implicit
     executor: ExecutionContext
   ): ActorVar[F, A] = {

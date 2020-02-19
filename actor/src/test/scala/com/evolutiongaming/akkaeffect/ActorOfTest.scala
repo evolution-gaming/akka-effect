@@ -19,6 +19,8 @@ import scala.util.control.NoStackTrace
 class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   import ActorOfTest._
 
+
+  // TODO refactor tests to support Ask F[F[_]]
   for {
     async <- List(false, true)
   } yield {
@@ -30,7 +32,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       all[IO](actorSystem, delay).run()
     }
 
-    test(s"$prefix receive ") {
+    test(s"$prefix receive") {
       receive[IO](actorSystem, delay).run()
     }
 

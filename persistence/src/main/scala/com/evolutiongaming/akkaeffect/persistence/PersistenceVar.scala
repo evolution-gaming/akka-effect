@@ -5,6 +5,8 @@ import cats.effect.Sync
 import com.evolutiongaming.akkaeffect.{Act, ActorVar, ReplyOf}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
+import scala.concurrent.Future
+
 private[akkaeffect] trait PersistenceVar[F[_], S, C, E, R] {
 
   def preStart(eventSourced: EventSourced[F, S, C, E, R]): Unit
@@ -23,7 +25,7 @@ private[akkaeffect] trait PersistenceVar[F[_], S, C, E, R] {
 private[akkaeffect] object PersistenceVar {
 
   def apply[F[_] : Sync : ToFuture : FromFuture : Fail, S, C, E, R](
-    act: Act,
+    act: Act[Future],
     context: ActorContext,
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]

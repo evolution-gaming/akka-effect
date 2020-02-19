@@ -52,7 +52,7 @@ trait ActorCtx[F[_], -A, B] {
 object ActorCtx {
 
   def apply[F[_] : Sync : FromFuture](
-    act: Act,
+    act: Act[F],
     context: ActorContext
   ): ActorCtx[F, Any, Any] = {
 
@@ -63,14 +63,14 @@ object ActorCtx {
       val dispatcher = context.dispatcher
 
       def setReceiveTimeout(timeout: Duration) = {
-        act.ask { context.setReceiveTimeout(timeout) }
+        act { context.setReceiveTimeout(timeout) }
       }
 
       def child(name: String) = {
-        act.ask { context.child(name) }
+        act { context.child(name) }
       }
 
-      val children = act.ask { context.children }
+      val children = act { context.children }
 
       val actorRefOf = ActorRefOf[F](context)
     }

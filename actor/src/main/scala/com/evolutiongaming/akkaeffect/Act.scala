@@ -12,32 +12,29 @@ import scala.util.Try
 /**
   * Act executes function in `receive` thread of an actor
   */
-// TODO  as F
-private[akkaeffect] trait Act {
+private[akkaeffect] trait Act[F[_]] {
 
-  // TODO return F[A]
-  def apply[A](f: => A): Future[A]
+  def apply[A](f: => A): F[A]
 }
 
 
 private[akkaeffect] object Act {
 
-  val now: Act = new Act {
-    def apply[A](f: => A) = Future.fromTry(Try(f))
+  def now[F[_] : Sync]: Act[F] = new Act[F] {
+    def apply[A](f: => A) = Sync[F].delay { f }
   }
 
 
-  def of[F[_] : Sync : ToTry : ToFuture : FromFuture]: F[Act] = {
+  def of[F[_] : Sync : ToTry : ToFuture : FromFuture]: F[Act[F]] = {
     Serially.of[F].map { serially => apply(serially) }
   }
 
 
-  def apply[F[_] : Sync : ToTry : ToFuture](serially: Serially[F]): Act = new Act {
+  def apply[F[_] : Sync : ToTry](serially: Serially[F]): Act[F] = new Act[F] {
     def apply[A](f: => A) = {
       serially { Sync[F].delay { f } }
         .toTry
         .get
-        .toFuture
     }
   }
 
@@ -65,7 +62,7 @@ private[akkaeffect] object Act {
         def apply(a: Any) = sync { receive(a) }
       }
 
-      val value = new Act {
+      val value = new Act[Future] {
         def apply[A](f: => A) = {
           if (actorThread.get()) {
             Future.successful(f)
@@ -94,18 +91,18 @@ private[akkaeffect] object Act {
     }
   }
 
+          
+  implicit class ActFutureOps(val self: Act[Future]) extends AnyVal {
 
-  implicit class ActOps(val self: Act) extends AnyVal {
-
-    def ask[F[_] : FromFuture, A](f: => A): F[A] = {
-      FromFuture[F].apply { self(f) }
+    def fromFuture[F[_] : FromFuture]: Act[F] = new Act[F] {
+      def apply[A](f: => A) = FromFuture[F].apply { self(f) }
     }
   }
 
-  // TODO avoid context switching when Act called from receive
+
   trait Adapter {
 
-    def value: Act
+    def value: Act[Future]
 
     def receive(receive: Actor.Receive): Actor.Receive
 

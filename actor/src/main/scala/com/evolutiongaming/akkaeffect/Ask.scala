@@ -11,6 +11,7 @@ import scala.concurrent.duration.FiniteDuration
 trait Ask[F[_], -A, B] {
 
   // TODO F[Either[
+  // TODO F[F[B]]
   def apply(msg: A, timeout: FiniteDuration, sender: Option[ActorRef] = None): F[B]
 }
 

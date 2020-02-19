@@ -27,7 +27,7 @@ trait Journaller[F[_], -A] {
 object Journaller {
 
   private[akkaeffect] def adapter[F[_] : Sync : ToTry : FromFuture, A](
-    act: Act,
+    act: Act[F],
     append: Append[F, A],
     actor: PersistentActor,
     stopped: F[Throwable]
@@ -41,7 +41,7 @@ object Journaller {
   }
 
   private[akkaeffect] def adapter[F[_] : Sync : ToTry : FromFuture, A](
-    act: Act,
+    act: Act[F],
     append: Append[F, A],
     eventsourced: Eventsourced,
     stopped: F[Throwable]

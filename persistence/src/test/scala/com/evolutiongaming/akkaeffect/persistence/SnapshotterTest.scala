@@ -32,7 +32,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
         val act = Act.adapter(self)
 
         val (snapshotter, release) = Snapshotter
-          .adapter[IO](act.value, actor, stopped.pure[IO])
+          .adapter[IO](act.value.fromFuture, actor, stopped.pure[IO])
           .allocated
           .toTry
           .get

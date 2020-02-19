@@ -29,7 +29,7 @@ trait Append[F[_], -A] {
 object Append {
 
   private[akkaeffect] def adapter[F[_] : Sync : FromFuture : ToTry, A](
-    act: Act,
+    act: Act[F],
     actor: PersistentActor,
     stopped: F[Throwable]
   ): Resource[F, Adapter[F, A]] = {
@@ -37,7 +37,7 @@ object Append {
   }
 
   def adapter[F[_] : Sync : FromFuture : ToTry, A](
-    act: Act,
+    act: Act[F],
     eventsourced: Eventsourced,
     stopped: F[Throwable]
   ): Resource[F, Adapter[F, A]] = {
@@ -72,7 +72,7 @@ object Append {
 
             def persist(promise: PromiseEffect[F, SeqNr]) = {
 
-              act.ask {
+              act {
                 ref
                   .update { _.enqueue(promise) }
                   .toTry

@@ -25,7 +25,7 @@ object PersistentActorOf {
       lazy val (act, eventSourced) = {
         val act = Act.adapter(self)
         val eventSourced = {
-          val ctx = ActorCtx[F](act.value, context)
+          val ctx = ActorCtx[F](act.value.fromFuture, context)
           eventSourcedOf(ctx)
             .adaptError { case error => PersistentActorError(s"$self failed to allocate eventSourced with $error", error) }
             .toTry
@@ -44,9 +44,10 @@ object PersistentActorOf {
         }
         val result = for {
           stopped     <- Resource.liftF(stopped)
-          append      <- Append.adapter[F, Any](act.value, actor, stopped())
-          journaller  <- Journaller.adapter[F, Any](act.value, append.value, actor, stopped())
-          snapshotter <- Snapshotter.adapter[F](act.value, actor, stopped())
+          act         <- act.value.fromFuture.pure[Resource[F, *]]
+          append      <- Append.adapter[F, Any](act, actor, stopped())
+          journaller  <- Journaller.adapter[F, Any](act, append.value, actor, stopped())
+          snapshotter <- Snapshotter.adapter[F](act, actor, stopped())
         } yield {
           (journaller, snapshotter, append)
         }

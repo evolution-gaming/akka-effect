@@ -27,7 +27,7 @@ trait Call[F[_], A, B] {
 object Call {
 
   def adapter[F[_] : Sync : ToTry : FromFuture, A, B](
-    act: Act,
+    act: Act[F],
     stopped: F[B])(
     pf: PartialFunction[Any, (A, Try[B])]
   ): Resource[F, Adapter[Call[F, A, B]]] = {
@@ -81,7 +81,7 @@ object Call {
             PromiseEffect[F, B]
               .flatMap { promise =>
                 act
-                  .ask {
+                .apply {
                     val key = f
                     ref
                       .update { _.updated(key, promise) }
