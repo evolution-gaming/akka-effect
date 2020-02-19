@@ -11,7 +11,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-class CallTest extends AsyncFunSuite with ActorSuite with Matchers {
+class CallTest extends AsyncFunSuite with Matchers {
 
   test("adapter") {
 
