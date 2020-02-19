@@ -19,8 +19,8 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.control.NoStackTrace
 
-class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers {
-  import PersistentActorOfSpec._
+class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
+  import PersistentActorOfTest._
 
   test("all") {
     `persistentActorOf`[IO](actorSystem).run()
@@ -462,7 +462,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       }
     }
 
-    
+
     def actions = for {
       started        <- Deferred[F, Unit]
       stopped        <- Deferred[F, Unit]
@@ -832,7 +832,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
   }
 }
 
-object PersistentActorOfSpec {
+object PersistentActorOfTest {
 
   case class Error(msg: String) extends RuntimeException(msg) with NoStackTrace
 }
