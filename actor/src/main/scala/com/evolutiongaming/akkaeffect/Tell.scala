@@ -9,6 +9,8 @@ import cats.{Applicative, FlatMap, ~>}
   * Typesafe api for ActorRef.tell
   *
   * @see [[akka.actor.ActorRef.tell]]
+  *
+  * @tparam A message
   */
 trait Tell[F[_], -A] {
 

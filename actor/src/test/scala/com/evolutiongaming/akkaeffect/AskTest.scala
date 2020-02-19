@@ -12,7 +12,7 @@ import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 
-class AskSpec extends AsyncFunSuite with ActorSuite with Matchers {
+class AskTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("toString") {
     `toString`[IO](actorSystem).run()
@@ -38,10 +38,12 @@ class AskSpec extends AsyncFunSuite with ActorSuite with Matchers {
     actorRefOf(TestActors.echoActorProps).use { actorRef =>
       val ask = Ask.fromActorRef[F](actorRef).mapK(FunctionK.id)
       for {
-        reply <- ask("msg0", timeout)
-        _     <- Sync[F].delay { reply shouldEqual "msg0" }
-        reply <- ask("msg1", timeout, actorRef.some)
-        _     <- Sync[F].delay { reply shouldEqual "msg1" }
+        a0 <- ask("msg0", timeout)
+        a1 <- ask("msg1", timeout, actorRef.some)
+        a  <- a0
+        _   = a shouldEqual "msg0"
+        a  <- a1
+        _   = a shouldEqual "msg1"
       } yield {}
     }
   }

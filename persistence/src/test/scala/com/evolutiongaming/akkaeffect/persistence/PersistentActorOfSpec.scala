@@ -171,6 +171,7 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
       def withCtx[A: ClassTag](f: ActorCtx[F, Any, Any] => F[A]): F[A] = {
         for {
           a <- actorRef.ask(Cmd.WithCtx(f), timeout)
+          a <- a
           a <- a.cast[F, A]
         } yield a
       }
@@ -193,15 +194,15 @@ class PersistentActorOfSpec extends AsyncFunSuite with ActorSuite with Matchers 
         _           <- Sync[F].delay { child1 shouldEqual none[ActorRef] }
         children    <- withCtx { _.children }
         _           <- Sync[F].delay { children.toList shouldEqual List.empty }
-        identity    <- actorRef.ask(Identify("id"), timeout)
+        identity    <- actorRef.ask(Identify("id"), timeout).flatten
         identity    <- identity.cast[F, ActorIdentity]
         _           <- withCtx { _.setReceiveTimeout(1.millis) }
         _           <- receiveTimeout
         _           <- Sync[F].delay { identity shouldEqual ActorIdentity("id", actorRef.toUnsafe.some) }
-        seqNr       <- actorRef.ask(Cmd.Inc, timeout)
-        _           <- Sync[F].delay { seqNr shouldEqual 4 }
-        a           <- actorRef.ask(Cmd.Stop, timeout)
-        _           <- Sync[F].delay { a shouldEqual "stopping" }
+        seqNr       <- actorRef.ask(Cmd.Inc, timeout).flatten
+        _            = seqNr shouldEqual 4
+        a           <- actorRef.ask(Cmd.Stop, timeout).flatten
+        _            = a shouldEqual "stopping"
         _           <- terminated0
       } yield {}
     }

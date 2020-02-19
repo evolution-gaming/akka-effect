@@ -19,8 +19,6 @@ import scala.util.control.NoStackTrace
 class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   import ActorOfTest._
 
-
-  // TODO refactor tests to support Ask F[F[_]]
   for {
     async <- List(false, true)
   } yield {
@@ -73,6 +71,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       def withCtx[A : ClassTag](f: ActorCtx[F, Any, Any] => F[A]): F[A] = {
         for {
           a <- actorRef.ask(WithCtx(f), timeout)
+          a <- a
           a <- a.cast[F, A]
         } yield a
       }
@@ -80,28 +79,28 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       for {
         terminated0 <- probe.watch(actorRef.toUnsafe)
         dispatcher  <- withCtx { _.dispatcher.pure[F] }
-        _           <- Sync[F].delay { dispatcher.toString shouldEqual "Dispatcher[akka.actor.default-dispatcher]" }
+        _            = dispatcher.toString shouldEqual "Dispatcher[akka.actor.default-dispatcher]"
         a           <- withCtx { _.actorRefOf(TestActors.blackholeProps, "child".some).allocated }
         (child0, childRelease) = a
         terminated1 <- probe.watch(child0)
         children    <- withCtx { _.children }
-        _           <- Sync[F].delay { children.toList shouldEqual List(child0) }
+        _            = children.toList shouldEqual List(child0)
         child        = withCtx { _.child("child") }
         child1      <- child
-        _           <- Sync[F].delay { child1 shouldEqual child0.some }
+        _            = child1 shouldEqual child0.some
         _           <- childRelease
         _           <- terminated1
         child1      <- child
-        _           <- Sync[F].delay { child1 shouldEqual none[ActorRef] }
+        _            = child1 shouldEqual none[ActorRef]
         children    <- withCtx { _.children }
-        _           <- Sync[F].delay { children.toList shouldEqual List.empty }
-        identity    <- actorRef.ask(Identify("id"), timeout)
+        _            = children.toList shouldEqual List.empty
+        identity    <- actorRef.ask(Identify("id"), timeout).flatten
         identity    <- identity.cast[F, ActorIdentity]
         _           <- withCtx { _.setReceiveTimeout(1.millis) }
         _           <- receiveTimeout
-        _           <- Sync[F].delay { identity shouldEqual ActorIdentity("id", actorRef.toUnsafe.some) }
-        a           <- actorRef.ask("stop", timeout)
-        _           <- Sync[F].delay { a shouldEqual "stopping" }
+        _            = identity shouldEqual ActorIdentity("id", actorRef.toUnsafe.some)
+        a           <- actorRef.ask("stop", timeout).flatten
+        _            = a shouldEqual "stopping"
         _           <- terminated0
       } yield {}
     }
@@ -197,10 +196,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         val timeout = 1.second
 
         def getAndInc(delay: F[Unit]) = {
-          actorRef
-            .ask(GetAndInc(delay), timeout)
-            .startEnsure
-            .map { _.join }
+          actorRef.ask(GetAndInc(delay), timeout)
         }
 
         for {
@@ -301,13 +297,13 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         val ask = Ask.fromActorRef[F](actorRef)
         val timeout = 1.minute
         for {
-          a       <- ask("ping", timeout)
-          _       <- Sync[F].delay { a shouldEqual "pong" }
+          a       <- ask("ping", timeout).flatten
+          _        = a shouldEqual "pong"
           _       <- started.get
           started <- Deferred[F, Unit]
           _       <- ref.set(started)
-          a       <- ask("fail", timeout)
-          _       <- Sync[F].delay { a shouldEqual "ok" }
+          a       <- ask("fail", timeout).flatten
+          _        = a shouldEqual "ok"
         } yield {}
       }
     } yield result
