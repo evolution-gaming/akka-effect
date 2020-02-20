@@ -7,7 +7,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, FromFuture, ToFuture}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
 
@@ -43,15 +43,15 @@ object ActorVar {
     context: ActorContext
   ): ActorVar[F, A] = {
     val stop = () => context.stop(context.self)
-    implicit val executor = context.dispatcher
     apply(act, stop)
   }
 
   def apply[F[_] : BracketThrowable : ToFuture : FromFuture, A](
     act: Act[Future],
-    stop: Stop)(implicit
-    executor: ExecutionContext
+    stop: Stop
   ): ActorVar[F, A] = {
+
+    val executor = ParasiticExecutionContext()
 
     case class State(value: A, release: F[Unit])
 
@@ -72,7 +72,7 @@ object ActorVar {
       future.value match {
         case Some(result) =>
           val (state, func) = stateAndFunc(result)
-          stateVar = state.map { _.pure[Future] }
+          stateVar = state.map { state => Future.successful(state) }
           func()
 
         case None =>
@@ -84,7 +84,7 @@ object ActorVar {
                 case Some(state) => state.pure[Try]
                 case None        => Failure(stopped)
               }
-            }
+            }(executor)
             .some
       }
     }

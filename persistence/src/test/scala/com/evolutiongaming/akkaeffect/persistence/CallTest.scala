@@ -4,7 +4,7 @@ import cats.effect.IO
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
-import com.evolutiongaming.akkaeffect.{Act, ActorSuite}
+import com.evolutiongaming.akkaeffect.Act
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 

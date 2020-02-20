@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.{PersistentActor, RecoveryCompleted, SnapshotSelectionCriteria}
 import akka.{persistence => ap}
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
