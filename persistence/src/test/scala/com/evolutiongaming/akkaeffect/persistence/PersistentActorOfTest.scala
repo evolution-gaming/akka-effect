@@ -64,10 +64,6 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     `recoveryCompleted returns none`(actorSystem).run()
   }
 
-  test("append events") {
-    ().pure[IO].run()
-  }
-
   private def `persistentActorOf`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
