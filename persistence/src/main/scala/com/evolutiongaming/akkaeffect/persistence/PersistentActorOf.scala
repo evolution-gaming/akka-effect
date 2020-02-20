@@ -42,9 +42,9 @@ object PersistentActorOf {
         val result = for {
           stopped     <- Resource.liftF(stopped)
           act         <- act.value.fromFuture.pure[Resource[F, *]]
-          append      <- Append.adapter[F, Any](act, actor, stopped())
-          journaller  <- Journaller.adapter[F, Any](act, append.value, actor, stopped())
-          snapshotter <- Snapshotter.adapter[F](act, actor, stopped())
+          append      <- Append.adapter[F, Any](act, actor, stopped.get)
+          journaller  <- Journaller.adapter[F, Any](act, append.value, actor, stopped.get)
+          snapshotter <- Snapshotter.adapter[F](act, actor, stopped.get)
         } yield {
           (journaller, snapshotter, append)
         }

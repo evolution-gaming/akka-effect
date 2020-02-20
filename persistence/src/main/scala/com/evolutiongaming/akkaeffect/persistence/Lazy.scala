@@ -1,35 +1,19 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 
-import cats.Id
+import cats.effect.Sync
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
-import cats.effect.{Async, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.PromiseEffect
 import com.evolutiongaming.catshelper.FromFuture
 
-// TODO test this
-trait Lazy[F[_], A] {
+private[akkaeffect] trait Lazy[F[_], A] {
 
-  def apply(): F[A]
+  def get: F[A]
 }
 
-object Lazy {
-
-  /**
-    * is not synchronised, safe to use within actor
-    */
-  def unsafe[A](f: => A): Lazy[Id, A] = {
-    var a = none[A]
-    () =>
-      a.getOrElse {
-        val b = f
-        a = b.some
-        b
-      }
-  }
-
+private[akkaeffect] object Lazy {
 
   def apply[F[_] : Sync]: ApplyBuilders[F] = new ApplyBuilders(Sync[F])
 
@@ -38,26 +22,28 @@ object Lazy {
     Ref[F]
       .of(none[F[A]])
       .map { ref =>
-        () => {
-          ref.get.flatMap {
-            case Some(a) => a
-            case None    =>
-              PromiseEffect[F, A].flatMap { promise =>
-                ref
-                  .modify {
-                    case Some(a) => (a.some, a)
-                    case None    =>
-                      val b = for {
-                        a <- load.attempt
-                        _ <- promise.complete(a)
-                        a <- a.liftTo[F]
-                      } yield a
-                      val a = promise.get.some
-                      (a, b)
-                  }
-                  .flatten
-                  .uncancelable
-              }
+        new Lazy[F, A] {
+          def get = {
+            ref.get.flatMap {
+              case Some(a) => a
+              case None    =>
+                PromiseEffect[F, A].flatMap { promise =>
+                  ref
+                    .modify {
+                      case Some(a) => (a.some, a)
+                      case None    =>
+                        val b = for {
+                          a <- load.attempt
+                          _ <- promise.complete(a)
+                          a <- a.liftTo[F]
+                        } yield a
+                        val a = promise.get.some
+                        (a, b)
+                    }
+                    .flatten
+                    .uncancelable
+                }
+            }
           }
         }
       }
