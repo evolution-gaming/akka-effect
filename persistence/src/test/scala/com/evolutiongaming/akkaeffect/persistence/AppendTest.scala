@@ -1,12 +1,13 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.IO
+import cats.effect.{IO, Sync}
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -15,15 +16,18 @@ import scala.util.control.NoStackTrace
 
 class AppendTest extends AsyncFunSuite with Matchers {
 
+  private implicit val toTry = ToTryFromToFuture.syncOrError[IO]
+  
   test("adapter") {
+    adapter[IO].run()
+  } 
+  
+  private def adapter[F[_] : Sync : ToFuture : FromFuture : ToTry]: F[Unit] = {
 
-    // TODO use everywhere
-    implicit val toTry = ToTryFromToFuture.syncOrError[IO]
+    case class Event(fa: F[Unit])
 
-    case class Event(fa: IO[Unit])
-
-    def eventsourced(act: Act[IO], ref: Ref[IO, Queue[IO[Unit]]]): IO[Append.Eventsourced] = {
-      Ref[IO]
+    def eventsourced(act: Act[F], ref: Ref[F, Queue[F[Unit]]]): F[Append.Eventsourced] = {
+      Ref[F]
         .of(0L)
         .map { seqNr =>
           new Append.Eventsourced {
@@ -44,15 +48,15 @@ class AppendTest extends AsyncFunSuite with Matchers {
         }
     }
 
-    val error = new Throwable with NoStackTrace
-    val stopped = new Throwable with NoStackTrace
+    val error: Throwable = new RuntimeException with NoStackTrace
+    val stopped: Throwable = new RuntimeException with NoStackTrace
 
-    val result = for {
-      ref          <- Ref[IO].of(Queue.empty[IO[Unit]])
-      act          <- Act.of[IO]
+    for {
+      ref          <- Ref[F].of(Queue.empty[F[Unit]])
+      act          <- Act.of[F]
       eventsourced <- eventsourced(act, ref)
       result       <- Append
-        .adapter[IO, Int](act, eventsourced, stopped.pure[IO])
+        .adapter[F, Int](act, eventsourced, stopped.pure[F])
         .use { append =>
 
           def dequeue = {
@@ -60,7 +64,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
               .modify { queue =>
                 queue.dequeueOption match {
                   case Some((a, queue)) => (queue, a)
-                  case None             => (Queue.empty, ().pure[IO])
+                  case None             => (Queue.empty, ().pure[F])
                 }
               }
               .flatten
@@ -85,7 +89,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
             seqNr1 <- append.value(Nel.of(Nel.of(4)))
             queue  <- ref.get
             _       = queue.size shouldEqual 2
-            _      <- IO { append.onError(error, 2, 2L) }
+            _      <- Sync[F].delay { append.onError(error, 2, 2L) }
             seqNr  <- seqNr0.attempt
             _       = seqNr shouldEqual error.asLeft
             seqNr  <- seqNr1.attempt
@@ -96,7 +100,5 @@ class AppendTest extends AsyncFunSuite with Matchers {
       result   <- result.attempt
       _         = result shouldEqual stopped.asLeft
     } yield {}
-
-    result.run()
   }
 }

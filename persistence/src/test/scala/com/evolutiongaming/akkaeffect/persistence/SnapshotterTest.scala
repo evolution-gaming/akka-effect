@@ -1,13 +1,14 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.persistence.{Snapshotter => _, _}
 import cats.effect.concurrent.Deferred
-import cats.effect.{IO, Resource}
+import cats.effect.{Concurrent, IO, Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -16,14 +17,21 @@ import scala.util.control.NoStackTrace
 class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("adapter") {
+    implicit val toTry = ToTryFromToFuture.syncOrError[IO]
+    adapter[IO](actorSystem).run()
+  }
 
-    val actorRefOf = ActorRefOf[IO](actorSystem)
+  private def adapter[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+    actorSystem: ActorSystem
+  ): F[Unit] = {
 
-    val stopped = new RuntimeException("stopped") with NoStackTrace
+    val actorRefOf = ActorRefOf[F](actorSystem)
 
-    case class Msg(snapshotter: Snapshotter[IO, Any] => IO[Unit])
+    val stopped: Throwable = new RuntimeException("stopped") with NoStackTrace
 
-    def actor(probe: Probe[IO]) = {
+    case class Msg(snapshotter: Snapshotter[F, Any] => F[Unit])
+
+    def actor(probe: Probe[F]) = {
 
       new SnapshotterPublic { actor =>
 
@@ -32,17 +40,17 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
         val act = Act.adapter(self)
 
         val (snapshotter, release) = Snapshotter
-          .adapter[IO](act.value.fromFuture, actor, stopped.pure[IO])
+          .adapter[F](act.value.fromFuture, actor, stopped.pure[F])
           .allocated
           .toTry
           .get
 
-        val actorVar = ActorVar[IO, Unit](act.value, context)
+        val actorVar = ActorVar[F, Unit](act.value, context)
 
         override def preStart() = {
           super.preStart()
           actorVar.preStart {
-            ().some.pure[Resource[IO, *]]
+            ().some.pure[Resource[F, *]]
           }
         }
         def snapshotStore = probe.actor.toUnsafe
@@ -71,19 +79,19 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
     }
 
     trait Ask {
-      def apply[A](f: Snapshotter[IO, Any] => IO[A]): IO[A]
+      def apply[A](f: Snapshotter[F, Any] => F[A]): F[A]
     }
 
     object Ask {
-      def apply(actor: ActorEffect[IO, Any, Any]): Ask = {
+      def apply(actor: ActorEffect[F, Any, Any]): Ask = {
         new Ask {
-          def apply[A](f: Snapshotter[IO, Any] => IO[A]) = {
+          def apply[A](f: Snapshotter[F, Any] => F[A]) = {
             for {
-              d  <- Deferred[IO, IO[A]]
-              f1  = (snapshotter: Snapshotter[IO, Any]) => for {
+              d  <- Deferred[F, F[A]]
+              f1  = (snapshotter: Snapshotter[F, Any]) => for {
                 a <- f(snapshotter).attempt
-                _ <- d.complete(a.liftTo[IO])
-                _ <- a.liftTo[IO]
+                _ <- d.complete(a.liftTo[F])
+                _ <- a.liftTo[F]
               } yield {}
               _  <- actor.tell(Msg(f1))
               a  <- d.get.flatten
@@ -97,7 +105,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
       probe  <- Probe.of(actorRefOf)
       props   = Props(actor(probe))
       actor  <- actorRefOf(props)
-      actor  <- ActorEffect.fromActor(actor).pure[Resource[IO, *]]
+      actor  <- ActorEffect.fromActor[F](actor).pure[Resource[F, *]]
       ask     = Ask(actor)
       result <- {
         val metadata = SnapshotMetadata("snapshotterId", 0L)
@@ -107,7 +115,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
         val error = new RuntimeException with NoStackTrace
 
         def verify[A](
-          f: Snapshotter[IO, Any] => IO[IO[A]],
+          f: Snapshotter[F, Any] => F[F[A]],
           req: Any,
           res: Any,
           expected: Either[Throwable, A]
@@ -117,13 +125,13 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
             b <- ask(f)
             a <- a
             _  = a.msg shouldEqual req
-            _ <- IO { a.sender.tell(res, ActorRef.noSender) }
+            _ <- Sync[F].delay { a.sender.tell(res, ActorRef.noSender) }
             b <- b.attempt
             _  = b shouldEqual expected
           } yield {}
         }
 
-        def save(snapshotter: Snapshotter[IO, Any]) = {
+        def save(snapshotter: Snapshotter[F, Any]) = {
           snapshotter
             .save("snapshot")
             .map { a =>
@@ -173,6 +181,6 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
       }
     } yield result
 
-    result.use { _.pure[IO] }.run()
+    result.use { _.pure[F] }
   }
 }

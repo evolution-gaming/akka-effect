@@ -22,6 +22,8 @@ import scala.util.control.NoStackTrace
 class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   import PersistentActorOfTest._
 
+  private implicit val toTry = ToTryFromToFuture.syncOrError[IO]
+
   test("all") {
     `persistentActorOf`[IO](actorSystem).run()
   }
