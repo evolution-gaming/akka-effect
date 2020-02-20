@@ -31,8 +31,8 @@ object Started {
 
       snapshotOffer: Option[SnapshotOffer[S1]] => {
 
-        val snapshotOffer1 = snapshotOffer.traverse { offer =>
-          s1f(offer.snapshot).map { snapshot => offer.copy(snapshot = snapshot) }
+        val snapshotOffer1 = snapshotOffer.traverse { snapshotOffer =>
+          s1f(snapshotOffer.snapshot).map { snapshot => snapshotOffer.as(snapshot) }
         }
 
         for {

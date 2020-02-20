@@ -211,6 +211,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       receiveTimeout <- Deferred[F, Unit]
       eventSourcedOf <- eventSourcedOf(receiveTimeout.complete(()))
         .typeless(_.cast[F, State], _.pure[F], _.cast[F, Event], _.pure[F])
+        .convert[Any, Any, Any, Any](_.pure[F], _.pure[F], _.pure[F], _.pure[F], _.pure[F], _.pure[F], _.pure[F], _.pure[F])
         .pure[F]
       actorRefOf      = ActorRefOf[F](actorSystem)
       probe           = Probe.of[F](actorRefOf)
