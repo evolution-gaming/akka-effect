@@ -82,13 +82,12 @@ object PersistentActorOf {
       override def recovery = eventSourced.recovery
 
       override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]) = {
-        println("onRecoveryFailure")
-        // TODO
+        // TODO should we use this?
         super.onRecoveryFailure(cause, event)
       }
 
       override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
-        println("onPersistFailure")
+        // TODO test this
         val error = PersistentActorError(s"$errorPrefix persist failed for $event", cause)
         act.sync {
           append.onError(error, event, seqNr)
@@ -105,28 +104,22 @@ object PersistentActorOf {
       }
 
       override def deleteMessages(toSequenceNr: Long) = {
-        println("deleteMessages")
         super.deleteMessages(toSequenceNr)
       }
 
       override def loadSnapshot(persistenceId: String, criteria: SnapshotSelectionCriteria, toSequenceNr: Long) = {
-        // TODO
-        println("loadSnapshot")
         super.loadSnapshot(persistenceId, criteria, toSequenceNr)
       }
 
       override def saveSnapshot(snapshot: Any) = {
-        println("saveSnapshot")
         super.saveSnapshot(snapshot)
       }
 
       override def deleteSnapshot(sequenceNr: Long) = {
-        println("deleteSnapshot")
         super.deleteSnapshot(sequenceNr)
       }
 
       override def deleteSnapshots(criteria: SnapshotSelectionCriteria) = {
-        println("deleteSnapshots")
         super.deleteSnapshots(criteria)
       }
 
