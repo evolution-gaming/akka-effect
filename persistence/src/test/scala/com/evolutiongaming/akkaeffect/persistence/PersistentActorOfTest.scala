@@ -79,7 +79,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       final case class WithCtx[A](f: ActorCtx[F, Any, Any] => F[A]) extends Cmd
     }
 
-    def eventSourcedOf(receiveTimeout: F[Unit]): EventSourcedOf[F, Any, Any, Any, Any] = {
+    def eventSourcedOf(receiveTimeout: F[Unit]): EventSourcedOf[F, State, Any, Event, Any] = {
       ctx: ActorCtx[F, Any, Any] => {
 
         val eventSourced = new EventSourced[F, State, Any, Event, Any] {
@@ -116,6 +116,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                                 _ <- reply(a)
                               } yield false
 
+                              // TODO handle this case and not break `Msg` type
                             case ReceiveTimeout =>
                               for {
                                 _ <- ctx.setReceiveTimeout(Duration.Inf)
@@ -155,9 +156,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
             started.some.pure[Resource[F, *]]
           }
         }
-        eventSourced
-          .typeless(_.cast[F, State], _.pure[F], _.cast[F, Event])
-          .pure[F]
+        eventSourced.pure[F]
       }
     }
 
@@ -210,7 +209,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
     for {
       receiveTimeout <- Deferred[F, Unit]
-      eventSourcedOf <- eventSourcedOf(receiveTimeout.complete(())).pure[F]
+      eventSourcedOf <- eventSourcedOf(receiveTimeout.complete(()))
+        .typeless(_.cast[F, State], _.pure[F], _.cast[F, Event], _.pure[F])
+        .pure[F]
       actorRefOf      = ActorRefOf[F](actorSystem)
       probe           = Probe.of[F](actorRefOf)
       actorEffect     = PersistentActorEffect.of[F](actorRefOf, eventSourcedOf)
