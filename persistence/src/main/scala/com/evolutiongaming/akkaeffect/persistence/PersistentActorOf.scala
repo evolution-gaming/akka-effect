@@ -82,7 +82,7 @@ object PersistentActorOf {
       override def recovery = eventSourced.recovery
 
       override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]) = {
-        // TODO should we use this?
+        // TODO should we react on this?
         super.onRecoveryFailure(cause, event)
       }
 
@@ -101,26 +101,6 @@ object PersistentActorOf {
           append.onError(error, event, seqNr)
         }
         super.onPersistRejected(cause, event, seqNr)
-      }
-
-      override def deleteMessages(toSequenceNr: Long) = {
-        super.deleteMessages(toSequenceNr)
-      }
-
-      override def loadSnapshot(persistenceId: String, criteria: SnapshotSelectionCriteria, toSequenceNr: Long) = {
-        super.loadSnapshot(persistenceId, criteria, toSequenceNr)
-      }
-
-      override def saveSnapshot(snapshot: Any) = {
-        super.saveSnapshot(snapshot)
-      }
-
-      override def deleteSnapshot(sequenceNr: Long) = {
-        super.deleteSnapshot(sequenceNr)
-      }
-
-      override def deleteSnapshots(criteria: SnapshotSelectionCriteria) = {
-        super.deleteSnapshots(criteria)
       }
 
       def receiveRecover: Receive = act.receive {
