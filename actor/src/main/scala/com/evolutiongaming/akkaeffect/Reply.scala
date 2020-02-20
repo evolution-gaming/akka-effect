@@ -1,14 +1,19 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorRef
+import akka.actor.Status.Status
 import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, FlatMap, ~>}
 
+/**
+  * Typesafe api for replying part of "ask pattern"
+  *
+  * @tparam A reply
+  */
 trait Reply[F[_], -A] {
 
   def apply(msg: A): F[Unit]
-  // TODO support fail call
 }
 
 object Reply {
@@ -51,9 +56,6 @@ object Reply {
     }
 
 
-    def narrow[B <: A]: Reply[F, B] = self
-
-
     def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Reply[F, B] = {
       msg: B =>
         for {
@@ -61,5 +63,14 @@ object Reply {
           a <- self(a)
         } yield a
     }
+
+
+    def narrow[B <: A]: Reply[F, B] = self
+  }
+
+
+  implicit class ReplyAnyOps[F[_]](val self: Reply[F, Any]) extends AnyVal {
+
+    def toReplyStatus: ReplyStatus[F, Any] = ReplyStatus.fromReply(self.narrow[Status])
   }
 }
