@@ -10,7 +10,7 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-class ReplySpec extends AsyncFunSuite with ActorSuite with Matchers {
+class ReplyTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("toString") {
     `toString`[IO](actorSystem).run()
