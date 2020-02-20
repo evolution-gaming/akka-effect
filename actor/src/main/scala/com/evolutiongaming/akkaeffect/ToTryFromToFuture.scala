@@ -18,4 +18,4 @@ object ToTryFromToFuture {
   }
 }
 
-class AsyncEffectError extends RuntimeException
+final class AsyncEffectError extends RuntimeException
