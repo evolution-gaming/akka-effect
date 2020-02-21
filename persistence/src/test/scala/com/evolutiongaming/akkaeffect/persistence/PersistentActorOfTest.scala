@@ -64,6 +64,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     `recoveryCompleted returns none`(actorSystem).run()
   }
 
+  test("append many") {
+    `append many`(actorSystem).run()
+  }
+
   private def `persistentActorOf`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
@@ -1089,6 +1093,141 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.RecoveryAllocated(none),
         Action.Initial(()),
         Action.ReceiveAllocated((), 0),
+        Action.ReceiveReleased,
+        Action.RecoveryReleased,
+        Action.Released)
+    } yield {}
+  }
+
+
+  private def `append many`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+    actorSystem: ActorSystem
+  ): F[Unit] = {
+    val actorRefOf = ActorRefOf[F](actorSystem)
+
+    type S = Boolean
+    type C = Any
+    type E = SeqNr
+    type R = Any
+
+    val events = Nel.fromListUnsafe((1L to 1000L).toList)
+
+    def eventSourcedOf(
+      startedDeferred: Deferred[F, Unit],
+      stoppedDeferred: Deferred[F, Unit]
+    ): EventSourcedOf[F, S, C, E, R] = {
+      _: ActorCtx[F, C, R] => {
+        val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
+
+          def id = "8"
+
+          def start = {
+            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
+              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
+
+                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+
+                  def initial = true.pure[F]
+
+                  val replay = {
+                    val  replay: Replay[F, S, E] = (_: S, _: E, _: SeqNr) => false.pure[F]
+                    replay.pure[Resource[F, *]]
+                  }
+
+                  def recoveryCompleted(
+                    state: S,
+                    seqNr: SeqNr,
+                    journaller: Journaller[F, E],
+                    snapshotter: Snapshotter[F, S]
+                  ) = {
+
+                    def append: F[Unit] = {
+                      if (state) {
+                        events
+                          .traverse { event => journaller.append(Nel.of(Nel.of(event))) }
+                          .flatMap { _.foldMapM { _.void } }
+                      } else {
+                        ().pure[F]
+                      }
+                    }
+
+                    val receive = for {
+                      _ <- append
+                      _ <- startedDeferred.complete(())
+                    } yield {
+                      none[Receive[F, C, R]]
+                    }
+                    Resource.liftF(receive)
+                  }
+                }
+                recovering.some.pure[Resource[F, *]]
+              }
+            }
+            Resource
+              .make(().pure[F]) { _ => stoppedDeferred.complete(()) }
+              .as(started.some)
+          }
+        }
+        eventSourced.pure[F]
+      }
+    }
+
+    def actions = for {
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E, R]])
+      eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
+        .typeless(_.cast[F, S], _.pure[F], _.cast[F, E], _.pure[F])
+        .pure[F]
+      actorEffect     = PersistentActorEffect.of(actorRefOf, eventSourcedOf)
+      _              <- actorEffect.use { _ => started.get }
+      _              <- stopped.get
+      actions        <- actions.get
+    } yield {
+      actions.reverse
+    }
+
+    def appends: Nel[Action[S, C, E, R]] = {
+      val appendEvents: Nel[Action[S, C, E, R]] = events.flatMap { event =>
+        Nel.of(
+          Action.AppendEvents(Nel.of(Nel.of(event))),
+          Action.AppendEventsOuter)
+      }
+      val appendEventsInner: Nel[Action[S, C, E, R]] = events.map { event =>
+        Action.AppendEventsInner(event)
+      }
+
+      appendEvents ::: appendEventsInner
+    }
+
+    def replayed: Nel[Action[S, C, E, R]] = {
+      events.map { event => Action.Replayed(event == 1, event, event, false) }
+    }
+
+    for {
+      a <- actions
+      _  = a shouldEqual List(
+        Action.Created("8", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
+        Action.RecoveryAllocated(none),
+        Action.Initial(true)) ++
+      appends.toList ++
+      List(
+        Action.ReceiveAllocated(true, 0),
+        Action.ReceiveReleased,
+        Action.RecoveryReleased,
+        Action.Released)
+      a <- actions
+      _  = a shouldEqual List(
+        Action.Created("8", akka.persistence.Recovery(), PluginIds.default),
+        Action.Started,
+        Action.RecoveryAllocated(none),
+        Action.Initial(true),
+        Action.ReplayAllocated) ++
+      replayed.toList ++
+      List(
+        Action.ReplayReleased,
+        Action.ReceiveAllocated(false, events.last),
         Action.ReceiveReleased,
         Action.RecoveryReleased,
         Action.Released)
