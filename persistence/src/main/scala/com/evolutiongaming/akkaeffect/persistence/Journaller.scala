@@ -77,16 +77,12 @@ object Journaller {
 
   private[akkaeffect] trait Eventsourced {
 
-    def lastSequenceNr: SeqNr
-
     def deleteMessages(toSequenceNr: Long): Unit
   }
 
   private[akkaeffect] object Eventsourced {
 
     def apply(actor: PersistentActor): Eventsourced = new Eventsourced {
-
-      def lastSequenceNr = actor.lastSequenceNr
 
       def deleteMessages(toSequenceNr: SeqNr) = actor.deleteMessages(toSequenceNr)
     }
