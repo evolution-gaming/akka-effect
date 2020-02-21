@@ -292,12 +292,14 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     }
 
     for {
-      started <- Deferred[F, Unit]
-      ref     <- Ref[F].of(started)
-      receive  = receiveOf(ref.get.flatMap(_.complete(())))
-      actor    = () => ActorOf[F](receive)
-      props    = Props(actor())
-      result  <- actorRefOf(props).use { actorRef =>
+      started   <- Deferred[F, Unit]
+      ref       <- Ref[F].of(started)
+      receiveOf <- receiveOf(ref.get.flatMap(_.complete(())))
+        .convert[Any, Any](_.pure[F], _.pure[F], _.pure[F], _.pure[F])
+        .pure[F]
+      actor      = () => ActorOf[F](receiveOf)
+      props      = Props(actor())
+      result    <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
         val timeout = 1.minute
         for {
