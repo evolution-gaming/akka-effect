@@ -12,7 +12,7 @@ import scala.concurrent.duration.Duration
 
 /**
   * Typesafe api for ActorContext
-  * Unlike the ActorContext, all methods of ActorCtx are thread-safe can it is safe
+  * Unlike the ActorContext, all methods of ActorCtx are thread-safe
   *
   * @see [[akka.actor.ActorContext]]
   * @tparam A message
