@@ -12,7 +12,6 @@ import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
 
 
-// TODO add tests
 trait ActorVar[F[_], A] {
 
   def preStart(a: Resource[F, Option[A]]): Unit

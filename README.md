@@ -74,7 +74,7 @@ Constructs `Actor.scala` out of `receive: ActorCtx[F, Any, Any] => Resource[F, O
 Wraps `ActorContext`
 
 ```scala
-trait ActorCtx[F[_], A, B] {
+trait ActorCtx[F[_], -A, B] {
 
   def self: ActorEffect[F, A, B]
 
@@ -87,6 +87,10 @@ trait ActorCtx[F[_], A, B] {
   def children: F[Iterable[ActorRef]]
 
   def actorRefOf: ActorRefOf[F]
+
+  def watch(actorRef: ActorRef, msg: A): F[Unit]
+
+  def unwatch(actorRef: ActorRef): F[Unit]
 }
 ```
 

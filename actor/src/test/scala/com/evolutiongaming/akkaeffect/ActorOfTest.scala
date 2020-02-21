@@ -2,11 +2,12 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, PoisonPill, Props, ReceiveTimeout}
 import akka.testkit.TestActors
+import cats.arrow.FunctionK
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, IO, Resource, Timer}
+import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync, Timer}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
+import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -23,40 +24,44 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   } yield {
 
     val prefix = if (async) "async" else "sync"
-    val delay = if (async) Timer[IO].sleep(1.millis) else ().pure[IO]
+    val shift = if (async) ContextShift[IO].shift else ().pure[IO]
 
     test(s"$prefix all") {
-      all[IO](actorSystem, delay).run()
+      all[IO](actorSystem, shift).run()
     }
 
     test(s"$prefix receive") {
-      receive[IO](actorSystem, delay).run()
+      receive[IO](actorSystem, shift).run()
     }
 
     test(s"$prefix stop during start") {
-      `stop during start`[IO](actorSystem, delay).run()
+      `stop during start`[IO](actorSystem, shift).run()
     }
 
     test(s"$prefix fail actor") {
-      `fail actor`[IO](actorSystem, delay).run()
+      `fail actor`[IO](actorSystem, shift).run()
     }
 
     test(s"$prefix fail during start") {
-      `fail during start`[IO](actorSystem, delay).run()
+      `fail during start`[IO](actorSystem, shift).run()
     }
 
     test(s"$prefix stop") {
-      stop[IO](actorSystem, delay).run()
+      stop[IO](actorSystem, shift).run()
     }
 
     test(s"$prefix stop externally") {
-      `stop externally`[IO](actorSystem, delay).run()
+      `stop externally`[IO](actorSystem, shift).run()
+    }
+
+    test(s"$prefix watch & unwatch") {
+      `watch & unwatch`[IO](actorSystem, shift).run()
     }
   }
 
   private def all[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem,
-    delay: F[Unit]
+    shift: F[Unit]
   ): F[Unit] = {
 
     def all(
@@ -114,30 +119,30 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
               case a: WithCtx[_, _] =>
                 val f = a.asInstanceOf[WithCtx[F, Any]].f
                 for {
-                  _ <- delay
+                  _ <- shift
                   a <- f(ctx)
                   _ <- reply(a)
                 } yield false
 
               case ReceiveTimeout =>
                 for {
-                  _ <- delay
+                  _ <- shift
                   _ <- ctx.setReceiveTimeout(Duration.Inf)
                   _ <- receiveTimeout
                 } yield false
 
               case "stop" =>
                 for {
-                  _ <- delay
+                  _ <- shift
                   _ <- reply("stopping")
                 } yield true
 
-              case _ => delay as false
+              case _ => shift as false
             }
           }
         }
 
-        Resource.make { delay as receive.some } { _ => delay }
+        Resource.make { shift as receive.some } { _ => shift }
       }
     }
 
@@ -155,7 +160,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def receive[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem,
-    delay: F[Unit]
+    shift: F[Unit]
   ): F[Unit] = {
 
     case class GetAndInc(delay: F[Unit])
@@ -171,19 +176,19 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
               a match {
                 case a: GetAndInc =>
                   for {
-                    _ <- delay
+                    _ <- shift
                     _ <- a.delay
                     a <- state.modify { a => (a + 1, a) }
                     _ <- reply(a)
                   } yield false
 
-                case _ => delay as false
+                case _ => shift as false
               }
             }
           }
           receive.some
         }
-        Resource.make { delay productR receive } { _ => delay }
+        Resource.make { shift productR receive } { _ => shift }
       }
     }
 
@@ -229,11 +234,11 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def `stop during start`[F[_] : Concurrent : ToFuture : FromFuture : Timer](
     actorSystem: ActorSystem,
-    delay: F[Unit]
+    shift: F[Unit]
   ) = {
     val actorRefOf = ActorRefOf[F](actorSystem)
 
-    val receiveOf: ReceiveOf[F, Any, Any] = _ => Resource.make { delay as none[Receive[F, Any, Any]] } { _ => delay }
+    val receiveOf: ReceiveOf[F, Any, Any] = _ => Resource.make { shift as none[Receive[F, Any, Any]] } { _ => shift }
     def actor = ActorOf[F](receiveOf)
     val props = Props(actor)
     val probe = Probe.of[F](actorRefOf)
@@ -248,7 +253,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def `fail actor`[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem,
-    delay: F[Unit]
+    shift: F[Unit]
   ) = {
 
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -261,25 +266,25 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
             a match {
               case "fail" =>
                 for {
-                  _ <- delay
+                  _ <- shift
                   _ <- reply("ok")
                   a <- error.raiseError[F, Receive.Stop]
                 } yield a
 
               case "ping" =>
                 for {
-                  _ <- delay
+                  _ <- shift
                   _ <- reply("pong")
                 } yield false
               case _      =>
-                delay as false
+                shift as false
             }
           }
         }
 
         for {
           _ <- Resource.liftF(started)
-          a <- Resource.make { delay as receive } { _ => delay }
+          a <- Resource.make { shift as receive } { _ => shift }
         } yield {
           a.some
         }
@@ -311,11 +316,11 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def `fail during start`[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem,
-    delay: F[Unit]
+    shift: F[Unit]
   ) = {
     val actorRefOf = ActorRefOf[F](actorSystem)
 
-    val actor = () => ActorOf[F] { _ => Resource.liftF(delay *> error.raiseError[F, Option[Receive[F, Any, Any]]]) }
+    val actor = () => ActorOf[F] { _ => Resource.liftF(shift *> error.raiseError[F, Option[Receive[F, Any, Any]]]) }
     val props = Props(actor())
 
     val result = for {
@@ -330,7 +335,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def stop[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem,
-    delay: F[Unit]
+    shift: F[Unit]
   ) = {
 
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -343,16 +348,16 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
               (a: Any, reply: Reply[F, Any]) =>
                 a match {
                   case "stop" => for {
-                    _ <- delay
+                    _ <- shift
                     _ <- reply(())
                   } yield true
                   case _      =>
-                    delay as false
+                    shift as false
                 }
             }
-            delay as receive.some
+            shift as receive.some
           } { _ =>
-            delay *> stopped
+            shift *> stopped
           }
       }
     }
@@ -375,7 +380,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def `stop externally`[F[_] : Concurrent : ToFuture : FromFuture](
     actorSystem: ActorSystem,
-    delay: F[Unit]
+    shift: F[Unit]
   ) = {
 
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -384,9 +389,9 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       (_: ActorCtx[F, Any, Any]) => {
         Resource
           .make {
-            delay as Receive.empty[F, Any, Any].some
+            shift as Receive.empty[F, Any, Any].some
           } { _ =>
-            delay *> stopped
+            shift *> stopped
           }
       }
     }
@@ -403,6 +408,92 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
           _ <- stopped.get
         } yield {}
       }
+    } yield result
+  }
+
+
+  private def `watch & unwatch`[F[_] : Concurrent : ToFuture : FromFuture](
+    actorSystem: ActorSystem,
+    shift: F[Unit]
+  ) = {
+
+    sealed trait Msg
+
+    object Msg {
+      final case class Watch(actorRef: ActorRef) extends Msg
+      final case class Unwatch(actorRef: ActorRef) extends Msg
+      final case class Terminated(actorRef: ActorRef) extends Msg
+    }
+
+    val actorRefOf = ActorRefOf[F](actorSystem)
+
+    def receiveOf(
+      terminated: Deferred[F, ActorRef],
+      stopped: F[Unit]
+    ): ReceiveOf[F, Msg, Unit] = {
+      (ctx: ActorCtx[F, Msg, Unit]) => {
+        Resource
+          .make {
+            for {
+              _ <- shift
+            } yield {
+              val receive: Receive[F, Msg, Unit] = new Receive[F, Msg, Unit] {
+                def apply(msg: Msg, reply: Reply[F, Unit]) = {
+                  for {
+                    _    <- shift
+                    stop <- msg match {
+                      case Msg.Watch(actorRef)      =>
+                        ctx
+                          .watch(actorRef, Msg.Terminated(actorRef))
+                          .as(false)
+                      case Msg.Unwatch(actorRef)    =>
+                        ctx
+                          .unwatch(actorRef)
+                          .as(false)
+                      case Msg.Terminated(actorRef) =>
+                        terminated
+                          .complete(actorRef)
+                          .as(true)
+                    }
+                    _    <- reply(())
+                  } yield stop
+                }
+              }
+              receive.some
+            }
+          } { _ =>
+            shift *> stopped
+          }
+      }
+    }
+
+    val timeout = 1.second
+
+    for {
+      stopped    <- Deferred[F, Unit]
+      terminated <- Deferred[F, ActorRef]
+      receiveOf  <- receiveOf(terminated, stopped.complete(()))
+        .typeless(_.cast[F, Msg], _.cast[F, Unit])
+        .mapK(FunctionK.id, FunctionK.id)
+        .pure[F]
+      result  = for {
+        actorEffect <- ActorEffect.of(actorRefOf, receiveOf)
+        actorRef0   <- actorRefOf(TestActors.blackholeProps)
+        actorRef1   <- actorRefOf(TestActors.blackholeProps)
+        result      <- Resource.liftF {
+         for {
+           _ <- actorEffect.ask(Msg.Watch(actorRef0), timeout)
+           _ <- actorEffect.ask(Msg.Unwatch(actorRef0), timeout).flatten
+           _ <- Sync[F].delay { actorSystem.stop(actorRef0) }
+           _ <- actorEffect.ask(Msg.Watch(actorRef1), timeout).flatten
+           _ <- Sync[F].delay { actorSystem.stop(actorRef1) }
+           _ <- stopped.get
+           a <- terminated.get
+           _ = a shouldEqual actorRef1
+         } yield {}
+        }
+      } yield result
+      result     <- result.use { _.pure[F] }
     } yield result
   }
 }

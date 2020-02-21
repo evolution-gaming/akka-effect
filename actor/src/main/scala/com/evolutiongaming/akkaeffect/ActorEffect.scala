@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorPath, ActorRef, Props}
-import cats.FlatMap
 import cats.effect.{Async, Resource, Sync}
+import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 /**
@@ -95,6 +95,18 @@ object ActorEffect {
       val ask = self.ask.narrow[A1, B1](f)
 
       val tell = self.tell
+
+      def toUnsafe = self.toUnsafe
+    }
+
+
+    def mapK[G[_] : Applicative](f: F ~> G): ActorEffect[G, A, B] = new ActorEffect[G, A, B] {
+
+      def path = self.path
+
+      val ask = self.ask.mapK(f)
+
+      val tell = self.tell.mapK(f)
 
       def toUnsafe = self.toUnsafe
     }

@@ -1,8 +1,9 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorContext, ActorRef}
-import cats.FlatMap
-import cats.effect.Sync
+import cats.{Applicative, Defer, FlatMap, ~>}
+import cats.effect.{Bracket, Sync}
+import cats.implicits._
 import com.evolutiongaming.catshelper.FromFuture
 
 import scala.collection.immutable.Iterable
@@ -11,6 +12,7 @@ import scala.concurrent.duration.Duration
 
 /**
   * Typesafe api for ActorContext
+  * Unlike the ActorContext, all methods of ActorCtx are thread-safe can it is safe
   *
   * @see [[akka.actor.ActorContext]]
   * @tparam A message
@@ -47,6 +49,16 @@ trait ActorCtx[F[_], -A, B] {
     * @see [[akka.actor.ActorContext.actorOf]]
     */
   def actorRefOf: ActorRefOf[F]
+
+  /**
+    * @see [[akka.actor.ActorContext.watchWith]]
+    */
+  def watch(actorRef: ActorRef, msg: A): F[Unit]
+
+  /**
+    * @see [[akka.actor.ActorContext.unwatch]]
+    */
+  def unwatch(actorRef: ActorRef): F[Unit]
 }
 
 object ActorCtx {
@@ -73,6 +85,10 @@ object ActorCtx {
       val children = act { context.children }
 
       val actorRefOf = ActorRefOf[F](context)
+
+      def watch(actorRef: ActorRef, msg: Any) = act { context.watchWith(actorRef, msg); () }
+
+      def unwatch(actorRef: ActorRef) = act { context.unwatch(actorRef); () }
     }
   }
 
@@ -96,6 +112,15 @@ object ActorCtx {
       def children = actorCtx.children
 
       def actorRefOf = actorCtx.actorRefOf
+
+      def watch(actorRef: ActorRef, msg: A1) = {
+        for {
+          msg    <- af(msg)
+          result <- actorCtx.watch(actorRef, msg)
+        } yield result
+      }
+
+      def unwatch(actorRef: ActorRef) = actorCtx.unwatch(actorRef)
     }
 
 
@@ -115,6 +140,35 @@ object ActorCtx {
       def children = actorCtx.children
 
       def actorRefOf = actorCtx.actorRefOf
+
+      def watch(actorRef: ActorRef, msg: A1) = actorCtx.watch(actorRef, msg)
+
+      def unwatch(actorRef: ActorRef) = actorCtx.unwatch(actorRef)
+    }
+
+
+    def mapK[G[_]](
+      f: F ~> G)(implicit
+      B: Bracket[F, Throwable],
+      D: Defer[G],
+      G: Applicative[G]
+    ): ActorCtx[G, A, B] = new ActorCtx[G, A, B] {
+
+      val self = actorCtx.self.mapK(f)
+
+      def dispatcher = actorCtx.dispatcher
+
+      def setReceiveTimeout(timeout: Duration) = f(actorCtx.setReceiveTimeout(timeout))
+
+      def child(name: String) = f(actorCtx.child(name))
+
+      def children = f(actorCtx.children)
+
+      val actorRefOf = actorCtx.actorRefOf.mapK(f)
+
+      def watch(actorRef: ActorRef, msg: A) = f(actorCtx.watch(actorRef, msg))
+
+      def unwatch(actorRef: ActorRef) = f(actorCtx.unwatch(actorRef))
     }
   }
 

@@ -34,10 +34,10 @@ object Receive {
 
   implicit class ReceiveOps[F[_], A, B](val self: Receive[F, A, B]) extends AnyVal {
 
-    def mapK[G[_]](to: F ~> G, from: G ~> F): Receive[G, A, B] = new Receive[G, A, B] {
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Receive[G, A, B] = new Receive[G, A, B] {
 
       def apply(msg: A, reply: Reply[G, B]) = {
-        to(self(msg, reply.mapK(from)))
+        fg(self(msg, reply.mapK(gf)))
       }
     }
 
