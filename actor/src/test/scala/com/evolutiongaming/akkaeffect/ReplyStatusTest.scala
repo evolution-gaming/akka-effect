@@ -44,7 +44,7 @@ class ReplyStatusTest extends AsyncFunSuite with ActorSuite with Matchers {
     }
 
     resources.use { case (probe, from) =>
-      val reply = ReplyStatus.fromActorRef[F](probe.actor.toUnsafe, from.some).mapK(FunctionK.id)
+      val reply = ReplyStatus.fromActorRef[F](probe.actorEffect.toUnsafe, from.some).mapK(FunctionK.id)
       val error: Throwable = new RuntimeException with NoStackTrace
       for {
         a <- probe.expect

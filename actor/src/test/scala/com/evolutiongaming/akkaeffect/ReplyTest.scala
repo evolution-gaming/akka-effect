@@ -42,7 +42,7 @@ class ReplyTest extends AsyncFunSuite with ActorSuite with Matchers {
     }
 
     resources.use { case (probe, from) =>
-      val reply = Reply.fromActorRef[F](probe.actor.toUnsafe, from.some).mapK(FunctionK.id)
+      val reply = Reply.fromActorRef[F](probe.actorEffect.toUnsafe, from.some).mapK(FunctionK.id)
       for {
         a <- probe.expect
         _ <- reply("msg")

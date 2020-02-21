@@ -53,7 +53,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
             ().some.pure[Resource[F, *]]
           }
         }
-        def snapshotStore = probe.actor.toUnsafe
+        def snapshotStore = probe.actorEffect.toUnsafe
 
         def snapshotterId = "snapshotterId"
 

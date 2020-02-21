@@ -11,7 +11,7 @@ import com.evolutiongaming.catshelper.{FromFuture, SerialRef, ToFuture}
 trait Probe[F[_]] {
   import Probe._
 
-  def actor: ActorEffect[F, Any, Any]
+  def actorEffect: ActorEffect[F, Any, Any]
 
   def expect: F[F[Envelop]]
 
@@ -51,7 +51,7 @@ object Probe {
     } yield {
       new Probe[F] {
 
-        val actor = ActorEffect.fromActor(actorRef)
+        val actorEffect = ActorEffect.fromActor(actorRef)
 
         val expect = {
           for {
