@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.{Bracket, Resource}
+import cats.effect.{Resource, Sync}
 import cats.implicits._
-import cats.{Applicative, Defer, Monad, ~>}
+import cats.{Applicative, Monad, ~>}
 
 /**
   * Factory method for [[Receive]]
@@ -76,10 +76,8 @@ object ReceiveOf {
     def mapK[G[_]](
       fg: F ~> G,
       gf: G ~> F)(implicit
-      F: Bracket[F, Throwable],
-      FD: Defer[F],
-      G: Bracket[G, Throwable],
-      GD: Defer[G],
+      F: Sync[F],
+      G: Sync[G],
     ): ReceiveOf[G, A, B] = new ReceiveOf[G, A, B] {
 
       def apply(ctx: ActorCtx[G, A, B]) = {
