@@ -170,5 +170,7 @@ trait Snapshotter[F[_], -A] {
 ```scala
 resolvers += Resolver.bintrayRepo("evolutiongaming", "maven")
 
-libraryDependencies += "com.evolutiongaming" %% "akka-effect" % "0.0.1"
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-actor" % "0.0.1"
+
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-persistence" % "0.0.1"
 ```
