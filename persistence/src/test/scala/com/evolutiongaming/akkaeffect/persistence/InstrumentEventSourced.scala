@@ -1,5 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import akka.actor.ActorRef
 import akka.persistence.{Recovery, SnapshotSelectionCriteria}
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.Ref
@@ -166,7 +167,7 @@ object InstrumentEventSourced {
                         receive <- receive
                       } yield {
                         new Receive[F, C, R] {
-                          def apply(msg: C, reply: Reply[F, R]) = {
+                          def apply(msg: C, reply: Reply[F, R], sender: ActorRef) = {
 
                             val reply1 = new Reply[F, R] {
                               def apply(msg: R) = {
@@ -177,7 +178,7 @@ object InstrumentEventSourced {
                               }
                             }
                             for {
-                              stop <- receive(msg, reply1)
+                              stop <- receive(msg, reply1, sender)
                               _    <- record(Action.Received(msg, stop))
                             } yield stop
                           }

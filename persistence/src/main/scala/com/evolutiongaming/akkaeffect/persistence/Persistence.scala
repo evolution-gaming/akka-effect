@@ -186,7 +186,7 @@ private[akkaeffect] object Persistence {
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {
         val reply = replyOf(sender)
-        receive(cmd, reply).map {
+        receive(cmd, reply, sender).map {
           case false => Releasable(self).some
           case true  => none
         }
