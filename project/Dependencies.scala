@@ -17,7 +17,7 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.27"
+    private val version = "2.5.29"
     val actor               = "com.typesafe.akka" %% "akka-actor"             % version
     val testkit             = "com.typesafe.akka" %% "akka-testkit"           % version
     val stream              = "com.typesafe.akka" %% "akka-stream"            % version
