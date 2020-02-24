@@ -6,7 +6,7 @@
 [![Version](https://api.bintray.com/packages/evolutiongaming/maven/akka-effect/images/download.svg)](https://bintray.com/evolutiongaming/maven/akka-effect/_latestVersion)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellowgreen.svg)](https://opensource.org/licenses/MIT)
 
-This project aims to build a bridge between pure functional code based on [cats-effect](https://typelevel.org/cats-effect) and [akka](https://akka.io)
+This project aims to build a bridge between [akka](https://akka.io) and pure functional code based on [cats-effect](https://typelevel.org/cats-effect)
 
 Covered:
 * [Actors](https://doc.akka.io/docs/akka/current/actors.html)
@@ -102,7 +102,7 @@ Constructs `PersistentActor.scala` out of `eventSourcedOf: ActorCtx[F, C, R] => 
 
 ### [EventSourced.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/EventSourced.scala)
 
-Describes lifecycle of entity with regards to event sourcing, phases are Started, Recovering, Receiving, Termination
+Describes lifecycle of entity with regards to event sourcing, phases are: Started, Recovering, Receiving and Termination
 
 ```scala
 trait EventSourced[F[_], S, C, E, R] {
