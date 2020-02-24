@@ -78,8 +78,12 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     sealed trait Cmd
 
     object Cmd {
-      case object Inc extends Cmd
-      case object Stop extends Cmd
+
+      def timeout: Cmd = Timeout
+
+      final case object Inc extends Cmd
+      final case object Stop extends Cmd
+      final case object Timeout extends Cmd
       final case class WithCtx[A](f: ActorCtx[F, Any, Any] => F[A]) extends Cmd
     }
 
@@ -110,9 +114,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     for {
                       stateRef <- Resource.liftF(Ref[F].of(state))
                     } yield {
-                      val receive: Receive[F, Any, Any] = new Receive[F, Any, Any] {
+                      val receive: Receive[F, Cmd, Any] = new Receive[F, Cmd, Any] {
 
-                        def apply(msg: Any, reply: Reply[F, Any]) = {
+                        def apply(msg: Cmd, reply: Reply[F, Any]) = {
                           msg match {
                             case a: Cmd.WithCtx[_] =>
                               for {
@@ -120,8 +124,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                                 _ <- reply(a)
                               } yield false
 
-                              // TODO handle this case and not break `Msg` type
-                            case ReceiveTimeout =>
+                            case Cmd.Timeout =>
                               for {
                                 _ <- ctx.setReceiveTimeout(Duration.Inf)
                                 _ <- receiveTimeout
@@ -144,12 +147,16 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                               for {
                                 _ <- reply("stopping")
                               } yield true
-
-                            case _ => Error(s"unexpected $msg").raiseError[F, Boolean]
                           }
                         }
                       }
-                      receive.some
+
+                      receive
+                        .convertMsg[Any] {
+                          case ReceiveTimeout => Cmd.timeout.pure[F]
+                          case a              => a.cast[F, Cmd]
+                        }
+                        .some
                     }
                   }
                 }

@@ -13,7 +13,6 @@ import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 import scala.collection.immutable.Queue
 
 
-// TODO write tests to ensure PersistentActor does not write in parallel
 /**
   * @see [[akka.persistence.PersistentActor.persistAllAsync]]
   */
@@ -84,7 +83,6 @@ object Append {
                     left = left - 1
                     if (left <= 0) {
                       val seqNr = eventsourced.lastSequenceNr
-                      // TODO make sure Act is sync in handler and test this
                       ref
                         .modify { queue =>
                           queue
@@ -127,7 +125,6 @@ object Append {
 
   implicit class AppendOps[F[_], A](val self: Append[F, A]) extends AnyVal {
 
-    // TODO not use this heavy convert at runtime
     def convert[B](f: B => F[A])(implicit F: Monad[F]): Append[F, B] = new Append[F, B] {
 
       def apply(events: Nel[Nel[B]]) = {

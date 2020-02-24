@@ -67,6 +67,16 @@ object Receive {
     }
 
 
+    def convertMsg[A1](f: A1 => F[A])(implicit F: FlatMap[F]): Receive[F, A1, B] = {
+      (msg: A1, reply: Reply[F, B]) => {
+        for {
+          msg  <- f(msg)
+          stop <- self(msg, reply)
+        } yield stop
+      }
+    }
+
+
     def widen[A1 >: A, B1 >: B](f: A1 => F[A])(implicit F: FlatMap[F]): Receive[F, A1, B1] = {
       (msg: A1, reply: Reply[F, B1]) => {
         for {
