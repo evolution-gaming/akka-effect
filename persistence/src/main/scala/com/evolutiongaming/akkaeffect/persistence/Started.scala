@@ -4,6 +4,14 @@ import cats.Monad
 import cats.effect.Resource
 import cats.implicits._
 
+/**
+  * Describes "Started" phase
+  *
+  * @tparam S snapshot
+  * @tparam C command
+  * @tparam E event
+  * @tparam R reply
+  */
 trait Started[F[_], S, C, E, R] {
 
   /**

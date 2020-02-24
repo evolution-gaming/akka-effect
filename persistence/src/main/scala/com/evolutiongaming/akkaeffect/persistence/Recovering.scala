@@ -5,6 +5,14 @@ import cats.Monad
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Receive
 
+/**
+  * Describes "Recovery" phase
+  *
+  * @tparam S snapshot
+  * @tparam C command
+  * @tparam E event
+  * @tparam R reply
+  */
 trait Recovering[F[_], S, C, E, R] {
 
   def initial: F[S]

@@ -4,6 +4,14 @@ import cats.implicits._
 import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.ActorCtx
 
+/**
+  * This is the very first things which is called within an actor in order to setup all machinery
+  *
+  * @tparam S snapshot
+  * @tparam C command
+  * @tparam E event
+  * @tparam R reply
+  */
 trait EventSourcedOf[F[_], S, C, E, R] {
 
   def apply(ctx: ActorCtx[F, C, R]): F[EventSourced[F, S, C, E, R]]

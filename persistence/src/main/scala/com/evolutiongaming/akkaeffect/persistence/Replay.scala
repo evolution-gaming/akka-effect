@@ -3,6 +3,12 @@ package com.evolutiongaming.akkaeffect.persistence
 import cats.implicits._
 import cats.{Applicative, FlatMap}
 
+/**
+  * Used during recovery to replay events against passed state
+  *
+  * @tparam S state
+  * @tparam E event
+  */
 trait Replay[F[_], S, E] {
 
   def apply(state: S, event: E, seqNr: SeqNr): F[S]

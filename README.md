@@ -14,7 +14,7 @@ Covered:
 
 ## Building blocks 
 
-### Tell.scala
+### [Tell.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Tell.scala)
 
 Represents `ActorRef.tell`
 
@@ -26,7 +26,7 @@ trait Tell[F[_], -A] {
 ```
 
 
-### Ask.scala
+### [Ask.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Ask.scala)
 
 Represents `ActorRef.ask` pattern
 
@@ -38,7 +38,7 @@ trait Ask[F[_], -A, B] {
 ```
 
 
-### Reply.scala
+### [Reply.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Reply.scala)
 
 Represents reply pattern: `sender() ! reply`
 
@@ -50,7 +50,7 @@ trait Reply[F[_], -A] {
 ```
 
 
-### Receive.scala
+### [Receive.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Receive.scala)
 
 This is what you need to implement instead of familiar `new Actor { ... }`  
 
@@ -64,12 +64,12 @@ trait Receive[F[_], -A, B] {
 ```
 
 
-### ActorOf.scala
+### [ActorOf.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/ActorOf.scala)
 
 Constructs `Actor.scala` out of `receive: ActorCtx[F, Any, Any] => Resource[F, Option[Receive[F, Any, Any]]]`
 
 
-### ActorCtx.scala
+### [ActorCtx.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/ActorCtx.scala)
 
 Wraps `ActorContext`
 
@@ -95,10 +95,75 @@ trait ActorCtx[F[_], -A, B] {
 ```
 
 
-### PersistentActorOf.scala
+### [PersistentActorOf.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/PersistentActorOf.scala)
 
-Constructs `PersistentActor.scala` out of `receive: ActorCtx[F, Any, Any] => Resource[F, EventSourced[F, S, C, E]`
+Constructs `PersistentActor.scala` out of `eventSourcedOf: ActorCtx[F, C, R] => Resource[F, EventSourced[F, S, C, E, R]`
+
+
+### [EventSourced.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/EventSourced.scala)
+
+Describes lifecycle of entity with regards to event sourcing, phases are Started, Recovering, Receiving, Termination
+
+```scala
+trait EventSourced[F[_], S, C, E, R] {
+
+  def id: String
+
+  def recovery: Recovery = Recovery()
+
+  def pluginIds: PluginIds = PluginIds.default
+
+  def start: Resource[F, Option[Started[F, S, C, E, R]]]
+}
+```
+
+
+### [Recovering.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/Recovering.scala)
+
+Describes recovery phase
  
+```scala
+trait Recovering[F[_], S, C, E, R] {
+
+  def initial: F[S]
+
+  def replay: Resource[F, Replay[F, S, E]]
+
+  def recoveryCompleted(
+    state: S,
+    seqNr: SeqNr,
+    journaller: Journaller[F, E],
+    snapshotter: Snapshotter[F, S]
+  ): Resource[F, Option[Receive[F, C, R]]]
+}
+```
+
+
+### [Journaller.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/Journaller.scala)
+
+```scala
+trait Journaller[F[_], -A] {
+
+  def append: Append[F, A]
+
+  def deleteTo(seqNr: SeqNr): F[F[Unit]]
+}
+```
+
+
+### [Snapshotter.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/Snapshotter.scala)
+
+```scala
+trait Snapshotter[F[_], -A] {
+
+  def save(snapshot: A): F[Result[F]]
+
+  def delete(seqNr: SeqNr): F[F[Unit]]
+
+  def delete(criteria: SnapshotSelectionCriteria): F[F[Unit]]
+}
+```
+
 
 ## Setup
 

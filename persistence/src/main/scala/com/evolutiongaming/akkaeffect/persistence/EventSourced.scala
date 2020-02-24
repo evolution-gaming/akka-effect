@@ -5,7 +5,7 @@ import cats.Monad
 import cats.effect.Resource
 
 /**
-  * EventSourced describes lifecycle entity with regards to event sourcing
+  * EventSourced describes lifecycle of entity with regards to event sourcing
   * Lifecycle phases:
   *
   * 1. Started: we have id in place and can decide whether we should continue with recovery
