@@ -114,8 +114,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     for {
                       stateRef <- Resource.liftF(Ref[F].of(state))
                     } yield {
-                      val receive: Receive[F, Cmd, Any] = {
-                        (msg: Cmd, reply: Reply[F, Any], _: ActorRef) => {
+                      val receive: Receive[F, Cmd, Any] = new Receive[F, Cmd, Any] {
+
+                        def apply(msg: Cmd, reply: Reply[F, Any]) = {
                           msg match {
                             case a: Cmd.WithCtx[_] =>
                               for {

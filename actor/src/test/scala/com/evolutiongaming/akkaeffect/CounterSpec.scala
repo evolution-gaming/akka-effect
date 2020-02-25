@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.ActorSystem
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
 import cats.implicits._
@@ -17,16 +17,15 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
   test("counter rcv") {
-    testCounterRcv[IO](actorSystem).run()
+    testCounterRcv[IO].run()
   }
 
-  private def testCounterRcv[F[_] : Sync](actorSystem: ActorSystem) = {
-    val sender = actorSystem.deadLetters
+  private def testCounterRcv[F[_] : Sync] = {
     for {
       replies <- Ref[F].of(List.empty[Any])
       reply    = new Reply[F, Any] { def apply(msg: Any) = replies.update { msg :: _ } }
       rcv     <- counter[F]
-      inc      = rcv(Msg.Inc, reply, sender)
+      inc      = rcv(Msg.Inc, reply)
       expect   = (n: Int) => replies.get.map { replies => replies.headOption shouldEqual Some(n) }
       _       <- inc
       _       <- expect(1)
@@ -34,7 +33,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
       _       <- expect(2)
       _       <- inc
       _       <- expect(3)
-      _       <- rcv(Msg.Stop, reply, sender)
+      _       <- rcv(Msg.Stop, reply)
       _       <- expect(3)
     } yield {}
   }
@@ -45,7 +44,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
       .map { ref =>
         new Receive[F, Msg, Any] {
 
-          def apply(msg: Msg, reply: Reply[F, Any], sender: ActorRef) = {
+          def apply(msg: Msg, reply: Reply[F, Any]) = {
             msg match {
               case Msg.Inc =>
                 for {

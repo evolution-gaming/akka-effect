@@ -27,7 +27,7 @@ object ActorOf {
     def onReceive(a: Any, self: ActorRef, sender: ActorRef) = {
       val reply = Reply.fromActorRef[F](to = sender, from = self.some)
       state: State =>
-        state(a, reply, sender)
+        state(a, reply)
           .adaptError { case error =>
             ActorError(s"$self.receive failed on $a from $sender with $error", error)
           }
