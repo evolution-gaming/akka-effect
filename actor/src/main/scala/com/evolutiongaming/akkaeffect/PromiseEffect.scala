@@ -8,6 +8,9 @@ import scala.concurrent.Promise
 import scala.util.Try
 
 
+/**
+  * A purely functional alternative to [[scala.concurrent.Promise]]
+  */
 private[akkaeffect] trait PromiseEffect[F[_], A] {
 
   def get: F[A]
