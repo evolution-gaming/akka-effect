@@ -26,13 +26,13 @@ private[akkaeffect] object Act {
 
 
   def of[F[_] : Sync : ToTry : ToFuture : FromFuture]: F[Act[F]] = {
-    Serially.of[F].map { serially => apply(serially) }
+    Serial.of[F].map { serially => apply(serially) }
   }
 
 
-  def apply[F[_] : Sync : ToTry](serially: Serially[F]): Act[F] = new Act[F] {
+  def apply[F[_] : Sync : ToTry](serial: Serial[F]): Act[F] = new Act[F] {
     def apply[A](f: => A) = {
-      serially { Sync[F].delay { f } }
+      serial { Sync[F].delay { f } }
         .toTry
         .get
     }
