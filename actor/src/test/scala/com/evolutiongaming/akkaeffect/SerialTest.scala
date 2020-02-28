@@ -10,11 +10,11 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.util.control.NoStackTrace
 
-class SeriallyTest extends AsyncFunSuite with Matchers {
+class SerialTest extends AsyncFunSuite with Matchers {
 
-  test("serially") {
+  test("serial") {
     val result = for {
-      serially <- Serially.of[IO]
+      serially <- Serial.of[IO]
       d0       <- Deferred.uncancelable[IO, Unit]
       d1       <- Deferred.uncancelable[IO, Unit]
       ref      <- Ref[IO].of(List.empty[Int])
@@ -37,7 +37,7 @@ class SeriallyTest extends AsyncFunSuite with Matchers {
   test("error") {
     val error = new RuntimeException with NoStackTrace
     val result = for {
-      serially <- Serially.of[IO]
+      serially <- Serial.of[IO]
       a        <- serially { error.raiseError[IO, Unit] }.flatten.attempt
       _         = a shouldEqual error.asLeft
       a        <- serially { "".pure[IO] }.flatten
@@ -48,7 +48,7 @@ class SeriallyTest extends AsyncFunSuite with Matchers {
 
   test("sync") {
     val result = for {
-      serially <- Serially.of[IO]
+      serially <- Serial.of[IO]
       fa        = serially { ().pure[IO] }.flatten
       future   <- IO { (fa *> fa).toFuture }
       _         = future.isCompleted shouldEqual true

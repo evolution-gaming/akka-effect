@@ -2,12 +2,16 @@ package com.evolutiongaming.akkaeffect
 
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
+import cats.effect.implicits._
 import cats.implicits._
-import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 
-private[akkaeffect] trait Serially[F[_]] {
+/**
+  * Runs `fa` strictly serially, somehow similar to actor semantic
+  */
+private[akkaeffect] trait Serial[F[_]] {
   /**
     * @return Outer F[_] is about `fa` enqueued, this already gives you an order guarantees,
     *         inner F[_] is about `fa` completion, happens after all previous `fa` are completed as well
@@ -15,15 +19,15 @@ private[akkaeffect] trait Serially[F[_]] {
   def apply[A](fa: F[A]): F[F[A]]
 }
 
-private[akkaeffect] object Serially {
+private[akkaeffect] object Serial {
 
-  def of[F[_] : Sync : ToFuture : FromFuture]: F[Serially[F]] = {
+  def of[F[_] : Sync : ToFuture : FromFuture]: F[Serial[F]] = {
     Ref[F]
       .of(().pure[F])
       .map { ref =>
-        new Serially[F] {
+        new Serial[F] {
           def apply[A](fa: F[A]) = {
-            for {
+            val result = for {
               p <- PromiseEffect[F, Unit]
               b <- ref.modify { b => (p.get, b) }
               a  = for {
@@ -32,10 +36,9 @@ private[akkaeffect] object Serially {
                 _ <- p.success(())
                 a <- a.liftTo[F]
               } yield a
-              f <- Sync[F].delay { a.toFuture }
-            } yield {
-              FromFuture[F].apply { f }
-            }
+              a <- a.startNow
+            } yield a
+            result.uncancelable
           }
         }
       }
