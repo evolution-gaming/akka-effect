@@ -1,9 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.Sync
+import cats.effect.{Concurrent, Sync}
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 
 /**
@@ -20,7 +19,7 @@ private[akkaeffect] trait SerialRef[F[_], A] {
 
 private[akkaeffect] object SerialRef {
 
-  def of[F[_] : Sync : ToFuture : FromFuture, A](a: A): F[SerialRef[F, A]] = {
+  def of[F[_] : Concurrent, A](a: A): F[SerialRef[F, A]] = {
     for {
       serial    <- Serial.of[F]
       serialRef <- of(serial, a)
@@ -39,8 +38,8 @@ private[akkaeffect] object SerialRef {
           def modify[B](f: A => F[(A, B)]) = {
             serial {
               for {
-                a     <- get
-                ab    <- f(a)
+                a      <- get
+                ab     <- f(a)
                 (a, b)  = ab
                 _      <- ref.set(a)
               } yield b
@@ -55,13 +54,13 @@ private[akkaeffect] object SerialRef {
   }
 
   
-  def apply[F[_] : Sync]: ApplyBuilders[F] = new ApplyBuilders(Sync[F])
+  def apply[F[_] : Concurrent]: ApplyBuilders[F] = new ApplyBuilders(Concurrent[F])
 
 
-  final class ApplyBuilders[F[_]](val F: Sync[F]) extends AnyVal {
+  final class ApplyBuilders[F[_]](val F: Concurrent[F]) extends AnyVal {
 
-    def of[A](a: A)(implicit toFuture: ToFuture[F], fromFuture: FromFuture[F]): F[SerialRef[F, A]] = {
-      SerialRef.of(a)(F, toFuture, fromFuture)
+    def of[A](a: A): F[SerialRef[F, A]] = {
+      SerialRef.of(a)(F)
     }
   }
 }

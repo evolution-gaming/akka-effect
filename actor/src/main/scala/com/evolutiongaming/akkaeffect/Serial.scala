@@ -1,15 +1,14 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.Sync
-import cats.effect.concurrent.Ref
+import cats.effect.Concurrent
+import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 
+// TODO move out to cats-helper
 /**
-  * Runs `fa` strictly serially, somehow similar to actor semantic
+  * Runs `fa` strictly serially, somehow similar to actor's semantic
   */
 private[akkaeffect] trait Serial[F[_]] {
   /**
@@ -21,23 +20,25 @@ private[akkaeffect] trait Serial[F[_]] {
 
 private[akkaeffect] object Serial {
 
-  def of[F[_] : Sync : ToFuture : FromFuture]: F[Serial[F]] = {
+  def of[F[_] : Concurrent]: F[Serial[F]] = {
     Ref[F]
       .of(().pure[F])
       .map { ref =>
         new Serial[F] {
           def apply[A](fa: F[A]) = {
             val result = for {
-              p <- PromiseEffect[F, Unit]
+              p <- Deferred[F, Unit]
               b <- ref.modify { b => (p.get, b) }
               a  = for {
                 _ <- b
                 a <- fa.attempt
-                _ <- p.success(())
+                _ <- p.complete(())
                 a <- a.liftTo[F]
               } yield a
-              a <- a.startNow
-            } yield a
+              a <- a.start
+            } yield {
+              a.join
+            }
             result.uncancelable
           }
         }

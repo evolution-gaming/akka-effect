@@ -1,10 +1,10 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef}
-import cats.effect.Sync
+import cats.effect.{Concurrent, Sync}
 import cats.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 
 import scala.concurrent.{Future, Promise}
 import scala.util.Try
@@ -25,12 +25,12 @@ private[akkaeffect] object Act {
   }
 
 
-  def of[F[_] : Sync : ToTry : ToFuture : FromFuture]: F[Act[F]] = {
+  def of[F[_] : Concurrent : ToTry]: F[Act[F]] = {
     Serial.of[F].map { serially => apply(serially) }
   }
 
 
-  def apply[F[_] : Sync : ToTry](serial: Serial[F]): Act[F] = new Act[F] {
+  def apply[F[_] : Concurrent : ToTry](serial: Serial[F]): Act[F] = new Act[F] {
     def apply[A](f: => A) = {
       serial { Sync[F].delay { f } }
         .toTry
