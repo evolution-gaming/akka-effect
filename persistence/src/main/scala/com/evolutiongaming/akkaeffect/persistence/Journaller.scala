@@ -18,7 +18,7 @@ trait Journaller[F[_], -A] {
 
   /**
     * @see [[akka.persistence.Eventsourced.deleteMessages]]
-    * @return Outer F[_] is about deletion in background, inner F[_] is about deletion being completed
+    * @return outer F[_] is about deletion in background, inner F[_] is about deletion being completed
     */
   def deleteTo(seqNr: SeqNr): F[F[Unit]]
 }

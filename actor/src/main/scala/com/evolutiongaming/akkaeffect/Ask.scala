@@ -20,7 +20,7 @@ import scala.concurrent.duration.FiniteDuration
 trait Ask[F[_], -A, B] {
 
   /**
-    * @return Outer F[_] is about sending message, inner F[_] is about receiving reply
+    * @return outer F[_] is about sending message, inner F[_] is about receiving reply
     */
   def apply(msg: A, timeout: FiniteDuration, sender: Option[ActorRef] = None): F[F[B]]
 }

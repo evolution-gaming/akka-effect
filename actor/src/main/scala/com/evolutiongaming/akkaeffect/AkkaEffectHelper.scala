@@ -29,7 +29,7 @@ object AkkaEffectHelper {
     /**
       * Unlike `Concurrent.start`, `startNow` tries to evaluate effect on current thread, unless it is asynchronous
       *
-      * @return Outer F[_] is about launching effect, inner F[_] is about effect completed
+      * @return outer F[_] is about launching effect, inner F[_] is about effect completed
       */
     def startNow(implicit F: Sync[F], toFuture: ToFuture[F], fromFuture: FromFuture[F]): F[F[A]] = {
       Sync[F]

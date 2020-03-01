@@ -8,7 +8,7 @@ import com.evolutiongaming.akkaeffect.persistence.{Append, SeqNr}
 import com.evolutiongaming.akkaeffect.{Receive, Reply, Serial, SerialRef}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
-// TODO store snapshot in scope of persis queue or expose seqNr
+// TODO store snapshot in scope of persist queue or expose seqNr
 // TODO expose dropped commands because of stop, etc
 object ReceiveFromReceiveCmd {
 
@@ -48,12 +48,12 @@ object ReceiveFromReceiveCmd {
     }
 
     val result = for {
-      stateRef <- SerialRef[F].of(State(state, seqNr)) // TODO .get is not used, hence we can optimise this
+      stateRef <- SerialRef[F].of(State(state, seqNr))
       effect   <- Serial.of[F]
-      persist  <- batch(effect)
+      store    <- batch(effect)
     } yield {
       new Receive[F, C, R] {
-        
+
         def apply(msg: C, reply: Reply[F, R]) = {
 
           val result = for {
@@ -72,7 +72,7 @@ object ReceiveFromReceiveCmd {
                 events           = change.fold(List.empty[Nel[E]]) { _.events.toList }
                 effect           = (error: Option[Throwable]) => directive.effect(error.toLeft(state1.seqNr))
                 eventsAndEffect  = EventsAndEffect(events, effect)
-                result          <- persist(eventsAndEffect)
+                result          <- store(eventsAndEffect)
               } yield {
                 (state1, result)
               }

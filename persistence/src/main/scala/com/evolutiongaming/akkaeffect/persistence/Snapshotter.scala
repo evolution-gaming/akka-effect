@@ -15,19 +15,19 @@ trait Snapshotter[F[_], -A] {
 
   /**
     * @see [[akka.persistence.Snapshotter.saveSnapshot]]
-    * @return Outer F[_] is about saving in background, inner F[_] is about saving completed
+    * @return outer F[_] is about saving in background, inner F[_] is about saving completed
     */
   def save(snapshot: A): F[Result[F]]
 
   /**
     * @see [[akka.persistence.Snapshotter.deleteSnapshot]]
-    * @return Outer F[_] is about deletion in background, inner F[_] is about deletion being completed
+    * @return outer F[_] is about deletion in background, inner F[_] is about deletion being completed
     */
   def delete(seqNr: SeqNr): F[F[Unit]]
 
   /**
     * @see [[akka.persistence.Snapshotter.deleteSnapshots]]
-    * @return Outer F[_] is about deletion in background, inner F[_] is about deletion being completed
+    * @return outer F[_] is about deletion in background, inner F[_] is about deletion being completed
     */
   def delete(criteria: SnapshotSelectionCriteria): F[F[Unit]]
 }

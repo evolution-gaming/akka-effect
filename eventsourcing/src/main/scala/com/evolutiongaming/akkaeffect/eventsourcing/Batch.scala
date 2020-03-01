@@ -9,6 +9,9 @@ import cats.implicits._
 
 private[akkaeffect] trait Batch[F[_], S, A, B] {
 
+  /**
+    * @return outer F[_] is about enqueuing, inner F[_] is accomplishment
+    */
   def apply(a: A): F[F[B]]
 }
 

@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.concurrent.Deferred
+import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, IO}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
@@ -17,14 +17,16 @@ class SerialRefTest extends AsyncFunSuite with Matchers {
   private def update[F[_] : Concurrent : FromFuture : ToFuture]: F[Unit] = {
     for {
       serialRef <- SerialRef[F].of(List.empty[Int])
+      ref       <- Ref[F].of(List.empty[Int])
+      update     = (f: List[Int] => F[List[Int]]) => serialRef.update { a => f(a).flatTap { b => ref.set(b) } }
       deferred  <- Deferred[F, Int]
-      _         <- serialRef.update { a => deferred.get.map { _ :: a } }
-      f         <- (1 to 9).toList.foldLeftM(().pure[F]) { case (_, a) => serialRef.update { as => (a :: as).pure[F] } }
-      a         <- serialRef.get
+      _         <- update { a => deferred.get.map { _ :: a } }
+      f         <- (1 to 9).toList.foldLeftM(().pure[F]) { case (_, a) => update { as => (a :: as).pure[F] } }
+      a         <- ref.get
       _          = a shouldEqual List.empty
       _         <- deferred.complete(0)
       _         <- f
-      a         <- serialRef.get
+      a         <- ref.get
       _          = a shouldEqual (0 to 9).toList.reverse
     } yield {}
   }
