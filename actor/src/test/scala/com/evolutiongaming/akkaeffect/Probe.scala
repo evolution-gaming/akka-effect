@@ -6,7 +6,7 @@ import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, SerialRef, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 import scala.concurrent.duration._
 
@@ -89,7 +89,7 @@ object Probe {
     }
 
 
-    def receiveOf(listeners: SerialRef[F, Set[Listener]]): (ActorCtx[F, Any, Any] => Rcv) = {
+    def receiveOf(listenersRef: Ref[F, Set[Listener]]): (ActorCtx[F, Any, Any] => Rcv) = {
       ctx: ActorCtx[F, Any, Any] => {
         (msg: Any, sender: ActorRef) => {
 
@@ -102,15 +102,20 @@ object Probe {
 
             case msg =>
               val envelop = Envelop(msg, sender)
-              listeners.update { listeners =>
-                listeners.foldLeft(listeners.pure[F]) { (listeners, listener) =>
+
+              for {
+                listeners <- listenersRef.get
+                unsubscribe <- listeners.foldLeft(List.empty[Listener].pure[F]) { (listeners, listener) =>
                   for {
                     listeners   <- listeners
                     unsubscribe <- listener(envelop)
                   } yield {
-                    if (unsubscribe) listeners - listener else listeners
+                    if (unsubscribe) listener :: listeners else listeners
                   }
                 }
+                _ <- listenersRef.update { _ -- unsubscribe }
+              } yield {
+
               }
           }
         }
@@ -125,13 +130,13 @@ object Probe {
       } yield history
     }
 
-    def listeners = SerialRef[F].of(Set.empty[Listener])
+    def listeners = Ref[F].of(Set.empty[Listener])
 
     for {
       listeners <- Resource.liftF(listeners)
       props      = Props(actor(receiveOf(listeners)))
       actorRef  <- actorRefOf(props)
-      subscribe  = (listener: Listener) => listeners.update { listeners => ((listeners + listener)).pure[F] }
+      subscribe  = (listener: Listener) => listeners.update { _ + listener }
       lastRef   <- Resource.liftF(lastRef(subscribe))
     } yield {
 
