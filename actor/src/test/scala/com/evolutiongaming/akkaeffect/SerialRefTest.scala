@@ -25,7 +25,7 @@ class SerialRefTest extends AsyncFunSuite with Matchers {
       _         <- deferred.complete(0)
       _         <- f
       a         <- serialRef.get
-      _          = a shouldEqual (0 to 9).toList
+      _          = a shouldEqual (0 to 9).toList.reverse
     } yield {}
   }
 }

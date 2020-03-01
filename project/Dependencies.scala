@@ -27,6 +27,14 @@ object Dependencies {
     val slf4j               = "com.typesafe.akka" %% "akka-slf4j"             % version
   }
 
+  object SafeAkka {
+    private val version    = "2.1.0"
+    val actor                 = "com.evolutiongaming" %% "safe-actor"               % version
+    val persistence           = "com.evolutiongaming" %% "safe-persistence"         % version
+    val `persistence-async`   = "com.evolutiongaming" %% "safe-persistence-async"   % version
+    val `persistence-testkit` = "com.evolutiongaming" %% "safe-persistence-testkit" % version
+  }
+
   object Logback {
     private val version = "1.2.3"
     val core    = "ch.qos.logback" % "logback-core"    % version

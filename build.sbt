@@ -24,7 +24,9 @@ lazy val root = (project in file(".")
   settings (skip in publish := true)
   aggregate(
     actor,
-    persistence))
+    persistence,
+    eventsourcing,
+    `akka-effect-safe-persistence-async`))
 
 lazy val actor = (project in file("actor")
   settings (name := "akka-effect-actor")
@@ -60,4 +62,21 @@ lazy val persistence = (project in file("persistence")
     `cats-helper`,
     scalatest % Test,
     `akka-persistence-inmemory` % Test,
+    compilerPlugin(`kind-projector` cross CrossVersion.full))))
+
+lazy val eventsourcing = (project in file("eventsourcing")
+  settings (name := "akka-effect-eventsourcing")
+  settings commonSettings
+  dependsOn persistence % "test->test;compile->compile"
+  settings (libraryDependencies ++= Seq(
+    compilerPlugin(`kind-projector` cross CrossVersion.full))))
+
+lazy val `akka-effect-safe-persistence-async` = (project in file("modules/safe-persistence-async")
+  settings (name := "akka-effect-safe-persistence-async")
+  settings commonSettings
+  dependsOn eventsourcing % "test->test;compile->compile"
+  settings (libraryDependencies ++= Seq(
+    SafeAkka.actor,
+    SafeAkka.persistence,
+    SafeAkka.`persistence-async`,
     compilerPlugin(`kind-projector` cross CrossVersion.full))))

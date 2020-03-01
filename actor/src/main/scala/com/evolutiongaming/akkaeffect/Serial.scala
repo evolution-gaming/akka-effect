@@ -1,9 +1,11 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.Concurrent
+import cats.effect.{Concurrent, Sync}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
 import cats.implicits._
+import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 
 // TODO move out to cats-helper
@@ -20,25 +22,23 @@ private[akkaeffect] trait Serial[F[_]] {
 
 private[akkaeffect] object Serial {
 
-  def of[F[_] : Concurrent]: F[Serial[F]] = {
+  def of[F[_] : Sync : ToFuture : FromFuture]: F[Serial[F]] = {
     Ref[F]
       .of(().pure[F])
       .map { ref =>
         new Serial[F] {
           def apply[A](fa: F[A]) = {
             val result = for {
-              p <- Deferred[F, Unit]
+              p <- PromiseEffect[F, Unit]
               b <- ref.modify { b => (p.get, b) }
               a  = for {
                 _ <- b
                 a <- fa.attempt
-                _ <- p.complete(())
+                _ <- p.success(())
                 a <- a.liftTo[F]
               } yield a
-              a <- a.start
-            } yield {
-              a.join
-            }
+              a <- a.startNow
+            } yield a
             result.uncancelable
           }
         }
