@@ -5,10 +5,13 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
+import com.evolutiongaming.akkaeffect.eventsourcing
 
 object InstrumentRcvCmd {
 
-  def apply[F[_] : Sync, S, C, E](receiveCmd: ReceiveCmd[F, S, C, E]): F[(ReceiveCmd[F, S, C, E], F[List[Action[S, C, E]]])] = {
+  def apply[F[_] : Sync, S, C, E](
+    receiveCmd: ReceiveCmd[F, S, C, E]
+  ): F[(ReceiveCmd[F, S, C, E], F[List[Action[S, C, E]]])] = {
 
     type Action = InstrumentRcvCmd.Action[S, C, E]
 
@@ -45,13 +48,13 @@ object InstrumentRcvCmd {
             _ <- actions.add(Action.Cmd(cmd))
             validate <- receiveCmd(cmd)
           } yield {
-            new Validate[F, S, C, E] {
+            new Validate[F, S, E] {
               def apply(state: S, seqNr: SeqNr) = {
                 for {
-                  result <- validate(state, seqNr)
-                  _      <- actions.add(Action.ProduceEvents(state, result.events, result.state))
+                  directive <- validate(state, seqNr)
+                  _         <- actions.add(Action.Directive(directive.change))
                 } yield {
-                  result
+                  directive
                 }
               }
             }
@@ -68,8 +71,9 @@ object InstrumentRcvCmd {
   sealed trait Action[+S, +C, +E]
 
   object Action {
-    final case class Cmd[C](value: C) extends Action[Nothing, C, Nothing]
-    final case class ProduceEvents[S, E](before: S, events: Nel[Nel[E]], after: S) extends Action[S, Nothing, E]
-  }
 
+    final case class Cmd[C](value: C) extends Action[Nothing, C, Nothing]
+
+    final case class Directive[S, E](change: Option[eventsourcing.Change[S, E]]) extends Action[S, Nothing, E]
+  }
 }

@@ -9,7 +9,7 @@ import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 
-class AggregateTest extends AsyncFunSuite with Matchers {
+class BatchTest extends AsyncFunSuite with Matchers {
 
   test("apply") {
     apply[IO].run()
@@ -17,7 +17,7 @@ class AggregateTest extends AsyncFunSuite with Matchers {
 
   private def apply[F[_] : Concurrent]: F[Unit] = {
     for {
-      serialBatch <- Aggregate[F].of(List.empty[Nel[Int]]) { (s, as: Nel[F[Int]]) =>
+      serialBatch <- Batch[F].of(List.empty[Nel[Int]]) { (s, as: Nel[F[Int]]) =>
         for {
           as <- as.sequence
         } yield {

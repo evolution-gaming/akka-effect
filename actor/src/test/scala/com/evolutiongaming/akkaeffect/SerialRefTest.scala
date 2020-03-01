@@ -5,7 +5,7 @@ import cats.effect.{Concurrent, IO}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
-import org.scalatest.funsuite.{AnyFunSuite, AsyncFunSuite}
+import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 class SerialRefTest extends AsyncFunSuite with Matchers {

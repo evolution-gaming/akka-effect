@@ -1,4 +1,4 @@
-package com.evolutiongaming.akkaeffect.persistence
+package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.implicits._
 import cats.{Applicative, Monad}

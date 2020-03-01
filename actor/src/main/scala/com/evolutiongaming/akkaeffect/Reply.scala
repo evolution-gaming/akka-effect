@@ -4,7 +4,7 @@ import akka.actor.ActorRef
 import akka.actor.Status.Status
 import cats.effect.Sync
 import cats.implicits._
-import cats.{Applicative, FlatMap, ~>}
+import cats.{Applicative, Contravariant, FlatMap, ~>}
 
 /**
   * Typesafe api for replying part of "ask pattern"
@@ -22,6 +22,16 @@ object Reply {
 
 
   def const[F[_], A](unit: F[Unit]): Reply[F, A] = (_: A) => unit
+
+
+  // TODO add the same for other classes
+  implicit def contravariantReply[F[_]]: Contravariant[Reply[F, *]] = new Contravariant[Reply[F, *]] {
+
+    def contramap[A, B](fa: Reply[F, A])(f: B => A) = new Reply[F, B] {
+
+      def apply(msg: B) = fa(f(msg))
+    }
+  }
 
 
   def fromActorRef[F[_] : Sync](

@@ -7,12 +7,12 @@ import cats.effect.implicits._
 import cats.implicits._
 
 
-private[akkaeffect] trait Aggregate[F[_], S, A, B] {
+private[akkaeffect] trait Batch[F[_], S, A, B] {
 
   def apply(a: A): F[F[B]]
 }
 
-private[akkaeffect] object Aggregate {
+private[akkaeffect] object Batch {
 
   /**
     * This runs f strictly serially and keeps stashing A meanwhile,
@@ -21,7 +21,7 @@ private[akkaeffect] object Aggregate {
   def of[F[_] : Concurrent, S, A, B](
     s: S)(
     f: (S, Nel[A]) => F[(S, B)]
-  ): F[Aggregate[F, S, A, B]] = {
+  ): F[Batch[F, S, A, B]] = {
 
     case class E(a: A, d: Deferred[F, Either[Throwable, B]])
 
@@ -72,8 +72,8 @@ private[akkaeffect] object Aggregate {
 
   final class ApplyBuilders[F[_]](val F: Concurrent[F]) extends AnyVal {
 
-    def of[S, A, B](s: S)(f: (S, Nel[A]) => F[(S, B)]): F[Aggregate[F, S, A, B]] = {
-      Aggregate.of(s)(f)(F)
+    def of[S, A, B](s: S)(f: (S, Nel[A]) => F[(S, B)]): F[Batch[F, S, A, B]] = {
+      Batch.of(s)(f)(F)
     }
   }
 }
