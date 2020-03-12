@@ -83,7 +83,7 @@ private[akkaeffect] object Persistence {
         val receive = for {
           recovering <- OptionT(started.recoveryStarted(none))
           state      <- OptionT.liftF(Resource.liftF(recovering.initial))
-          receive    <- OptionT(recovering.recoveryCompleted(state, seqNr, journaller, snapshotter))
+          receive    <- OptionT(recovering.completed(state, seqNr, journaller, snapshotter))
         } yield {
           Persistence.receive[F, S, C, E, R](replyOf, receive)
         }
@@ -147,7 +147,7 @@ private[akkaeffect] object Persistence {
           .liftF(replay.foldMapM { _.release })
           .flatMap { _ =>
             recovering
-              .recoveryCompleted(state, seqNr, journaller, snapshotter)
+              .completed(state, seqNr, journaller, snapshotter)
               .map { _.map { receive => Persistence.receive[F, S, C, E, R](replyOf, receive) } }
           }
           .toReleasableOpt

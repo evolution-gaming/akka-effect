@@ -1,10 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.concurrent.Ref
-import cats.effect.implicits._
 import cats.effect.{Concurrent, Sync}
+import cats.effect.concurrent.Ref
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 
@@ -13,38 +11,44 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
   */
 private[akkaeffect] trait SerialRef[F[_], A] {
 
-  def update[B](f: A => F[A]): F[F[Unit]]
+  def get: F[A]
 
   def modify[B](f: A => F[(A, B)]): F[F[B]]
+
+  def update[B](f: A => F[A]): F[F[Unit]]
 }
 
 private[akkaeffect] object SerialRef {
 
   def of[F[_] : Sync : ToFuture : FromFuture, A](a: A): F[SerialRef[F, A]] = {
+    for {
+      serial    <- Serial.of[F]
+      serialRef <- of(serial, a)
+    } yield serialRef
+  }
+
+
+  def of[F[_] : Sync, A](serial: Serial[F], a: A): F[SerialRef[F, A]] = {
     Ref[F]
-      .of(a.pure[F])
+      .of(a)
       .map { ref =>
         new SerialRef[F, A] {
 
-          def update[B](f: A => F[A]) = {
-            modify { a => f(a).map { a => (a, ()) } }
-          }
+          def get = ref.get
 
           def modify[B](f: A => F[(A, B)]) = {
-            val result = for {
-              p <- PromiseEffect[F, A]
-              a <- ref.modify { a => (p.get, a) }
-              b  = for {
-                a  <- a
-                ab <- f(a).attempt
-                a   = ab.map { case (a, _) => a }
-                b   = ab.map { case (_, b) => b }
-                _  <- p.complete(a)
-                b  <- b.liftTo[F]
+            serial {
+              for {
+                a      <- get
+                ab     <- f(a)
+                (a, b)  = ab
+                _      <- ref.set(a)
               } yield b
-              b <- b.startNow
-            } yield b
-            result.uncancelable
+            }
+          }
+
+          def update[B](f: A => F[A]) = {
+            modify { a => f(a).map { a => (a, ()) } }
           }
         }
       }

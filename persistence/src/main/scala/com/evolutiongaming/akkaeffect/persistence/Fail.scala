@@ -1,8 +1,10 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import cats.implicits._
+
 trait Fail[F[_]] {
 
-  def apply[A](msg: String): F[A]
+  def apply[A](msg: String, cause: Option[Throwable] = none): F[A]
 }
 
 object Fail {

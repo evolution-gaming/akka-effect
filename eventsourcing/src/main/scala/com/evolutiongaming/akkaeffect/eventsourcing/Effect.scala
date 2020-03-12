@@ -10,7 +10,7 @@ import com.evolutiongaming.akkaeffect.persistence.SeqNr
 trait Effect[F[_]] {
 
   /**
-    * @param seqNr - either seqNr or error if failed to store events
+    * @param seqNr - either last seqNr or error if failed to store events
     */
   def apply(seqNr: Either[Throwable, SeqNr]): F[Unit]
 }

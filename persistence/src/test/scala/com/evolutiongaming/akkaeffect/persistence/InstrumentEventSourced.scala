@@ -80,7 +80,7 @@ object InstrumentEventSourced {
                       }
                     }
 
-                    def recoveryCompleted(
+                    def completed(
                       state: S,
                       seqNr: SeqNr,
                       journaller: Journaller[F, E],
@@ -118,18 +118,15 @@ object InstrumentEventSourced {
 
                       val snapshotter1 = new Snapshotter[F, S] {
 
-                        def save(snapshot: S) = {
+                        def save(seqNr: SeqNr, snapshot: S) = {
                           for {
-                            _ <- record(Action.SaveSnapshot(snapshot))
-                            a <- snapshotter.save(snapshot)
-                            _ <- record(Action.SaveSnapshotOuter(a.seqNr))
-                          } yield {
-                            val done = for {
-                              a <- a.done
-                              _ <- record(Action.SaveSnapshotInner)
-                            } yield a
-                            a.copy(done = done)
-                          }
+                            _ <- record(Action.SaveSnapshot(seqNr, snapshot))
+                            a <- snapshotter.save(seqNr, snapshot)
+                            _ <- record(Action.SaveSnapshotOuter)
+                          } yield for {
+                            a <- a
+                            _ <- record(Action.SaveSnapshotInner)
+                          } yield a
                         }
 
                         def delete(seqNr: SeqNr) = {
@@ -160,7 +157,7 @@ object InstrumentEventSourced {
                       }
 
                       for {
-                        receive <- recovering.recoveryCompleted(state, seqNr, journaller1, snapshotter1)
+                        receive <- recovering.completed(state, seqNr, journaller1, snapshotter1)
                         _       <- resource(Action.ReceiveAllocated(state, seqNr), Action.ReceiveReleased)
                       } yield for {
                         receive <- receive
@@ -244,9 +241,9 @@ object InstrumentEventSourced {
     final case object DeleteEventsToInner extends Action[Nothing, Nothing, Nothing, Nothing]
 
 
-    final case class SaveSnapshot[S](snapshot: S) extends Action[S, Nothing, Nothing, Nothing]
+    final case class SaveSnapshot[S](seqNr: SeqNr, snapshot: S) extends Action[S, Nothing, Nothing, Nothing]
 
-    final case class SaveSnapshotOuter(seqNr: SeqNr) extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case object SaveSnapshotOuter extends Action[Nothing, Nothing, Nothing, Nothing]
 
     final case object SaveSnapshotInner extends Action[Nothing, Nothing, Nothing, Nothing]
 

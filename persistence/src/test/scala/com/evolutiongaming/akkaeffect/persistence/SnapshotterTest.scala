@@ -12,6 +12,7 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
+import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
 class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
@@ -27,87 +28,39 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     val actorRefOf = ActorRefOf[F](actorSystem)
 
-    val stopped: Throwable = new RuntimeException("stopped") with NoStackTrace
-
-    case class Msg(snapshotter: Snapshotter[F, Any] => F[Unit])
-
-    def actor(probe: Probe[F]) = {
+    def actor(probe: Probe[F], deferred: Deferred[F, Snapshotter[F, Any]]) = {
 
       new SnapshotterPublic { actor =>
 
-        implicit val executor = context.dispatcher
-
-        val act = Act.adapter(self)
-
-        val (snapshotter, release) = Snapshotter
-          .adapter[F](act.value.fromFuture, actor, stopped.pure[F])
-          .allocated
-          .toTry
-          .get
-
-        val actorVar = ActorVar[F, Unit](act.value, context)
-
         override def preStart() = {
           super.preStart()
-          actorVar.preStart {
-            ().some.pure[Resource[F, *]]
+          implicit val fail: Fail[F] = new Fail[F] {
+            def apply[A](msg: String, cause: Option[Throwable]) = {
+              PersistentActorError(msg, cause).raiseError[F, A]
+            }
           }
+          val snapshotter = Snapshotter[F, Any](actor, 1.minute)
+          deferred.complete(snapshotter).toFuture
+          ()
         }
+
         def snapshotStore = probe.actorEffect.toUnsafe
 
         def snapshotterId = "snapshotterId"
 
         def snapshotSequenceNr = 0
 
-        def receiveMsg: Receive = {
-          case Msg(f) => actorVar.receive { _ => f(snapshotter.value).as(false) }
-        }
-
-        def receive = {
-          act.receive { snapshotter.receive orElse receiveMsg }
-        }
-
-        override def postStop() = {
-          val result = for {
-            _ <- actorVar.postStop()
-            _ <- release
-          } yield {}
-          result.toFuture
-          super.postStop()
-        }
-      }
-    }
-
-    trait Ask {
-      def apply[A](f: Snapshotter[F, Any] => F[A]): F[A]
-    }
-
-    object Ask {
-      def apply(actor: ActorEffect[F, Any, Any]): Ask = {
-        new Ask {
-          def apply[A](f: Snapshotter[F, Any] => F[A]) = {
-            for {
-              d  <- Deferred[F, F[A]]
-              f1  = (snapshotter: Snapshotter[F, Any]) => for {
-                a <- f(snapshotter).attempt
-                _ <- d.complete(a.liftTo[F])
-                _ <- a.liftTo[F]
-              } yield {}
-              _  <- actor.tell(Msg(f1))
-              a  <- d.get.flatten
-            } yield a
-          }
-        }
+        def receive = PartialFunction.empty
       }
     }
 
     val result = for {
-      probe  <- Probe.of(actorRefOf)
-      props   = Props(actor(probe))
-      actor  <- actorRefOf(props)
-      actor  <- ActorEffect.fromActor[F](actor).pure[Resource[F, *]]
-      ask     = Ask(actor)
-      result <- {
+      probe       <- Probe.of(actorRefOf)
+      snapshotter <- Resource.liftF(Deferred[F, Snapshotter[F, Any]])
+      props        = Props(actor(probe, snapshotter))
+      _           <- actorRefOf(props)
+      snapshotter <- Resource.liftF(snapshotter.get)
+      result      <- {
         val metadata = SnapshotMetadata("snapshotterId", 0L)
 
         val criteria = SnapshotSelectionCriteria()
@@ -115,14 +68,14 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
         val error = new RuntimeException with NoStackTrace
 
         def verify[A](
-          f: Snapshotter[F, Any] => F[F[A]],
+          fa: F[F[A]],
           req: Any,
           res: Any,
           expected: Either[Throwable, A]
         ) = {
           for {
             a <- probe.expect
-            b <- ask(f)
+            b <- fa
             a <- a
             _  = a.msg shouldEqual req
             _ <- Sync[F].delay { a.sender.tell(res, ActorRef.noSender) }
@@ -131,14 +84,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
           } yield {}
         }
 
-        def save(snapshotter: Snapshotter[F, Any]) = {
-          snapshotter
-            .save("snapshot")
-            .map { a =>
-              a.seqNr shouldEqual 0L
-              a.done
-            }
-        }
+        def save = snapshotter.save(metadata.sequenceNr, "snapshot").map { _.void }
 
         val result = for {
           _ <- verify(
@@ -154,25 +100,25 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
             error.asLeft)
 
           _ <- verify(
-            _.delete(0L),
+            snapshotter.delete(0L),
             SnapshotProtocolPublic.deleteSnapshot(metadata),
             DeleteSnapshotSuccess(metadata),
             ().asRight)
 
           _ <- verify(
-            _.delete(0L),
+            snapshotter.delete(0L),
             SnapshotProtocolPublic.deleteSnapshot(metadata),
             DeleteSnapshotFailure(metadata, error),
             error.asLeft)
 
           _ <- verify(
-            _.delete(criteria),
+            snapshotter.delete(criteria),
             SnapshotProtocolPublic.deleteSnapshots("snapshotterId", criteria),
             DeleteSnapshotsSuccess(criteria),
             ().asRight)
 
           _ <- verify(
-            _.delete(criteria),
+            snapshotter.delete(criteria),
             SnapshotProtocolPublic.deleteSnapshots("snapshotterId", criteria),
             DeleteSnapshotsFailure(criteria, error),
             error.asLeft)

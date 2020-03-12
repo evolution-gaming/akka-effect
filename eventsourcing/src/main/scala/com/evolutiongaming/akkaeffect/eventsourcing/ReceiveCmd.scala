@@ -1,10 +1,18 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.{FlatMap, Monad, ~>}
-import com.evolutiongaming.akkaeffect.{Receive, Reply}
 
+// TODO what if we are not forcing to return directive, but rather providing a method to be called with all that as argument
+/**
+  * ReceiveCmd is called when new command received, does not block an actor as well as other competing commands
+  *
+  * @tparam S state
+  * @tparam C command
+  * @tparam E event
+  */
 trait ReceiveCmd[F[_], S, C, E] {
 
+  // TODO support case when we return new command as result
   def apply(cmd: C): F[Validate[F, S, E]]
 }
 
@@ -17,7 +25,7 @@ object ReceiveCmd {
 
     def collect[AA](f: AA => F[Option[A]])(implicit F: Monad[F]): ReceiveCmd[F, S, AA, B] = {
       new ReceiveCmd[F, S, AA, B] {
-        
+
         def apply(cmd: AA) = ???
       }
     }

@@ -19,6 +19,7 @@ import scala.util.Try
   * and expect you to react upon reply - you can still model that via `A => F[B]` with help of `Call`
   * `call { sendMsg(id); id }`
   */
+// TODO replce with Correllate
 trait Call[F[_], A, B] {
 
   def apply(f: => A): F[(A, F[B])]

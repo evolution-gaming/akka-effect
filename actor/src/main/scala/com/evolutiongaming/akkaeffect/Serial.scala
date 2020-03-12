@@ -28,7 +28,7 @@ private[akkaeffect] object Serial {
       .map { ref =>
         new Serial[F] {
           def apply[A](fa: F[A]) = {
-            val result = for {
+            for {
               p <- PromiseEffect[F, Unit]
               b <- ref.modify { b => (p.get, b) }
               a  = for {
@@ -39,7 +39,6 @@ private[akkaeffect] object Serial {
               } yield a
               a <- a.startNow
             } yield a
-            result.uncancelable
           }
         }
       }

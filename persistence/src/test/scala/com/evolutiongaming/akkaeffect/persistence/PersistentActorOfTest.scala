@@ -104,7 +104,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
                   val replay = Replay.empty[F, State, Event].pure[Resource[F, *]]
 
-                  def recoveryCompleted(
+                  def completed(
                     state: State,
                     seqNr: SeqNr,
                     journaller: Journaller[F, Event],
@@ -132,13 +132,13 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
                             case Cmd.Inc =>
                               for {
-                                _      <- journaller.append(Nel.of(Nel.of("a"))).flatten
+                                seqNr  <- journaller.append(Nel.of(Nel.of("a"))).flatten
                                 _      <- stateRef.update { _ + 1 }
                                 state  <- stateRef.get
-                                result <- snapshotter.save(state)
+                                result <- snapshotter.save(seqNr, state)
                                 seqNr  <- journaller.append(Nel.of(Nel.of("b"), Nel.of("c", "d")))
                                 seqNr  <- seqNr
-                                _      <- result.done
+                                _      <- result
                                 _      <- stateRef.update { _ + 1 }
                                 _      <- reply(seqNr)
                               } yield false
@@ -264,7 +264,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
                   def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
 
-                  def recoveryCompleted(
+                  def completed(
                     state: S,
                     seqNr: SeqNr,
                     journaller: Journaller[F, E],
@@ -339,16 +339,16 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
                   def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
 
-                  def recoveryCompleted(
+                  def completed(
                     state: S,
                     seqNr: SeqNr,
                     journaller: Journaller[F, E],
                     snapshotter: Snapshotter[F, S]
                   ) = {
                     val receive = for {
-                      _ <- journaller.append(Nel.of(Nel.of(0))).flatten
-                      _ <- snapshotter.save(1).flatMap { _.done }
-                      _ <- startedDeferred.complete(())
+                      seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
+                      _     <- snapshotter.save(seqNr, 1).flatten
+                      _     <- startedDeferred.complete(())
                     } yield {
                       Receive.empty[F, C, R].some
                     }
@@ -394,8 +394,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEvents(Nel.of(Nel.of(0L))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(1),
-        Action.SaveSnapshot(1),
-        Action.SaveSnapshotOuter(1),
+        Action.SaveSnapshot(1, 1),
+        Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
         Action.ReceiveAllocated(0, 0L),
         Action.ReceiveReleased,
@@ -410,8 +410,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEvents(Nel.of(Nel.of(0L))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(2),
-        Action.SaveSnapshot(1),
-        Action.SaveSnapshotOuter(2),
+        Action.SaveSnapshot(2, 1),
+        Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
         Action.ReceiveAllocated(1, 1L),
         Action.ReceiveReleased,
@@ -449,15 +449,15 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
                   def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
 
-                  def recoveryCompleted(
+                  def completed(
                     state: S,
                     seqNr: SeqNr,
                     journaller: Journaller[F, E],
                     snapshotter: Snapshotter[F, S]
                   ) = {
                     val receive = for {
-                      _     <- journaller.append(Nel.of(Nel.of(0))).flatten
-                      _     <- snapshotter.save(1).flatMap { _.done }
+                      seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
+                      _     <- snapshotter.save(seqNr, 1).flatten
                       seqNr <- journaller.append(Nel.of(Nel.of(1))).flatten
                       _     <- journaller.deleteTo(seqNr).flatten
                       _     <- startedDeferred.complete(())
@@ -506,8 +506,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEvents(Nel.of(Nel.of(0L))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(1),
-        Action.SaveSnapshot(1),
-        Action.SaveSnapshotOuter(1),
+        Action.SaveSnapshot(1, 1),
+        Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
         Action.AppendEvents(Nel.of(Nel.of(1L))),
         Action.AppendEventsOuter,
@@ -528,8 +528,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEvents(Nel.of(Nel.of(0L))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(3),
-        Action.SaveSnapshot(1),
-        Action.SaveSnapshotOuter(3),
+        Action.SaveSnapshot(3, 1),
+        Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
         Action.AppendEvents(Nel.of(Nel.of(1L))),
         Action.AppendEventsOuter,
@@ -576,7 +576,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     replay.pure[Resource[F, *]]
                   }
 
-                  def recoveryCompleted(
+                  def completed(
                     state: S,
                     seqNr: SeqNr,
                     journaller: Journaller[F, E],
@@ -688,7 +688,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     replay.pure[Resource[F, *]]
                   }
 
-                  def recoveryCompleted(
+                  def completed(
                     state: S,
                     seqNr: SeqNr,
                     journaller: Journaller[F, E],
@@ -696,7 +696,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   ) = {
                     val receive = for {
                       seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
-                      _     <- snapshotter.save(1).flatMap { _.done }
+                      _     <- snapshotter.save(seqNr, 1).flatten
                       _     <- journaller.append(Nel.of(Nel.of(1))).flatten
                       _     <- snapshotter.delete(seqNr).flatten
                       _     <- startedDeferred.complete(())
@@ -746,8 +746,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEvents(Nel.of(Nel.of(0))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(1),
-        Action.SaveSnapshot(1),
-        Action.SaveSnapshotOuter(1),
+        Action.SaveSnapshot(1, 1),
+        Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
         Action.AppendEvents(Nel.of(Nel.of(1))),
         Action.AppendEventsOuter,
@@ -772,8 +772,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEvents(Nel.of(Nel.of(0))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(3),
-        Action.SaveSnapshot(1),
-        Action.SaveSnapshotOuter(3),
+        Action.SaveSnapshot(3, 1),
+        Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
         Action.AppendEvents(Nel.of(Nel.of(1))),
         Action.AppendEventsOuter,
@@ -820,17 +820,17 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     replay.pure[Resource[F, *]]
                   }
 
-                  def recoveryCompleted(
+                  def completed(
                     state: S,
                     seqNr: SeqNr,
                     journaller: Journaller[F, E],
                     snapshotter: Snapshotter[F, S]
                   ) = {
                     val receive = for {
-                      _ <- journaller.append(Nel.of(Nel.of(0))).flatten
-                      _ <- snapshotter.save(1).flatMap { _.done }
-                      _ <- journaller.append(Nel.of(Nel.of(1))).flatten
-                      _ <- startedDeferred.complete(())
+                      seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
+                      _     <- snapshotter.save(seqNr, 1).flatten
+                      _     <- journaller.append(Nel.of(Nel.of(1))).flatten
+                      _     <- startedDeferred.complete(())
                     } yield {
                       Receive.empty[F, C, R].some
                     }
@@ -877,8 +877,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEvents(Nel.of(Nel.of(0))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(1),
-        Action.SaveSnapshot(1),
-        Action.SaveSnapshotOuter(1),
+        Action.SaveSnapshot(1, 1),
+        Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
         Action.AppendEvents(Nel.of(Nel.of(1))),
         Action.AppendEventsOuter,
@@ -899,8 +899,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.AppendEvents(Nel.of(Nel.of(0))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(3),
-        Action.SaveSnapshot(1),
-        Action.SaveSnapshotOuter(3),
+        Action.SaveSnapshot(3, 1),
+        Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
         Action.AppendEvents(Nel.of(Nel.of(1))),
         Action.AppendEventsOuter,
@@ -1055,7 +1055,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
                   def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
 
-                  def recoveryCompleted(
+                  def completed(
                     state: S,
                     seqNr: SeqNr,
                     journaller: Journaller[F, E],
@@ -1141,7 +1141,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     replay.pure[Resource[F, *]]
                   }
 
-                  def recoveryCompleted(
+                  def completed(
                     state: S,
                     seqNr: SeqNr,
                     journaller: Journaller[F, E],

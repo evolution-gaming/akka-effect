@@ -9,6 +9,7 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
 import scala.collection.immutable.Seq
+import scala.concurrent.duration._
 
 
 object PersistentActorOf {
@@ -32,35 +33,44 @@ object PersistentActorOf {
         (act, eventSourced)
       }
 
-      def errorPrefix = s"${ self.path.toStringWithoutAddress } $persistenceId"
+      def persistentActorError(msg: String, cause: Option[Throwable]) = {
+        val path = self.path.toStringWithoutAddress
+        val causeStr: String = cause.foldMap { a => s": $a" }
+        PersistentActorError(s"$path $persistenceId $msg$causeStr", cause)
+      }
 
-      val ((journaller, snapshotter, append), release) = {
+      implicit val fail: Fail[F] = new Fail[F] {
+        def apply[A](msg: String, cause: Option[Throwable]) = {
+          persistentActorError(msg, cause).raiseError[F, A]
+        }
+      }
+
+      val snapshotter = Snapshotter[F, Any](actor, 1.minute/*TODO pass*/).withFail(fail)
+
+      val ((journaller, append), release) = {
 
         val stopped = Lazy[F].of {
-          Sync[F].delay[Throwable] { PersistentActorError(s"$errorPrefix has been stopped") }
+          Sync[F].delay[Throwable] { persistentActorError("has been stopped", none) }
         }
         val result = for {
           stopped     <- Resource.liftF(stopped)
           act         <- act.value.fromFuture.pure[Resource[F, *]]
           append      <- Append.adapter[F, Any](act, actor, stopped.get)
           journaller  <- Journaller.adapter[F, Any](act, append.value, actor, stopped.get)
-          snapshotter <- Snapshotter.adapter[F](act, actor, stopped.get)
         } yield {
-          (journaller, snapshotter, append)
+          (journaller, append)
         }
-
         result
           .allocated
           .toTry
           .get
       }
 
-      val persistence = {
-        implicit val fail: Fail[F] = new Fail[F] {
-          def apply[A](msg: String) = PersistentActorError(s"$errorPrefix $msg").raiseError[F, A]
-        }
-        PersistenceVar[F, Any, Any, Any, Any](act.value, context, journaller.value, snapshotter.value)
-      }
+      val persistence = PersistenceVar[F, Any, Any, Any, Any](
+        act.value,
+        context,
+        journaller.value,
+        snapshotter)
 
       override def preStart(): Unit = {
         super.preStart()
@@ -87,8 +97,7 @@ object PersistentActorOf {
       }
 
       override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
-        // TODO test this
-        val error = PersistentActorError(s"$errorPrefix persist failed for $event", cause)
+        val error = persistentActorError(s"[$seqNr] persist failed for $event", cause.some)
         act.sync {
           append.onError(error, event, seqNr)
         }
@@ -96,7 +105,7 @@ object PersistentActorOf {
       }
 
       override protected def onPersistRejected(cause: Throwable, event: Any, seqNr: Long) = {
-        val error = PersistentActorError(s"$errorPrefix persist rejected for $event", cause)
+        val error = persistentActorError(s"[$seqNr] persist rejected for $event", cause.some)
         act.sync {
           append.onError(error, event, seqNr)
         }
@@ -114,7 +123,7 @@ object PersistentActorOf {
         def receiveAny: Receive = { case a => persistence.command(a, lastSeqNr(), sender()) }
 
         act.receive {
-          journaller.receive orElse snapshotter.receive orElse receiveAny
+          journaller.receive orElse receiveAny
         }
       }
 

@@ -28,7 +28,7 @@ trait Recovering[F[_], S, C, E, R] {
     * @see [[akka.persistence.RecoveryCompleted]]
     * @return None to stop actor, Some to continue
     */
-  def recoveryCompleted(
+  def completed(
     state: S,
     seqNr: SeqNr,
     journaller: Journaller[F, E],
@@ -54,7 +54,7 @@ object Recovering {
 
       val replay = self.replay.map { _.convert(sf, s1f, e1f) }
 
-      def recoveryCompleted(
+      def completed(
         state: S1,
         seqNr: SeqNr,
         journaller: Journaller[F, E1],
@@ -66,7 +66,7 @@ object Recovering {
 
         for {
           state   <- Resource.liftF(s1f(state))
-          receive <- self.recoveryCompleted(state, seqNr, journaller1, snapshotter1)
+          receive <- self.completed(state, seqNr, journaller1, snapshotter1)
         } yield for {
           receive <- receive
         } yield {
@@ -75,7 +75,7 @@ object Recovering {
       }
     }
 
-    
+
     def widen[S1 >: S, C1 >: C, E1 >: E, R1 >: R](
       sf: S1 => F[S],
       cf: C1 => F[C],
@@ -87,7 +87,7 @@ object Recovering {
 
       val replay = self.replay.map { _.widen(sf, ef) }
 
-      def recoveryCompleted(
+      def completed(
         state: S1,
         seqNr: SeqNr,
         journaller: Journaller[F, E1],
@@ -95,7 +95,7 @@ object Recovering {
       ) = {
         for {
           state   <- Resource.liftF(sf(state))
-          receive <- self.recoveryCompleted(state, seqNr, journaller, snapshotter)
+          receive <- self.completed(state, seqNr, journaller, snapshotter)
         } yield for {
           receive <- receive
         } yield {
