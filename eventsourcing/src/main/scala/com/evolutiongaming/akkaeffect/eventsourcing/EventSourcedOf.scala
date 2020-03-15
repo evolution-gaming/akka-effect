@@ -35,8 +35,7 @@ object EventSourcedOf {
       s1f: S1 => F[S],
       cf: C => F[C1],
       c1f: C1 => F[C],
-      ef: E => F[E1],
-      e1f: E1 => F[E],
+      ef: E1 => F[E],
       rf: R => F[R1],
       r1f: R1 => F[R],
     )(implicit
@@ -47,7 +46,7 @@ object EventSourcedOf {
         for {
           eventSourced <- self(ctx1)
         } yield {
-          eventSourced.convert(sf, s1f, c1f, ef, e1f, rf)
+          eventSourced.convert(sf, s1f, c1f, ef, rf)
         }
       }
     }
