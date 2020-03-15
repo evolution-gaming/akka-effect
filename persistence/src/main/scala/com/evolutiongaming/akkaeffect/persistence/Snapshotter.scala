@@ -55,35 +55,26 @@ object Snapshotter {
     }
 
 
-    def withFail(fail: Fail[F])(implicit F: MonadThrowable[F]): Snapshotter[F, A] = {
+    def withFail(
+      fail: Fail[F])(implicit
+      F: MonadThrowable[F]
+    ): Snapshotter[F, A] = new Snapshotter[F, A] {
 
-      def adapt[B](msg: String)(f: F[F[B]]): F[F[B]] = {
-
-        def adapt[C](e: Throwable) = fail[C](msg, e.some)
-
-        f
-          .handleErrorWith { e => adapt(e) }
-          .map { _.handleErrorWith { e => adapt(e) } }
+      def save(seqNr: SeqNr, snapshot: A) = {
+        fail.adapt(s"failed to save snapshot at $seqNr") {
+          self.save(seqNr, snapshot)
+        }
       }
 
-      new Snapshotter[F, A] {
-
-        def save(seqNr: SeqNr, snapshot: A) = {
-          adapt(s"failed to save snapshot at $seqNr") {
-            self.save(seqNr, snapshot)
-          }
+      def delete(seqNr: SeqNr) = {
+        fail.adapt(s"failed to delete snapshot at $seqNr") {
+          self.delete(seqNr)
         }
+      }
 
-        def delete(seqNr: SeqNr) = {
-          adapt(s"failed to delete snapshot at $seqNr") {
-            self.delete(seqNr)
-          }
-        }
-
-        def delete(criteria: SnapshotSelectionCriteria) = {
-          adapt(s"failed to delete snapshots for $criteria") {
-            self.delete(criteria)
-          }
+      def delete(criteria: SnapshotSelectionCriteria) = {
+        fail.adapt(s"failed to delete snapshots for $criteria") {
+          self.delete(criteria)
         }
       }
     }

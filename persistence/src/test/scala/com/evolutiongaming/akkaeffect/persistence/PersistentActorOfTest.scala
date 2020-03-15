@@ -5,7 +5,7 @@ import akka.persistence.SnapshotMetadata
 import akka.testkit.TestActors
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, IO, Resource, Sync}
+import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.akkaeffect.IOSuite._
@@ -68,7 +68,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     `append many`(actorSystem).run()
   }
 
-  private def `persistentActorOf`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def `persistentActorOf`[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
 
@@ -235,7 +235,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover with empty state`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def `recover with empty state`[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -311,7 +311,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover from snapshot`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def `recover from snapshot`[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -421,7 +421,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover from snapshot with deleted events`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def `recover from snapshot with deleted events`[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -545,7 +545,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover from events`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def `recover from events`[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -657,7 +657,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover from events with deleted snapshot`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def `recover from events with deleted snapshot`[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -789,7 +789,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover from snapshot and events`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def `recover from snapshot and events`[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -913,7 +913,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `start returns none`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def `start returns none`[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -966,7 +966,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recoveryStarted returns none`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def `recoveryStarted returns none`[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -1026,7 +1026,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recoveryCompleted returns none`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def `recoveryCompleted returns none`[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf[F](actorSystem)
@@ -1107,7 +1107,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `append many`[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def `append many`[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf[F](actorSystem)

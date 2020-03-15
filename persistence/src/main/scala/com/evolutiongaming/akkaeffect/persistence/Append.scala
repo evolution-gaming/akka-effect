@@ -8,7 +8,7 @@ import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.{Act, PromiseEffect}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, MonadThrowable, ToTry}
 
 import scala.collection.immutable.Queue
 
@@ -64,61 +64,63 @@ object Append {
       }
       .map { ref =>
 
-        val append: Append[F, A] = {
-          events: Nel[Nel[A]] => {
+        new Adapter[F, A] {
 
-            val size = events.foldLeft(0) { _ + _.size }
+          val value: Append[F, A] = {
+            events: Nel[Nel[A]] => {
 
-            def persist(promise: PromiseEffect[F, SeqNr]) = {
+              val size = events.foldLeft(0) { _ + _.size }
 
-              act {
-                ref
-                  .update { _.enqueue(promise) }
-                  .toTry
-                  .get
+              def persist(promise: PromiseEffect[F, SeqNr]) = {
 
-                var left = size
-                events.toList.foreach { events =>
-                  eventsourced.persistAllAsync(events.toList) { _ =>
-                    left = left - 1
-                    if (left <= 0) {
-                      val seqNr = eventsourced.lastSequenceNr
-                      ref
-                        .modify { queue =>
-                          queue
-                            .dequeueOption
-                            .fold {
-                              (Queue.empty[PromiseEffect[F, SeqNr]], none[PromiseEffect[F, SeqNr]])
-                            } { case (promise, queue) =>
-                              (queue, promise.some)
-                            }
-                        }
-                        .flatMap { _.foldMapM { _.success(seqNr) } }
-                        .toTry
-                        .get
+                act {
+                  ref
+                    .update { _.enqueue(promise) }
+                    .toTry
+                    .get
+
+                  var left = size
+                  events.toList.foreach { events =>
+                    eventsourced.persistAllAsync(events.toList) { _ =>
+                      left = left - 1
+                      if (left <= 0) {
+                        val seqNr = eventsourced.lastSequenceNr
+                        ref
+                          .modify { queue =>
+                            queue
+                              .dequeueOption
+                              .fold {
+                                (Queue.empty[PromiseEffect[F, SeqNr]], none[PromiseEffect[F, SeqNr]])
+                              } { case (promise, queue) =>
+                                (queue, promise.some)
+                              }
+                          }
+                          .flatMap { _.foldMapM { _.success(seqNr) } }
+                          .toTry
+                          .get
+                      }
                     }
                   }
                 }
               }
-            }
 
-            for {
-              promise <- PromiseEffect[F, SeqNr]
-              _       <- persist(promise)
-            } yield {
-              promise.get
+              for {
+                promise <- PromiseEffect[F, SeqNr]
+                _       <- persist(promise)
+              } yield {
+                promise.get
+              }
             }
           }
-        }
 
-        val onError: OnError[A] = {
-          (error: Throwable, _: A, _: SeqNr) =>
-            fail(ref, error.pure[F])
-              .toTry
-              .get
-        }
+          val onError: OnError[A] = {
+            (error: Throwable, _: A, _: SeqNr) =>
+              fail(ref, error.pure[F])
+                .toTry
+                .get
+          }
 
-        Adapter(append, onError)
+        }
       }
   }
 
@@ -137,6 +139,15 @@ object Append {
 
 
     def narrow[B <: A]: Append[F, B] = (events: Nel[Nel[B]]) => self(events)
+
+
+    def withFail(fail: Fail[F])(implicit F: MonadThrowable[F]): Append[F, A] = {
+      (events: Nel[Nel[A]]) => {
+        fail.adapt(s"failed to append ${ events.flatten.toList.mkString(",") }") {
+          self(events)
+        }
+      }
+    }
   }
 
 
@@ -159,9 +170,28 @@ object Append {
 
 
   private[akkaeffect] trait OnError[A] {
+
     def apply(cause: Throwable, event: A, seqNr: SeqNr): Unit
   }
 
 
-  private[akkaeffect] final case class Adapter[F[_], A](value: Append[F, A], onError: OnError[A])
+  private[akkaeffect] trait Adapter[F[_], A] {
+
+    def value: Append[F, A]
+
+    def onError: OnError[A]
+  }
+
+  object Adapter {
+
+    implicit class AdapterOps[F[_], A](val self: Adapter[F, A]) extends AnyVal {
+
+      def withFail(fail: Fail[F])(implicit F: MonadThrowable[F]): Adapter[F, A] = new Adapter[F, A] {
+
+        val value = self.value.withFail(fail)
+
+        def onError = self.onError
+      }
+    }
+  }
 }

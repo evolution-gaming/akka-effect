@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.{PersistentActor, RecoveryCompleted}
 import akka.{persistence => ap}
-import cats.effect.{Resource, Sync}
+import cats.effect.{Concurrent, Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -14,7 +14,7 @@ import scala.concurrent.duration._
 
 object PersistentActorOf {
 
-  def apply[F[_] : Sync : ToFuture : FromFuture : ToTry](
+  def apply[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     eventSourcedOf: EventSourcedOf[F, Any, Any, Any, Any]
   ): PersistentActor = {
 
@@ -23,7 +23,7 @@ object PersistentActorOf {
       lazy val (act, eventSourced) = {
         val act = Act.adapter(self)
         val eventSourced = {
-          val ctx = ActorCtx[F](act.value.fromFuture, context)
+          val ctx = ActorCtx[F](act.value.toSafe, context)
           eventSourcedOf(ctx)
             .adaptError { case error => PersistentActorError(s"$self failed to allocate eventSourced with $error", error) }
             .toTry
@@ -45,7 +45,9 @@ object PersistentActorOf {
         }
       }
 
-      val snapshotter = Snapshotter[F, Any](actor, 1.minute/*TODO pass*/).withFail(fail)
+      val timeout = 1.minute/*TODO configure*/
+
+      val snapshotter = Snapshotter[F, Any](actor, timeout).withFail(fail)
 
       val ((journaller, append), release) = {
 
@@ -54,11 +56,11 @@ object PersistentActorOf {
         }
         val result = for {
           stopped     <- Resource.liftF(stopped)
-          act         <- act.value.fromFuture.pure[Resource[F, *]]
+          act         <- act.value.toSafe.pure[Resource[F, *]]
           append      <- Append.adapter[F, Any](act, actor, stopped.get)
-          journaller  <- Journaller.adapter[F, Any](act, append.value, actor, stopped.get)
+          journaller  <- Journaller.adapter[F, Any](append.value, actor, stopped.get, timeout)
         } yield {
-          (journaller, append)
+          (journaller.withFail(fail), append)
         }
         result
           .allocated

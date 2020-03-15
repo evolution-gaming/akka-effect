@@ -1,14 +1,14 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.Props
-import cats.effect.{Concurrent, Resource}
+import cats.effect.{Concurrent, Resource, Timer}
 import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
 
 object PersistentActorEffect {
 
-  def of[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  def of[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
     actorRefOf: ActorRefOf[F],
     eventSourcedOf: EventSourcedOf[F, Any, Any, Any, Any],
     name: Option[String] = None

@@ -42,7 +42,7 @@ object ActorOf {
       override def preStart(): Unit = {
         super.preStart()
         act.sync {
-          val ctx = ActorCtx[F](act.value.fromFuture, context)
+          val ctx = ActorCtx[F](act.value.toSafe, context)
           actorVar.preStart {
             onPreStart(self, ctx)
           }

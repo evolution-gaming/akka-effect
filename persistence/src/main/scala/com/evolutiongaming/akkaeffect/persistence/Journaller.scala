@@ -1,13 +1,14 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import akka.actor.Actor
 import akka.persistence._
 import cats.Monad
-import cats.effect.{Resource, Sync}
+import cats.effect.{Concurrent, Resource, Sync, Timer}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Act, Adapter}
-import com.evolutiongaming.catshelper.{FromFuture, ToTry}
+import com.evolutiongaming.akkaeffect.Correlate
+import com.evolutiongaming.catshelper.{FromFuture, MonadThrowable, ToFuture, ToTry}
 
-import scala.util.Try
+import scala.concurrent.duration.FiniteDuration
 
 
 trait Journaller[F[_], -A] {
@@ -26,52 +27,55 @@ trait Journaller[F[_], -A] {
 
 object Journaller {
 
-  private[akkaeffect] def adapter[F[_] : Sync : ToTry : FromFuture, A](
-    act: Act[F],
+  private[akkaeffect] def adapter[F[_] : Concurrent : Timer : ToTry : ToFuture : FromFuture, A](
     append: Append[F, A],
     actor: PersistentActor,
-    stopped: F[Throwable]
-  ): Resource[F, Adapter[Journaller[F, A]]] = {
+    stopped: F[Throwable],
+    timeout: FiniteDuration
+  ): Resource[F, Adapter[F, A]] = {
 
     adapter(
-      act,
       append,
       Eventsourced(actor),
-      stopped)
+      stopped,
+      timeout)
   }
 
-  private[akkaeffect] def adapter[F[_] : Sync : ToTry : FromFuture, A](
-    act: Act[F],
+  private[akkaeffect] def adapter[F[_] : Concurrent : Timer : ToTry : ToFuture : FromFuture, A](
     append: Append[F, A],
     eventsourced: Eventsourced,
-    stopped: F[Throwable]
-  ): Resource[F, Adapter[Journaller[F, A]]] = {
+    stopped: F[Throwable],
+    timeout: FiniteDuration
+  ): Resource[F, Adapter[F, A]] = {
 
     val append1 = append
 
-    val deleteMessages = Call.adapter[F, SeqNr, Unit](act, stopped.void) {
-      case DeleteMessagesSuccess(a)    => (a, ().pure[Try])
-      case DeleteMessagesFailure(e, a) => (a, e.raiseError[Try, Unit])
-    }
+    Correlate
+      .of[F, SeqNr, Unit](stopped.void)
+      .map { deleteMessages =>
 
-    deleteMessages.map { deleteMessages =>
+        val deleteMessages1 = deleteMessages.toUnsafe
 
-      val journaller: Journaller[F, A] = new Journaller[F, A] {
+        new Adapter[F, A] {
 
-        val append = append1
+          val value = new Journaller[F, A] {
 
-        def deleteTo(seqNr: SeqNr) = {
-          deleteMessages
-            .value {
-              eventsourced.deleteMessages(seqNr)
-              seqNr
+            val append = append1
+
+            def deleteTo(seqNr: SeqNr) = {
+              for {
+                _ <- Sync[F].delay { eventsourced.deleteMessages(seqNr) }
+                a <- deleteMessages.call(seqNr, timeout)
+              } yield a
             }
-            .map { case (_, a) => a }
+          }
+
+          val receive: Actor.Receive = {
+            case a: DeleteMessagesSuccess => deleteMessages1.callback(a.toSequenceNr, ().asRight); ()
+            case a: DeleteMessagesFailure => deleteMessages1.callback(a.toSequenceNr, a.cause.asLeft); ()
+          }
         }
       }
-
-      Adapter(journaller, deleteMessages.receive)
-    }
   }
 
 
@@ -82,9 +86,8 @@ object Journaller {
 
   private[akkaeffect] object Eventsourced {
 
-    def apply(actor: PersistentActor): Eventsourced = new Eventsourced {
-
-      def deleteMessages(toSequenceNr: SeqNr) = actor.deleteMessages(toSequenceNr)
+    def apply(actor: PersistentActor): Eventsourced = {
+      (toSequenceNr: SeqNr) => actor.deleteMessages(toSequenceNr)
     }
   }
 
@@ -104,6 +107,39 @@ object Journaller {
       val append = self.append.narrow[B]
 
       def deleteTo(seqNr: SeqNr) = self.deleteTo(seqNr)
+    }
+
+
+    def withFail(fail: Fail[F])(implicit F: MonadThrowable[F]): Journaller[F, A] = new Journaller[F, A] {
+
+      val append = self.append.withFail(fail)
+
+      def deleteTo(seqNr: SeqNr) = {
+        fail.adapt(s"failed to delete events to $seqNr") {
+          self.deleteTo(seqNr)
+        }
+      }
+    }
+  }
+
+
+  trait Adapter[F[_], A] {
+
+    def value: Journaller[F, A]
+
+    def receive: Actor.Receive
+  }
+
+  object Adapter {
+
+    implicit class AdapterOps[F[_], A](val self: Adapter[F, A]) extends AnyVal {
+
+      def withFail(fail: Fail[F])(implicit F: MonadThrowable[F]): Adapter[F, A] = new Adapter[F, A] {
+
+        val value = self.value.withFail(fail)
+
+        def receive = self.receive
+      }
     }
   }
 }
