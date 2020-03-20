@@ -12,7 +12,6 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-// format: off
 /**
   * `Correlate` represents convenient way of modeling cross actor communication
   * Basically when you are within an actor calling methods which send messages to another actor
