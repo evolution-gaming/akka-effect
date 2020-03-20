@@ -9,14 +9,18 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
 import scala.collection.immutable.Seq
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 
 object PersistentActorOf {
 
   def apply[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
-    eventSourcedOf: EventSourcedOf[F, Any, Any, Any, Any]
+    eventSourcedOf: EventSourcedOf[F, Any, Any, Any, Any],
+    timeout: FiniteDuration = 1.minute
   ): PersistentActor = {
+
+    def await[A](fa: F[A]) = Await.result(fa.toFuture, timeout)
 
     new PersistentActor { actor =>
 
@@ -24,10 +28,11 @@ object PersistentActorOf {
         val act = Act.adapter(self)
         val eventSourced = {
           val ctx = ActorCtx[F](act.value.toSafe, context)
-          eventSourcedOf(ctx)
-            .adaptError { case error => PersistentActorError(s"$self failed to allocate eventSourced with $error", error) }
-            .toTry
-            .get
+          await {
+            eventSourcedOf(ctx).adaptError { case error =>
+              PersistentActorError(s"$self failed to allocate eventSourced with $error", error)
+            }
+          }
         }
 
         (act, eventSourced)
@@ -45,8 +50,6 @@ object PersistentActorOf {
         }
       }
 
-      val timeout = 1.minute/*TODO configure*/
-
       val snapshotter = Snapshotter[F, Any](actor, timeout).withFail(fail)
 
       val ((journaller, append), release) = {
@@ -62,10 +65,9 @@ object PersistentActorOf {
         } yield {
           (journaller.withFail(fail), append)
         }
-        result
-          .allocated
-          .toTry
-          .get
+        await {
+          result.allocated
+        }
       }
 
       val persistence = PersistenceVar[F, Any, Any, Any, Any](
