@@ -119,7 +119,6 @@ object Append {
                 .toTry
                 .get
           }
-
         }
       }
   }

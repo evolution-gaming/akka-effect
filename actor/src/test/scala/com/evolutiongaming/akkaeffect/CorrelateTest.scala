@@ -3,11 +3,10 @@ package com.evolutiongaming.akkaeffect
 import cats.effect.IO
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
-import org.scalatest.Succeeded
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.{Future, TimeoutException}
+import scala.concurrent.TimeoutException
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NoStackTrace
@@ -55,14 +54,13 @@ class CorrelateTest extends AsyncFunSuite with Matchers {
 
 
   test("unsafe") {
-    Future {
-      val (correlate, release) = Correlate.Unsafe.of[Int, String]("stopped".pure[Try])
-      val future = correlate.call(0, timeout)
-      correlate.callback(0, "0".asRight) shouldEqual true
-      future.value shouldEqual "0".pure[Try].some
-      correlate.callback(0, "0".asRight) shouldEqual false
+    val (correlate, release) = Correlate.Unsafe.of[Int, String]("stopped".pure[Try])
+    val future = correlate.call(0, timeout)
+    correlate.callback(0, "0".asRight) shouldEqual true
+    correlate.callback(0, "0".asRight) shouldEqual false
+    future.map { value =>
       release()
-      Succeeded
+      value shouldEqual "0"
     }
   }
 }
