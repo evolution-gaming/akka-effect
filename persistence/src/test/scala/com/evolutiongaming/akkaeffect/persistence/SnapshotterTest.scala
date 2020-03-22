@@ -17,12 +17,12 @@ import scala.util.control.NoStackTrace
 
 class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
-  test("adapter") {
+  test("snapshotter") {
     implicit val toTry = ToTryFromToFuture.syncOrError[IO]
-    adapter[IO](actorSystem).run()
+    snapshotter[IO](actorSystem).run()
   }
 
-  private def adapter[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
+  private def snapshotter[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
 
@@ -78,7 +78,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
             b <- fa
             a <- a
             _  = a.msg shouldEqual req
-            _ <- Sync[F].delay { a.sender.tell(res, ActorRef.noSender) }
+            _ <- Sync[F].delay { a.from.tell(res, ActorRef.noSender) }
             b <- b.attempt
             _  = b shouldEqual expected
           } yield {}

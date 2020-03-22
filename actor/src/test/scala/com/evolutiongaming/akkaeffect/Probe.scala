@@ -25,7 +25,7 @@ trait Probe[F[_]] {
 
 object Probe {
 
-  final case class Envelop(msg: Any, sender: ActorRef)
+  final case class Envelop(msg: Any, from: ActorRef)
 
 
   def of[F[_] : Concurrent : ToFuture : FromFuture](
