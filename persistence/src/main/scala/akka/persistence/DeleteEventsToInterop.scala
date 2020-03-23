@@ -1,5 +1,6 @@
 package akka.persistence
 
+import akka.actor.{ActorContext, ActorRef}
 import akka.persistence.JournalProtocol.DeleteMessagesTo
 import cats.effect.{Resource, Sync}
 import cats.implicits._
@@ -13,6 +14,13 @@ object DeleteEventsToInterop {
 
   def apply[F[_] : Sync : FromFuture](
     eventsourced: Eventsourced,
+    timeout: FiniteDuration
+  ): Resource[F, DeleteEventsTo[F]] = {
+    apply(Interop(eventsourced), timeout)
+  }
+
+  private[persistence] def apply[F[_] : Sync : FromFuture](
+    eventsourced: Interop,
     timeout: FiniteDuration
   ): Resource[F, DeleteEventsTo[F]] = {
 
@@ -36,5 +44,31 @@ object DeleteEventsToInterop {
             }
         }
       }
+  }
+
+
+  trait Interop {
+
+    def persistenceId: String
+
+    def context: ActorContext
+
+    def self: ActorRef
+
+    def journal: ActorRef
+  }
+
+  object Interop {
+
+    def apply(eventsourced: Eventsourced): Interop = new Interop {
+
+      def persistenceId = eventsourced.persistenceId
+
+      def context = eventsourced.context
+
+      def self = eventsourced.self
+
+      def journal = eventsourced.journal
+    }
   }
 }

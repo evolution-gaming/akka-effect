@@ -1,6 +1,8 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.DeleteEventsToInterop
+import cats.Applicative
+import cats.implicits._
 import cats.effect.{Resource, Sync}
 import com.evolutiongaming.catshelper.{FromFuture, MonadThrowable}
 
@@ -19,7 +21,12 @@ trait DeleteEventsTo[F[_]] {
 
 object DeleteEventsTo {
 
-  def apply[F[_] : Sync : FromFuture : Fail, A](
+  def empty[F[_] : Applicative]: DeleteEventsTo[F] = const(().pure[F].pure[F])
+
+  def const[F[_]](value: F[F[Unit]]): DeleteEventsTo[F] = (_: SeqNr) => value
+
+
+  private[akkaeffect] def of[F[_] : Sync : FromFuture : Fail, A](
     persistentActor: akka.persistence.PersistentActor,
     timeout: FiniteDuration
   ): Resource[F, DeleteEventsTo[F]] = {

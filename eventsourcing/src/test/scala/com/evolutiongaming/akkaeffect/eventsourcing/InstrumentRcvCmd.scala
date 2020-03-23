@@ -3,7 +3,6 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.akkaeffect.eventsourcing
 

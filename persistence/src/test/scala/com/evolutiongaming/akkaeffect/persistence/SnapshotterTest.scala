@@ -34,11 +34,6 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
         override def preStart() = {
           super.preStart()
-          implicit val fail: Fail[F] = new Fail[F] {
-            def apply[A](msg: String, cause: Option[Throwable]) = {
-              PersistentActorError(msg, cause).raiseError[F, A]
-            }
-          }
           val snapshotter = Snapshotter[F, Any](actor, 1.minute)
           deferred.complete(snapshotter).toFuture
           ()

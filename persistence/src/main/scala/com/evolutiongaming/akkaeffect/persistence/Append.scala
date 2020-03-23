@@ -35,7 +35,7 @@ object Append {
     adapter(act, Eventsourced(actor), stopped)
   }
 
-  def adapter[F[_] : Sync : FromFuture : ToTry, A](
+  private[akkaeffect] def adapter[F[_] : Sync : FromFuture : ToTry, A](
     act: Act[F],
     eventsourced: Eventsourced,
     stopped: F[Throwable]

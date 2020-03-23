@@ -102,7 +102,7 @@ object InstrumentEventSourced {
                           }
                         }
 
-                        def deleteTo(seqNr: SeqNr) = {
+                        def deleteTo = (seqNr: SeqNr) => {
                           for {
                             _ <- record(Action.DeleteEventsTo(seqNr))
                             a <- journaller.deleteTo(seqNr)

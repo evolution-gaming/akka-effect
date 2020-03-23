@@ -15,7 +15,12 @@ private[akkaeffect] trait PersistenceVar[F[_], S, C, E, R] {
 
   def event(event: E, seqNr: SeqNr): Unit
 
-  def recoveryCompleted(seqNr: SeqNr, replyOf: ReplyOf[F, R]): Unit
+  def recoveryCompleted(
+    seqNr: SeqNr,
+    replyOf: ReplyOf[F, R],
+    journaller: Journaller[F, E],
+    snapshotter: Snapshotter[F, S]
+  ): Unit
 
   def command(cmd: C, seqNr: SeqNr, sender: ActorRef): Unit
 
@@ -26,20 +31,13 @@ private[akkaeffect] object PersistenceVar {
 
   def apply[F[_] : Sync : ToFuture : FromFuture : Fail, S, C, E, R](
     act: Act[Future],
-    context: ActorContext,
-    journaller: Journaller[F, E],
-    snapshotter: Snapshotter[F, S]
+    context: ActorContext
   ): PersistenceVar[F, S, C, E, R] = {
-    apply(
-      ActorVar[F, Persistence[F, S, C, E, R]](act, context),
-      journaller,
-      snapshotter)
+    apply(ActorVar[F, Persistence[F, S, C, E, R]](act, context))
   }
 
   def apply[F[_] : Sync : Fail, S, C, E, R](
-    actorVar: ActorVar[F, Persistence[F, S, C, E, R]],
-    journaller: Journaller[F, E],
-    snapshotter: Snapshotter[F, S]
+    actorVar: ActorVar[F, Persistence[F, S, C, E, R]]
   ): PersistenceVar[F, S, C, E, R] = {
 
     new PersistenceVar[F, S, C, E, R] {
@@ -58,7 +56,12 @@ private[akkaeffect] object PersistenceVar {
         actorVar.receiveUpdate { _.event(event, seqNr) }
       }
 
-      def recoveryCompleted(seqNr: SeqNr, replyOf: ReplyOf[F, R]) = {
+      def recoveryCompleted(
+        seqNr: SeqNr,
+        replyOf: ReplyOf[F, R],
+        journaller: Journaller[F, E],
+        snapshotter: Snapshotter[F, S]
+      ) = {
         actorVar.receiveUpdate { _.recoveryCompleted(seqNr, replyOf, journaller, snapshotter) }
       }
 

@@ -35,7 +35,7 @@ trait Snapshotter[F[_], -A] {
 
 object Snapshotter {
 
-  def apply[F[_] : Sync : FromFuture : Fail, A](
+  private[akkaeffect] def apply[F[_] : Sync : FromFuture, A](
     snapshotter: akka.persistence.Snapshotter,
     timeout: FiniteDuration
   ): Snapshotter[F, A] = {

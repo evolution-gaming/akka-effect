@@ -17,10 +17,8 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
-import scala.util.control.NoStackTrace
 
 class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
-  import PersistentActorOfTest._
 
   private implicit val toTry = ToTryFromToFuture.syncOrError[IO]
 
@@ -195,7 +193,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         (child0, childRelease) = a
         terminated1 <- probe.watch(child0)
         children    <- withCtx { _.children }
-        _           <- Sync[F].delay { children.toList shouldEqual List(child0) }
+        _           <- Sync[F].delay { children.toList should contain(child0) }
         child        = withCtx { _.child("child") }
         child1      <- child
         _           <- Sync[F].delay { child1 shouldEqual child0.some }
@@ -204,7 +202,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         child1      <- child
         _           <- Sync[F].delay { child1 shouldEqual none[ActorRef] }
         children    <- withCtx { _.children }
-        _           <- Sync[F].delay { children.toList shouldEqual List.empty }
+        _           <- Sync[F].delay { children.toList should not contain child0 }
         identity    <- actorRef.ask(Identify("id"), timeout).flatten
         identity    <- identity.cast[F, ActorIdentity]
         _           <- withCtx { _.setReceiveTimeout(1.millis) }
@@ -1240,9 +1238,4 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
     } yield {}
   }
-}
-
-object PersistentActorOfTest {
-
-  case class Error(msg: String) extends RuntimeException(msg) with NoStackTrace
 }

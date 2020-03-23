@@ -2,20 +2,20 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.{PersistentActor, RecoveryCompleted}
 import akka.{persistence => ap}
-import cats.effect.{Concurrent, Resource, Sync, Timer}
+import cats.effect.{Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
 import scala.collection.immutable.Seq
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
 
 object PersistentActorOf {
 
-  def apply[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
+  def apply[F[_] : Sync : Timer : ToFuture : FromFuture : ToTry](
     eventSourcedOf: EventSourcedOf[F, Any, Any, Any, Any],
     timeout: FiniteDuration = 1.minute
   ): PersistentActor = {
@@ -50,31 +50,28 @@ object PersistentActorOf {
         }
       }
 
-      val snapshotter = Snapshotter[F, Any](actor, timeout).withFail(fail)
+      case class Resources(
+        append: Append.Adapter[F, Any],
+        deleteEventsTo: DeleteEventsTo[F])
 
-      val ((journaller, append), release) = {
-
+      lazy val (resources: Resources, release) = {
         val stopped = Lazy[F].of {
           Sync[F].delay[Throwable] { persistentActorError("has been stopped", none) }
         }
         val result = for {
-          stopped     <- Resource.liftF(stopped)
-          act         <- act.value.toSafe.pure[Resource[F, *]]
-          append      <- Append.adapter[F, Any](act, actor, stopped.get)
-          journaller  <- Journaller.adapter[F, Any](append.value, actor, stopped.get, timeout)
+          stopped        <- Resource.liftF(stopped)
+          act            <- act.value.toSafe.pure[Resource[F, *]]
+          append         <- Append.adapter[F, Any](act, actor, stopped.get)
+          deleteEventsTo <- DeleteEventsTo.of(actor, timeout)
         } yield {
-          (journaller.withFail(fail), append)
+          Resources(append, deleteEventsTo)
         }
         await {
           result.allocated
         }
       }
 
-      val persistence = PersistenceVar[F, Any, Any, Any, Any](
-        act.value,
-        context,
-        journaller.value,
-        snapshotter)
+      val persistence = PersistenceVar[F, Any, Any, Any, Any](act.value, context)
 
       override def preStart(): Unit = {
         super.preStart()
@@ -103,7 +100,7 @@ object PersistentActorOf {
       override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
         val error = persistentActorError(s"[$seqNr] persist failed for $event", cause.some)
         act.sync {
-          append.onError(error, event, seqNr)
+          resources.append.onError(error, event, seqNr)
         }
         super.onPersistFailure(cause, event, seqNr)
       }
@@ -111,24 +108,19 @@ object PersistentActorOf {
       override protected def onPersistRejected(cause: Throwable, event: Any, seqNr: Long) = {
         val error = persistentActorError(s"[$seqNr] persist rejected for $event", cause.some)
         act.sync {
-          append.onError(error, event, seqNr)
+          resources.append.onError(error, event, seqNr)
         }
         super.onPersistRejected(cause, event, seqNr)
       }
 
       def receiveRecover: Receive = act.receive {
         case ap.SnapshotOffer(m, s) => persistence.snapshotOffer(SnapshotOffer(m, s))
-        case RecoveryCompleted      => persistence.recoveryCompleted(lastSeqNr(), ReplyOf.fromActorRef(self))
+        case RecoveryCompleted      => recoveryCompleted()
         case event                  => persistence.event(event, lastSeqNr())
       }
 
-      def receiveCommand: Receive = {
-
-        def receiveAny: Receive = { case a => persistence.command(a, lastSeqNr(), sender()) }
-
-        act.receive {
-          journaller.receive orElse receiveAny
-        }
+      def receiveCommand: Receive = act.receive {
+        case a => persistence.command(a, lastSeqNr(), sender())
       }
 
       override def persist[A](event: A)(f: A => Unit): Unit = {
@@ -165,6 +157,16 @@ object PersistentActorOf {
           result.toFuture
         }
         super.postStop()
+      }
+
+      private def recoveryCompleted(): Unit = {
+        val journaller = Journaller[F, Any](resources.append.value, resources.deleteEventsTo).withFail(fail)
+        val snapshotter = Snapshotter[F, Any](actor, timeout).withFail(fail)
+        persistence.recoveryCompleted(
+          lastSeqNr(),
+          ReplyOf.fromActorRef(self),
+          journaller,
+          snapshotter)
       }
 
       private def lastSeqNr() = lastSequenceNr
