@@ -23,7 +23,7 @@ trait EventSourced[F[_], S, C, E, R] {
   /**
     * @see [[akka.persistence.PersistentActor.persistenceId]]
     */
-  def id: String
+  def id: EventSourcedId
 
   /**
     * @see [[akka.persistence.PersistentActor.recovery]]

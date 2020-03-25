@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 import akka.persistence.Recovery
 import cats.Monad
 import cats.effect.Resource
-import com.evolutiongaming.akkaeffect.persistence.PluginIds
+import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, PluginIds}
 
 /**
   * EventSourced describes lifecycle of entity with regards to event sourcing
@@ -24,7 +24,7 @@ trait EventSourced[F[_], S, C, E, R] {
   /**
     * @see [[akka.persistence.PersistentActor.persistenceId]]
     */
-  def id: String
+  def id: EventSourcedId
 
   /**
     * @see [[akka.persistence.PersistentActor.recovery]]

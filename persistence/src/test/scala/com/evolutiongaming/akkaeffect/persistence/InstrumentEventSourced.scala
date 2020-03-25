@@ -198,7 +198,7 @@ object InstrumentEventSourced {
   object Action {
 
     final case class Created(
-      persistenceId: String,
+      eventSourcedId: EventSourcedId,
       recovery: Recovery,
       pluginIds: PluginIds
     ) extends Action[Nothing, Nothing, Nothing, Nothing]

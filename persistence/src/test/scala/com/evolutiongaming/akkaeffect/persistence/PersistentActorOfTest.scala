@@ -90,7 +90,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
         val eventSourced = new EventSourced[F, State, Any, Event, Any] {
 
-          def id = "id"
+          def id = EventSourcedId("id")
 
           def start = {
             val started: Started[F, State, Any, Event, Any] = new Started[F, State, Any, Event, Any] {
@@ -250,7 +250,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = "0"
+          def id = EventSourcedId("0")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -297,7 +297,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _              <- stopped.get
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
-        Action.Created("0", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("0"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(None),
         Action.Initial(0),
@@ -326,7 +326,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = "1"
+          def id = EventSourcedId("1")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -385,7 +385,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       saveSnapshot <- actions
       _ = saveSnapshot shouldEqual List(
-        Action.Created("1", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.Initial(0),
@@ -401,7 +401,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
-        Action.Created("1", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("1", 1), 1).some),
         Action.Initial(1),
@@ -436,7 +436,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = "6"
+          def id = EventSourcedId("6")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -497,7 +497,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       saveSnapshot <- actions
       _ = saveSnapshot shouldEqual List(
-        Action.Created("6", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.Initial(0),
@@ -519,7 +519,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
-        Action.Created("6", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("6", 1), 1).some),
         Action.Initial(1),
@@ -560,7 +560,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = "2"
+          def id = EventSourcedId("2")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -622,7 +622,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       appendEvents <- actions
       _ = appendEvents shouldEqual List(
-        Action.Created("2", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("2"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.Initial(0),
@@ -635,7 +635,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
-        Action.Created("2", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("2"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.Initial(0),
@@ -672,7 +672,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = "7"
+          def id = EventSourcedId("7")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -737,7 +737,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       appendEvents <- actions
       _ = appendEvents shouldEqual List(
-        Action.Created("7", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("7"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.Initial(0),
@@ -759,7 +759,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
-        Action.Created("7", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("7"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.Initial(0),
@@ -804,7 +804,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = "3"
+          def id = EventSourcedId("3")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -868,7 +868,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       write <- actions
       _ = write shouldEqual List(
-        Action.Created("3", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.Initial(0),
@@ -887,7 +887,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
-        Action.Created("3", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("3", 1), 1).some),
         Action.Initial(1),
@@ -928,7 +928,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = "id"
+          def id = EventSourcedId("id")
 
           def start = {
             Resource
@@ -957,7 +957,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _              <- stopped.get
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
-        Action.Created("id", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("id"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.Released)
     } yield {}
@@ -981,7 +981,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = "4"
+          def id = EventSourcedId("4")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -1015,7 +1015,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _              <- stopped.get
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
-        Action.Created("4", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("4"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.RecoveryReleased,
@@ -1041,7 +1041,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = "5"
+          def id = EventSourcedId("5")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -1093,7 +1093,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _              <- stopped.get
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
-        Action.Created("5", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("5"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.Initial(()),
@@ -1124,7 +1124,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = "8"
+          def id = EventSourcedId("8")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -1212,7 +1212,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       a <- actions
       _  = a shouldEqual List(
-        Action.Created("8", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("8"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.Initial(true)) ++
@@ -1224,7 +1224,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       a <- actions
       _  = a shouldEqual List(
-        Action.Created("8", akka.persistence.Recovery(), PluginIds.default),
+        Action.Created(EventSourcedId("8"), akka.persistence.Recovery(), PluginIds.default),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.Initial(true),
