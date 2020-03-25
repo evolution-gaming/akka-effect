@@ -11,7 +11,7 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
   */
 object ActorOf {
 
-  def apply[F[_] : Sync : ToFuture : FromFuture](
+  def apply[F[_]: Sync: ToFuture: FromFuture](
     receiveOf: ReceiveOf[F, Any, Any]
   ): Actor = {
 

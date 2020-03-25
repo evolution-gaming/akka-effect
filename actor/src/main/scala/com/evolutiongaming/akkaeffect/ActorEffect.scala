@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorPath, ActorRef, Props}
-import cats.effect.{Async, Resource, Sync}
+import cats.effect.{Resource, Sync}
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
@@ -37,7 +37,7 @@ trait ActorEffect[F[_], -A, B] {
 
 object ActorEffect {
 
-  def of[F[_] : Async : ToFuture : FromFuture](
+  def of[F[_]: Sync: ToFuture: FromFuture](
     actorRefOf: ActorRefOf[F],
     receiveOf: ReceiveOf[F, Any, Any],
     name: Option[String] = None
@@ -51,7 +51,7 @@ object ActorEffect {
   }
 
 
-  def fromActor[F[_] : Sync : FromFuture](
+  def fromActor[F[_]: Sync: FromFuture](
     actorRef: ActorRef
   ): ActorEffect[F, Any, Any] = new ActorEffect[F, Any, Any] {
 
@@ -100,7 +100,7 @@ object ActorEffect {
     }
 
 
-    def mapK[G[_] : Applicative](f: F ~> G): ActorEffect[G, A, B] = new ActorEffect[G, A, B] {
+    def mapK[G[_]: Applicative](f: F ~> G): ActorEffect[G, A, B] = new ActorEffect[G, A, B] {
 
       def path = self.path
 
