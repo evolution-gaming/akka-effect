@@ -4,7 +4,7 @@ import akka.actor.{ActorRef, ActorSelection}
 import akka.util.Timeout
 import cats.effect.Sync
 import cats.implicits._
-import cats.{Applicative, FlatMap, ~>}
+import cats.{Applicative, Contravariant, FlatMap, Functor, ~>}
 import com.evolutiongaming.catshelper.FromFuture
 
 import scala.concurrent.duration.FiniteDuration
@@ -13,7 +13,6 @@ import scala.concurrent.duration.FiniteDuration
   * Typesafe api for so called "ask pattern"
   *
   * @see [[akka.pattern.ask]]
-  *
   * @tparam A message
   * @tparam B reply
   */
@@ -27,10 +26,26 @@ trait Ask[F[_], -A, B] {
 
 object Ask {
 
+  implicit def contravariantAsk[F[_], B]: Contravariant[Ask[F, *, B]] = new Contravariant[Ask[F, *, B]] {
+
+    def contramap[A, A1](fa: Ask[F, A, B])(f: A1 => A) = {
+      (a: A1, timeout: FiniteDuration, sender: Option[ActorRef]) => fa(f(a), timeout, sender)
+    }
+  }
+
+
+  implicit def functorAsk[F[_]: Functor, A]: Functor[Ask[F, A, *]] = new Functor[Ask[F, A, *]] {
+
+    def map[B, B1](fa: Ask[F, A, B])(f: B => B1): Ask[F, A, B1] = {
+      (a: A, timeout: FiniteDuration, sender: Option[ActorRef]) => fa(a, timeout, sender).map { _.map(f) }
+    }
+  }
+
+
   def const[F[_], A, B](reply: F[F[B]]): Ask[F, A, B] = (_: A, _: FiniteDuration, _: Option[ActorRef]) => reply
 
 
-  def fromActorRef[F[_] : Sync : FromFuture](actorRef: ActorRef): Ask[F, Any, Any] = {
+  def fromActorRef[F[_]: Sync: FromFuture](actorRef: ActorRef): Ask[F, Any, Any] = {
     new Ask[F, Any, Any] {
 
       def apply(msg: Any, timeout: FiniteDuration, sender: Option[ActorRef]) = {
@@ -50,7 +65,7 @@ object Ask {
   }
 
 
-  def fromActorSelection[F[_] : Sync : FromFuture](actorSelection: ActorSelection): Ask[F, Any, Any] = {
+  def fromActorSelection[F[_]: Sync: FromFuture](actorSelection: ActorSelection): Ask[F, Any, Any] = {
     new Ask[F, Any, Any] {
 
       def apply(msg: Any, timeout: FiniteDuration, sender: Option[ActorRef]) = {
@@ -71,7 +86,7 @@ object Ask {
 
   implicit class AskOps[F[_], A, B](val self: Ask[F, A, B]) extends AnyVal {
 
-    def mapK[G[_] : Applicative](f: F ~> G): Ask[G, A, B] = new Ask[G, A, B] {
+    def mapK[G[_]: Applicative](f: F ~> G): Ask[G, A, B] = new Ask[G, A, B] {
 
       def apply(msg: A, timeout: FiniteDuration, sender: Option[ActorRef]) = {
         f(self(msg, timeout, sender)).map { b => f(b) }

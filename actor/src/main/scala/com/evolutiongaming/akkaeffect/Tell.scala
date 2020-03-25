@@ -3,13 +3,12 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.ActorRef
 import cats.effect.Sync
 import cats.implicits._
-import cats.{Applicative, FlatMap, ~>}
+import cats.{Applicative, Contravariant, FlatMap, ~>}
 
 /**
   * Typesafe api for ActorRef.tell
   *
   * @see [[akka.actor.ActorRef.tell]]
-  *
   * @tparam A message
   */
 trait Tell[F[_], -A] {
@@ -19,13 +18,21 @@ trait Tell[F[_], -A] {
 
 object Tell {
 
-  def empty[F[_] : Applicative, A]: Tell[F, A] = const(().pure[F])
+  implicit def contravariantTell[F[_]]: Contravariant[Tell[F, *]] = new Contravariant[Tell[F, *]] {
+
+    def contramap[A, B](fa: Tell[F, A])(f: B => A) = {
+      (b: B, sender: Option[ActorRef]) => fa(f(b), sender)
+    }
+  }
+
+
+  def empty[F[_]: Applicative, A]: Tell[F, A] = const(().pure[F])
 
 
   def const[F[_], A](unit: F[Unit]): Tell[F, A] = (_: A, _: Option[ActorRef]) => unit
 
 
-  def fromActorRef[F[_] : Sync](actorRef: ActorRef): Tell[F, Any] = new Tell[F, Any] {
+  def fromActorRef[F[_]: Sync](actorRef: ActorRef): Tell[F, Any] = new Tell[F, Any] {
 
     def apply(msg: Any, sender: Option[ActorRef]) = {
       val sender1 = sender getOrElse ActorRef.noSender
@@ -46,12 +53,6 @@ object Tell {
       def apply(msg: A, sender: Option[ActorRef]) = f(self(msg, sender))
 
       override def toString = self.toString
-    }
-
-
-    def imap[B](f: B => A): Tell[F, B] = new Tell[F, B] {
-
-      def apply(msg: B, sender: Option[ActorRef]) = self(f(msg), sender)
     }
 
 
