@@ -6,7 +6,10 @@ import cats.{Order, Show}
 /**
   * @see [[akka.persistence.PersistentActor.persistenceId]]
   */
-final case class EventSourcedId(value: String)
+final case class EventSourcedId(value: String) {
+
+  override def toString: String = value
+}
 
 object EventSourcedId {
 

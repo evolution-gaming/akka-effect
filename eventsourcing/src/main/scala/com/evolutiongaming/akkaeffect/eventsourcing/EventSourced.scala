@@ -35,7 +35,7 @@ trait EventSourced[F[_], S, C, E, R] {
     * @see [[akka.persistence.PersistentActor.journalPluginId]]
     * @see [[akka.persistence.PersistentActor.snapshotPluginId]]
     */
-  def pluginIds: PluginIds = PluginIds.default
+  def pluginIds: PluginIds = PluginIds.empty
 
   /**
     * Called just after actor is started, resource will be released upon actor termination

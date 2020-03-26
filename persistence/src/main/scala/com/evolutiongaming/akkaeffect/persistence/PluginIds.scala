@@ -11,7 +11,8 @@ final case class PluginIds(
   snapshot: Option[String] = None)
 
 object PluginIds {
-  val default: PluginIds = PluginIds()
+  
+  val empty: PluginIds = PluginIds()
 
   def apply(journal: String, snapshot: String): PluginIds = {
     PluginIds(journal = journal.some, snapshot = snapshot.some)
