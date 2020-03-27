@@ -90,7 +90,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
         val eventSourced = new EventSourced[F, State, Any, Event, Any] {
 
-          def id = EventSourcedId("id")
+          def eventSourcedId = EventSourcedId("id")
 
           def start = {
             val started: Started[F, State, Any, Event, Any] = new Started[F, State, Any, Event, Any] {
@@ -250,7 +250,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = EventSourcedId("0")
+          def eventSourcedId = EventSourcedId("0")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -326,7 +326,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = EventSourcedId("1")
+          def eventSourcedId = EventSourcedId("1")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -436,7 +436,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = EventSourcedId("6")
+          def eventSourcedId = EventSourcedId("6")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -560,7 +560,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = EventSourcedId("2")
+          def eventSourcedId = EventSourcedId("2")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -672,7 +672,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = EventSourcedId("7")
+          def eventSourcedId = EventSourcedId("7")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -804,7 +804,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = EventSourcedId("3")
+          def eventSourcedId = EventSourcedId("3")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -928,7 +928,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = EventSourcedId("id")
+          def eventSourcedId = EventSourcedId("id")
 
           def start = {
             Resource
@@ -981,7 +981,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = EventSourcedId("4")
+          def eventSourcedId = EventSourcedId("4")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -1041,7 +1041,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = EventSourcedId("5")
+          def eventSourcedId = EventSourcedId("5")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -1124,7 +1124,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _: ActorCtx[F, C, R] => {
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
-          def id = EventSourcedId("8")
+          def eventSourcedId = EventSourcedId("8")
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {

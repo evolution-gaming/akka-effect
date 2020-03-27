@@ -24,7 +24,7 @@ trait EventSourced[F[_], S, C, E, R] {
   /**
     * @see [[akka.persistence.PersistentActor.persistenceId]]
     */
-  def id: EventSourcedId
+  def eventSourcedId: EventSourcedId
 
   /**
     * @see [[akka.persistence.PersistentActor.recovery]]
@@ -62,12 +62,12 @@ object EventSourced {
       F: Monad[F],
     ): EventSourced[F, S1, C1, E1, R1] = new EventSourced[F, S1, C1, E1, R1] {
 
-      def id = self.id
+      def eventSourcedId = self.eventSourcedId
 
       val start = self.start.map { started =>
         started.map { started =>
           started.convert(sf, s1f, cf, ef, rf)
-        } 
+        }
       }
     }
 
@@ -79,7 +79,7 @@ object EventSourced {
       F: Monad[F],
     ): EventSourced[F, S1, C1, E1, R1] = new EventSourced[F, S1, C1, E1, R1] {
 
-      def id = self.id
+      def eventSourcedId = self.eventSourcedId
 
       val start = self.start.map { _.map { _.widen(sf, cf, ef) } }
     }

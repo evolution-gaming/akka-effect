@@ -80,7 +80,7 @@ object PersistentActorOf {
         }
       }
 
-      def persistenceId = eventSourced.id.value
+      def persistenceId = eventSourced.eventSourcedId.value
 
       override def journalPluginId = {
         eventSourced.pluginIds.journal getOrElse super.journalPluginId

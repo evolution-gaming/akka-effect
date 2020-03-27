@@ -28,13 +28,13 @@ object InstrumentEventSourced {
       for {
         eventSourced <- eventSourcedOf(ctx)
         _            <- record(Action.Created(
-          eventSourced.id,
+          eventSourced.eventSourcedId,
           eventSourced.recovery,
           eventSourced.pluginIds))
       } yield {
         new EventSourced[F, S, C, E, R] {
 
-          def id = eventSourced.id
+          def eventSourcedId = eventSourced.eventSourcedId
 
           def start = {
             for {
