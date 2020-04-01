@@ -44,7 +44,7 @@ object InstrumentRcvCmd {
 
         def apply(cmd: C) = {
           for {
-            _ <- actions.add(Action.Cmd(cmd))
+            _        <- actions.add(Action.Cmd(cmd))
             validate <- receiveCmd(cmd)
           } yield {
             new Validate[F, S, E] {

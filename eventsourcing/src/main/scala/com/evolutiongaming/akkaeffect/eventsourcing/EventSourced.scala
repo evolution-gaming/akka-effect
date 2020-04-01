@@ -19,6 +19,7 @@ import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, PluginIds}
   * @tparam E event
   * @tparam R reply
   */
+// TODO eventSourcedId is a type ?
 trait EventSourced[F[_], S, C, E, R] {
 
   /**

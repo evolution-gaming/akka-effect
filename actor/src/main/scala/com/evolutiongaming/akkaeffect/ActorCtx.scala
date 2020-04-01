@@ -1,9 +1,9 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorContext, ActorRef}
-import cats.{Applicative, Defer, FlatMap, ~>}
 import cats.effect.{Bracket, Sync}
 import cats.implicits._
+import cats.{Applicative, Defer, FlatMap, ~>}
 import com.evolutiongaming.catshelper.FromFuture
 
 import scala.collection.immutable.Iterable
@@ -24,6 +24,11 @@ trait ActorCtx[F[_], -A, B] {
     * @see [[akka.actor.ActorContext.self]]
     */
   def self: ActorEffect[F, A, B]
+
+  /**
+    * @see [[akka.actor.ActorContext.parent]]
+    */
+  def parent: ActorEffect[F, Any, Any]
 
   /**
     * @see [[akka.actor.ActorContext.dispatcher]]
@@ -72,6 +77,8 @@ object ActorCtx {
 
       val self = ActorEffect.fromActor(context.self)
 
+      val parent = ActorEffect.fromActor(context.parent)
+
       val dispatcher = context.dispatcher
 
       def setReceiveTimeout(timeout: Duration) = {
@@ -103,6 +110,8 @@ object ActorCtx {
 
       val self = actorCtx.self.convert(af, bf)
 
+      def parent = actorCtx.parent
+
       def dispatcher = actorCtx.dispatcher
 
       def setReceiveTimeout(timeout: Duration) = actorCtx.setReceiveTimeout(timeout)
@@ -131,6 +140,8 @@ object ActorCtx {
 
       val self = actorCtx.self.narrow(f)
 
+      def parent = actorCtx.parent
+
       def dispatcher = actorCtx.dispatcher
 
       def setReceiveTimeout(timeout: Duration) = actorCtx.setReceiveTimeout(timeout)
@@ -155,6 +166,8 @@ object ActorCtx {
     ): ActorCtx[G, A, B] = new ActorCtx[G, A, B] {
 
       val self = actorCtx.self.mapK(f)
+
+      val parent = actorCtx.parent.mapK(f)
 
       def dispatcher = actorCtx.dispatcher
 

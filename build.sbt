@@ -60,6 +60,7 @@ lazy val persistence = (project in file("persistence")
     Cats.core,
     Cats.effect,
     `cats-helper`,
+    pureconfig,
     scalatest % Test,
     `akka-persistence-inmemory` % Test,
     compilerPlugin(`kind-projector` cross CrossVersion.full))))
