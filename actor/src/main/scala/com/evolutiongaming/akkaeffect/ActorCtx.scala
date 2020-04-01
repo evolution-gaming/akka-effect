@@ -6,7 +6,6 @@ import cats.implicits._
 import cats.{Applicative, Defer, FlatMap, ~>}
 import com.evolutiongaming.catshelper.FromFuture
 
-import scala.collection.immutable.Iterable
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
 
@@ -48,7 +47,7 @@ trait ActorCtx[F[_], -A, B] {
   /**
     * @see [[akka.actor.ActorContext.children]]
     */
-  def children: F[Iterable[ActorRef]]
+  def children: F[List[ActorRef]]
 
   /**
     * @see [[akka.actor.ActorContext.actorOf]]
@@ -89,7 +88,7 @@ object ActorCtx {
         act { context.child(name) }
       }
 
-      val children = act { context.children }
+      val children = act { context.children.toList }
 
       val actorRefOf = ActorRefOf[F](context)
 
