@@ -7,7 +7,7 @@ object Dependencies {
   val `executor-tools`            = "com.evolutiongaming"   %% "executor-tools"            % "1.0.2"
   val `akka-persistence-inmemory` = "com.github.dnvriend"   %% "akka-persistence-inmemory" % "2.5.15.2"
   val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.11.0"
-  val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.12.2"
+  val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.12.3"
 
   object Cats {
     private val version = "2.0.0"
