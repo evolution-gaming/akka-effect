@@ -12,7 +12,7 @@ trait Effect[F[_]] {
   /**
     * @param seqNr - either last seqNr or error if failed to store events
     */
-  def apply(seqNr: Either[Throwable, SeqNr]): F[Unit]
+  def apply(seqNr: Either[Throwable, SeqNr]): F[Unit] // TODO replace unit with A
 }
 
 object Effect {

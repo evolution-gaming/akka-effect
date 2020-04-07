@@ -30,13 +30,13 @@ trait EventSourced[F[_], S, C, E, R] {
   /**
     * @see [[akka.persistence.PersistentActor.recovery]]
     */
-  def recovery: Recovery = Recovery()
+  def recovery: Recovery/* = Recovery()*/
 
   /**
     * @see [[akka.persistence.PersistentActor.journalPluginId]]
     * @see [[akka.persistence.PersistentActor.snapshotPluginId]]
     */
-  def pluginIds: PluginIds = PluginIds.empty
+  def pluginIds: PluginIds/* = PluginIds.empty*/
 
   /**
     * Called just after actor is started, resource will be released upon actor termination
@@ -65,6 +65,10 @@ object EventSourced {
 
       def eventSourcedId = self.eventSourcedId
 
+      def recovery = self.recovery
+
+      def pluginIds = self.pluginIds
+
       val start = self.start.map { started =>
         started.map { started =>
           started.convert(sf, s1f, cf, ef, rf)
@@ -81,6 +85,10 @@ object EventSourced {
     ): EventSourced[F, S1, C1, E1, R1] = new EventSourced[F, S1, C1, E1, R1] {
 
       def eventSourcedId = self.eventSourcedId
+
+      def recovery = self.recovery
+
+      def pluginIds = self.pluginIds
 
       val start = self.start.map { _.map { _.widen(sf, cf, ef) } }
     }

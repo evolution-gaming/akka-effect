@@ -1,8 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.{Concurrent, Sync}
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.implicits._
+import cats.effect.Sync
+import cats.effect.concurrent.Ref
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
@@ -22,7 +21,7 @@ private[akkaeffect] trait Serial[F[_]] {
 
 private[akkaeffect] object Serial {
 
-  def of[F[_] : Sync : ToFuture : FromFuture]: F[Serial[F]] = {
+  def of[F[_]: Sync: ToFuture: FromFuture]: F[Serial[F]] = {
     Ref[F]
       .of(().pure[F])
       .map { ref =>
