@@ -44,8 +44,8 @@ object Probe {
 
     def actor(receiveOf: ActorCtx[F, Any, Any] => Rcv): Actor = {
 
-      def onPreStart(ctx: ActorCtx[F, Any, Any]): Resource[F, Option[Rcv]] = {
-        receiveOf(ctx)
+      def onPreStart(actorCtx: ActorCtx[F, Any, Any]): Resource[F, Option[Rcv]] = {
+        receiveOf(actorCtx)
           .some
           .pure[Resource[F, *]]
       }
@@ -90,13 +90,13 @@ object Probe {
 
 
     def receiveOf(listenersRef: Ref[F, Set[Listener]]): (ActorCtx[F, Any, Any] => Rcv) = {
-      ctx: ActorCtx[F, Any, Any] => {
+      actorCtx: ActorCtx[F, Any, Any] => {
         (msg: Any, sender: ActorRef) => {
 
           msg match {
             case Watch(actorRef) =>
               for {
-                _ <- ctx.watch(actorRef, Terminated(actorRef))
+                _ <- actorCtx.watch(actorRef, Terminated(actorRef))
                 _ <- Sync[F].delay { sender.tell((), ActorRef.noSender) }
               } yield {}
 

@@ -17,8 +17,8 @@ object ActorOf {
 
     type State = Receive[F, Any, Any]
 
-    def onPreStart(self: ActorRef, ctx: ActorCtx[F, Any, Any]) = {
-      receiveOf(ctx)
+    def onPreStart(self: ActorRef, actorCtx: ActorCtx[F, Any, Any]) = {
+      receiveOf(actorCtx)
         .adaptErr { case error =>
           ActorError(s"$self.preStart failed to allocate receive with $error", error)
         }
@@ -27,7 +27,7 @@ object ActorOf {
     def onReceive(a: Any, self: ActorRef, sender: ActorRef) = {
       val reply = Reply.fromActorRef[F](to = sender, from = self.some)
       state: State =>
-        state(a, reply)
+        state(a, reply, sender)
           .adaptError { case error =>
             ActorError(s"$self.receive failed on $a from $sender with $error", error)
           }

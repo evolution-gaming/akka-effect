@@ -14,7 +14,7 @@ import com.evolutiongaming.akkaeffect.ActorCtx
   */
 trait EventSourcedOf[F[_], S, C, E, R] {
 
-  def apply(ctx: ActorCtx[F, C, R]): F[EventSourced[F, S, C, E, R]]
+  def apply(actorCtx: ActorCtx[F, C, R]): F[EventSourced[F, S, C, E, R]]
 }
 
 object EventSourcedOf {
@@ -42,8 +42,8 @@ object EventSourcedOf {
     )(implicit
       F: Monad[F]
     ): EventSourcedOf[F, S1, C1, E1, R1] = {
-      ctx: ActorCtx[F, C1, R1] => {
-        val ctx1 = ctx.convert(cf, r1f)
+      actorCtx: ActorCtx[F, C1, R1] => {
+        val ctx1 = actorCtx.convert(cf, r1f)
         for {
           eventSourced <- self(ctx1)
         } yield {
@@ -60,8 +60,8 @@ object EventSourcedOf {
       rf: Any => F[R])(implicit
       F: Monad[F],
     ): EventSourcedOf[F, S1, C1, E1, R1] = {
-      ctx: ActorCtx[F, C1, R1] => {
-        val ctx1 = ctx.narrow[C, R](rf)
+      actorCtx: ActorCtx[F, C1, R1] => {
+        val ctx1 = actorCtx.narrow[C, R](rf)
         for {
           eventSourced <- self(ctx1)
         } yield {

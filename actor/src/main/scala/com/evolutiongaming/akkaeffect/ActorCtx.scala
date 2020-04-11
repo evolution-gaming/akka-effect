@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{ActorContext, ActorRef}
+import akka.actor.{ActorContext, ActorRef, ActorRefFactory}
 import cats.effect.{Bracket, Sync}
 import cats.implicits._
 import cats.{Applicative, Defer, FlatMap, ~>}
@@ -32,7 +32,7 @@ trait ActorCtx[F[_], -A, B] {
   /**
     * @see [[akka.actor.ActorContext.dispatcher]]
     */
-  def dispatcher: ExecutionContextExecutor
+  def executor: ExecutionContextExecutor
 
   /**
     * @see [[akka.actor.ActorContext.setReceiveTimeout]]
@@ -78,15 +78,11 @@ object ActorCtx {
 
       val parent = ActorEffect.fromActor(context.parent)
 
-      val dispatcher = context.dispatcher
+      val executor = context.dispatcher
 
-      def setReceiveTimeout(timeout: Duration) = {
-        act { context.setReceiveTimeout(timeout) }
-      }
+      def setReceiveTimeout(timeout: Duration) = act { context.setReceiveTimeout(timeout) }
 
-      def child(name: String) = {
-        act { context.child(name) }
-      }
+      def child(name: String) = act { context.child(name) }
 
       val children = act { context.children.toList }
 
@@ -111,7 +107,7 @@ object ActorCtx {
 
       def parent = actorCtx.parent
 
-      def dispatcher = actorCtx.dispatcher
+      def executor = actorCtx.executor
 
       def setReceiveTimeout(timeout: Duration) = actorCtx.setReceiveTimeout(timeout)
 
@@ -141,7 +137,7 @@ object ActorCtx {
 
       def parent = actorCtx.parent
 
-      def dispatcher = actorCtx.dispatcher
+      def executor = actorCtx.executor
 
       def setReceiveTimeout(timeout: Duration) = actorCtx.setReceiveTimeout(timeout)
 
@@ -168,7 +164,7 @@ object ActorCtx {
 
       val parent = actorCtx.parent.mapK(f)
 
-      def dispatcher = actorCtx.dispatcher
+      def executor = actorCtx.executor
 
       def setReceiveTimeout(timeout: Duration) = f(actorCtx.setReceiveTimeout(timeout))
 

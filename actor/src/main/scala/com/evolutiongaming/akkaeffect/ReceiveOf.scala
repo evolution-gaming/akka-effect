@@ -12,7 +12,7 @@ import cats.{Applicative, Monad, ~>}
   */
 trait ReceiveOf[F[_], A, B] {
 
-  def apply(ctx: ActorCtx[F, A, B]): Resource[F, Option[Receive[F, A, B]]]
+  def apply(actorCtx: ActorCtx[F, A, B]): Resource[F, Option[Receive[F, A, B]]]
 }
 
 object ReceiveOf {
@@ -35,8 +35,8 @@ object ReceiveOf {
       F: Monad[F],
     ): ReceiveOf[F, A1, B1] = new ReceiveOf[F, A1, B1] {
 
-      def apply(ctx: ActorCtx[F, A1, B1]) = {
-        val ctx1 = ctx.convert[A, B](af, b1f)
+      def apply(actorCtx: ActorCtx[F, A1, B1]) = {
+        val ctx1 = actorCtx.convert[A, B](af, b1f)
         for {
           receive <- self(ctx1)
         } yield for {
@@ -53,8 +53,8 @@ object ReceiveOf {
       fb: B1 => F[B])(implicit
       F: Monad[F]
     ): ReceiveOf[F, A1, B1] = {
-      ctx: ActorCtx[F, A1, B1] => {
-        val ctx1 = ctx.narrow[A, B](fb)
+      actorCtx: ActorCtx[F, A1, B1] => {
+        val ctx1 = actorCtx.narrow[A, B](fb)
         for {
           receive <- self(ctx1)
         } yield for {
@@ -80,9 +80,9 @@ object ReceiveOf {
       G: Sync[G],
     ): ReceiveOf[G, A, B] = new ReceiveOf[G, A, B] {
 
-      def apply(ctx: ActorCtx[G, A, B]) = {
+      def apply(actorCtx: ActorCtx[G, A, B]) = {
         for {
-          receive <- self(ctx.mapK(gf)).mapK(fg)
+          receive <- self(actorCtx.mapK(gf)).mapK(fg)
         } yield for {
           receive <- receive
         } yield {

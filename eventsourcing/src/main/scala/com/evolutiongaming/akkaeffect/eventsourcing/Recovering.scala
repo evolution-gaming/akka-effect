@@ -34,7 +34,7 @@ trait Recovering[F[_], S, C, E, R] {
     seqNr: SeqNr,
     journaller: Journaller[F],
     snapshotter: Snapshotter[F, S]
-  ): Resource[F, Option[ReceiveCmd[F, St, C, R]]]
+  ): Resource[F, Option[ReceiveCmd[F, St, C, R]]] // TODO OptionT
 }
 
 object Recovering {

@@ -1,5 +1,6 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
+import akka.actor.ActorRef
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Concurrent, Resource}
 import cats.implicits._
@@ -19,16 +20,16 @@ object ReceiveFromReceiveCmd {
     receiveCmd: ReceiveCmd[F, S, C, E]
   ): Resource[F, Receive[F, C, R]] = {
 
-    Accelerator
-      .of(Accelerator.State(state, seqNr), append)
-      .map { accelerator =>
+    Engine
+      .of(Engine.State(state, seqNr), append)
+      .map { engine =>
         new Receive[F, C, R] {
 
-          def apply(msg: C, reply: Reply[F, R]) = {
+          def apply(msg: C, reply: Reply[F, R], sender: ActorRef) = {
 
             val result = for {
               validate <- receiveCmd(msg)
-              result   <- accelerator(validate)
+              result   <- engine(validate)
               result   <- result
             } yield result
 

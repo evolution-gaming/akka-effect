@@ -1,5 +1,6 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
+import akka.actor.ActorRef
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, IO, Timer}
@@ -82,7 +83,7 @@ class ReceiveFromReceiveCmdTest extends AsyncFunSuite with Matchers {
               }
             }
           }
-          _ <- receive(validate, Reply.empty)
+          _ <- receive(validate, Reply.empty, ActorRef.noSender/*TODO*/)
         } yield new Gates {
 
           def receive = receiveGate

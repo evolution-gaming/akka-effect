@@ -90,7 +90,7 @@ object PersistentActorOf {
         eventSourced.pluginIds.snapshot getOrElse super.snapshotPluginId
       }
 
-      override def recovery = eventSourced.recovery
+//      override def recovery = eventSourced.recovery TODO
 
       override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]) = {
         // TODO should we react on this?

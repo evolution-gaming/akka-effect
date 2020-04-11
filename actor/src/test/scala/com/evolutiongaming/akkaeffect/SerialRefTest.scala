@@ -14,7 +14,7 @@ class SerialRefTest extends AsyncFunSuite with Matchers {
     update[IO].run()
   }
 
-  private def update[F[_] : Concurrent : FromFuture : ToFuture]: F[Unit] = {
+  private def update[F[_]: Concurrent: FromFuture: ToFuture]: F[Unit] = {
     for {
       serialRef <- SerialRef[F].of(List.empty[Int])
       ref       <- Ref[F].of(List.empty[Int])

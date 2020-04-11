@@ -86,11 +86,13 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     }
 
     def eventSourcedOf(receiveTimeout: F[Unit]): EventSourcedOf[F, State, Any, Event, Any] = {
-      ctx: ActorCtx[F, Any, Any] => {
+      actorCtx: ActorCtx[F, Any, Any] => {
 
         val eventSourced = new EventSourced[F, State, Any, Event, Any] {
 
           def eventSourcedId = EventSourcedId("id")
+
+          def pluginIds = PluginIds.empty
 
           def start = {
             val started: Started[F, State, Any, Event, Any] = new Started[F, State, Any, Event, Any] {
@@ -114,17 +116,17 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     } yield {
                       val receive: Receive[F, Cmd, Any] = new Receive[F, Cmd, Any] {
 
-                        def apply(msg: Cmd, reply: Reply[F, Any]) = {
+                        def apply(msg: Cmd, reply: Reply[F, Any], sender: ActorRef) = {
                           msg match {
                             case a: Cmd.WithCtx[_] =>
                               for {
-                                a <- a.f(ctx)
+                                a <- a.f(actorCtx)
                                 _ <- reply(a)
                               } yield false
 
                             case Cmd.Timeout =>
                               for {
-                                _ <- ctx.setReceiveTimeout(Duration.Inf)
+                                _ <- actorCtx.setReceiveTimeout(Duration.Inf)
                                 _ <- receiveTimeout
                               } yield false
 
@@ -187,7 +189,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
       for {
         terminated0 <- probe.watch(actorRef.toUnsafe)
-        dispatcher  <- withCtx { _.dispatcher.pure[F] }
+        dispatcher  <- withCtx { _.executor.pure[F] }
         _           <- Sync[F].delay { dispatcher.toString shouldEqual "Dispatcher[akka.actor.default-dispatcher]" }
         a           <- withCtx { _.actorRefOf(TestActors.blackholeProps, "child".some).allocated }
         (child0, childRelease) = a
@@ -251,6 +253,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
           def eventSourcedId = EventSourcedId("0")
+
+          def pluginIds = PluginIds.empty
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -327,6 +331,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
           def eventSourcedId = EventSourcedId("1")
+
+          def pluginIds = PluginIds.empty
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -437,6 +443,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
           def eventSourcedId = EventSourcedId("6")
+
+          def pluginIds = PluginIds.empty
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -562,6 +570,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("2")
 
+          def pluginIds = PluginIds.empty
+
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
               def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
@@ -673,6 +683,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
           def eventSourcedId = EventSourcedId("7")
+
+          def pluginIds = PluginIds.empty
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -806,6 +818,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("3")
 
+          def pluginIds = PluginIds.empty
+
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
               def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
@@ -930,6 +944,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("id")
 
+          def pluginIds = PluginIds.empty
+
           def start = {
             Resource
               .make(lock.get) { _ => stopped.complete(()) }
@@ -982,6 +998,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
           def eventSourcedId = EventSourcedId("4")
+
+          def pluginIds = PluginIds.empty
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -1042,6 +1060,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
           def eventSourcedId = EventSourcedId("5")
+
+          def pluginIds = PluginIds.empty
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
@@ -1125,6 +1145,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         val eventSourced: EventSourced[F, S, C, E, R] = new EventSourced[F, S, C, E, R] {
 
           def eventSourcedId = EventSourcedId("8")
+
+          def pluginIds = PluginIds.empty
 
           def start = {
             val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {

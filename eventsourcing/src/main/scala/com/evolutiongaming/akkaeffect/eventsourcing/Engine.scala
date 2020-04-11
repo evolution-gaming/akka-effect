@@ -11,19 +11,28 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 // TODO expose dropped commands because of stop, etc
 
 // TODO Test
-trait Accelerator[F[_], S, E] {
+/**
+  * Executes following stages
+  * 1. Validation: serially validates and changes current state
+  * 2. Append: appends events produced in #1 in batches, might be blocked by previous in flight batch
+  * 3. Effect: serially performs side effects
+  *
+  * Different stages do not block each other
+  * Ordering is strictly preserved between elements - means that first validated element will be also the first to append events and to perform side effects
+  */
+trait Engine[F[_], S, E] {
 
-  def state: F[Accelerator.State[S]]
+  def state: F[Engine.State[S]]
 
-  def apply(validate: Validate[F, S, E]): F[F[Unit]]
+  def apply(validate: Validate[F, S, E]): F[F[Unit]] // TODO replace Unit
 }
 
-object Accelerator {
+object Engine {
 
   def of[F[_]: Concurrent: ToFuture: FromFuture, S, E](
     initial: State[S],
     append: Append[F, E],
-  ): Resource[F, Accelerator[F, S, E]] = {
+  ): Resource[F, Engine[F, S, E]] = {
 
     case class EventsAndEffect(events: List[Nel[E]], effect: Option[Throwable] => F[Unit])
 
@@ -56,7 +65,7 @@ object Accelerator {
       effect   <- Serial.of[F]
       append   <- batch(effect)
     } yield {
-      new Accelerator[F, S, E] {
+      new Engine[F, S, E] {
 
         def state = stateRef.get
 

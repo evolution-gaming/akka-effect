@@ -82,7 +82,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
       for {
         terminated0 <- probe.watch(actorRef.toUnsafe)
-        dispatcher  <- withCtx { _.dispatcher.pure[F] }
+        dispatcher  <- withCtx { _.executor.pure[F] }
         _            = dispatcher.toString shouldEqual "Dispatcher[akka.actor.default-dispatcher]"
         a           <- withCtx { _.actorRefOf(TestActors.blackholeProps, "child".some).allocated }
         (child0, childRelease) = a
@@ -110,24 +110,24 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     }
 
     def receiveOf(receiveTimeout: F[Unit]): ReceiveOf[F, Any, Any] = {
-      (ctx: ActorCtx[F, Any, Any]) => {
+      (actorCtx: ActorCtx[F, Any, Any]) => {
 
         val receive: Receive[F, Any, Any] = {
 
-          (a: Any, reply: Reply[F, Any]) => {
+          (a: Any, reply: Reply[F, Any], sender: ActorRef) => {
             a match {
               case a: WithCtx[_, _] =>
                 val f = a.asInstanceOf[WithCtx[F, Any]].f
                 for {
                   _ <- shift
-                  a <- f(ctx)
+                  a <- f(actorCtx)
                   _ <- reply(a)
                 } yield false
 
               case ReceiveTimeout =>
                 for {
                   _ <- shift
-                  _ <- ctx.setReceiveTimeout(Duration.Inf)
+                  _ <- actorCtx.setReceiveTimeout(Duration.Inf)
                   _ <- receiveTimeout
                 } yield false
 
@@ -172,7 +172,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
           state <- Ref[F].of(0)
         } yield {
           val receive: Receive[F, Any, Any] = {
-            (a: Any, reply: Reply[F, Any]) => {
+            (a: Any, reply: Reply[F, Any], sender) => {
               a match {
                 case a: GetAndInc =>
                   for {
@@ -262,7 +262,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       (_: ActorCtx[F, Any, Any]) => {
 
         val receive: Receive[F, Any, Any] = {
-          (a: Any, reply: Reply[F, Any]) => {
+          (a: Any, reply: Reply[F, Any], sender: ActorRef) => {
             a match {
               case "fail" =>
                 for {
@@ -347,7 +347,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         Resource
           .make {
             val receive: Receive[F, Any, Any] = {
-              (a: Any, reply: Reply[F, Any]) =>
+              (a: Any, reply: Reply[F, Any], sender: ActorRef) =>
                 a match {
                   case "stop" => for {
                     _ <- shift
@@ -433,23 +433,23 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       terminated: Deferred[F, ActorRef],
       stopped: F[Unit]
     ): ReceiveOf[F, Msg, Unit] = {
-      (ctx: ActorCtx[F, Msg, Unit]) => {
+      (actorCtx: ActorCtx[F, Msg, Unit]) => {
         Resource
           .make {
             for {
               _ <- shift
             } yield {
               val receive: Receive[F, Msg, Unit] = new Receive[F, Msg, Unit] {
-                def apply(msg: Msg, reply: Reply[F, Unit]) = {
+                def apply(msg: Msg, reply: Reply[F, Unit], sender: ActorRef) = {
                   for {
                     _    <- shift
                     stop <- msg match {
                       case Msg.Watch(actorRef)      =>
-                        ctx
+                        actorCtx
                           .watch(actorRef, Msg.Terminated(actorRef))
                           .as(false)
                       case Msg.Unwatch(actorRef)    =>
-                        ctx
+                        actorCtx
                           .unwatch(actorRef)
                           .as(false)
                       case Msg.Terminated(actorRef) =>

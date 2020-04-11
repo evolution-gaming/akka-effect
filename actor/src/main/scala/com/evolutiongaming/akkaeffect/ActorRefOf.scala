@@ -15,24 +15,31 @@ trait ActorRefOf[F[_]] {
     props: Props,
     name: Option[String] = None
   ): Resource[F, ActorRef]
+
+  // TODO remove this
+  def toUnsafe: ActorRefFactory
 }
 
 object ActorRefOf {
 
-  def apply[F[_] : Sync](
-    factory: ActorRefFactory
+  def apply[F[_]: Sync](
+    actorRefFactory: ActorRefFactory
   ): ActorRefOf[F] = {
 
-    (props: Props, name: Option[String]) => {
+    new ActorRefOf[F] {
 
-      Resource.make {
-        name match {
-          case Some(name) => Sync[F].delay { factory.actorOf(props, name) }
-          case None       => Sync[F].delay { factory.actorOf(props) }
+      def apply(props: Props, name: Option[String]) = {
+        Resource.make {
+          name match {
+            case Some(name) => Sync[F].delay { actorRefFactory.actorOf(props, name) }
+            case None       => Sync[F].delay { actorRefFactory.actorOf(props) }
+          }
+        } { actorRef =>
+          Sync[F].delay { actorRefFactory.stop(actorRef) }
         }
-      } { actorRef =>
-        Sync[F].delay { factory.stop(actorRef) }
       }
+
+      def toUnsafe = actorRefFactory
     }
   }
 
@@ -44,8 +51,11 @@ object ActorRefOf {
       B: Bracket[F, Throwable],
       D: Defer[G],
       G: Applicative[G]
-    ): ActorRefOf[G] = {
-      (props: Props, name: Option[String]) => self(props, name).mapK(f)
+    ): ActorRefOf[G] = new ActorRefOf[G] {
+
+      def apply(props: Props, name: Option[String]) = self(props, name).mapK(f)
+
+      def toUnsafe = self.toUnsafe
     }
   }
 }
