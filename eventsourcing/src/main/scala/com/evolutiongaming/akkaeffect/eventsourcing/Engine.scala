@@ -5,6 +5,7 @@ import cats.effect.{Concurrent, Resource}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.persistence.{Append, SeqNr}
 import com.evolutiongaming.akkaeffect.{Serial, SerialRef}
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 // TODO store snapshot in scope of persist queue or expose seqNr
@@ -94,7 +95,7 @@ object Engine {
         }
       }
     }
-    Resource.liftF(result)
+    result.toResource
   }
 
 

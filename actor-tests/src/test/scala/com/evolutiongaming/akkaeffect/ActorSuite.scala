@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorSystem
 import cats.effect.IO
-import com.evolutiongaming.akkaeffect.IOSuite._
+import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
 import com.evolutiongaming.catshelper.CatsHelper._
 import org.scalatest.{BeforeAndAfterAll, Suite}
 

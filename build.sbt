@@ -24,6 +24,8 @@ lazy val root = (project in file(".")
   settings (skip in publish := true)
   aggregate(
     actor,
+    `actor-tests`,
+    testkit,
     persistence,
     eventsourcing,
     `akka-effect-safe-persistence-async`))
@@ -46,10 +48,31 @@ lazy val actor = (project in file("actor")
     scalatest % Test,
     compilerPlugin(`kind-projector` cross CrossVersion.full))))
 
+lazy val `actor-tests` = (project in file("actor-tests")
+  settings (name := "akka-effect-actor-tests")
+  settings commonSettings
+  settings (skip in publish := true)
+  dependsOn(actor % "test->test;compile->compile", testkit % "test->test;test->compile")
+  settings (libraryDependencies ++= Seq(
+    Akka.testkit % Test,
+    compilerPlugin(`kind-projector` cross CrossVersion.full))))
+
+lazy val testkit = (project in file("testkit")
+  settings (name := "akka-effect-testkit")
+  settings commonSettings
+  dependsOn actor
+  settings (libraryDependencies ++= Seq(
+    Akka.testkit % Test,
+    scalatest % Test,
+    compilerPlugin(`kind-projector` cross CrossVersion.full))))
+
 lazy val persistence = (project in file("persistence")
   settings (name := "akka-effect-persistence")
   settings commonSettings
-  dependsOn actor % "test->test;compile->compile"
+  dependsOn(
+    actor % "test->test;compile->compile",
+    testkit % "test->test;test->compile",
+    `actor-tests` % "test->test")
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,

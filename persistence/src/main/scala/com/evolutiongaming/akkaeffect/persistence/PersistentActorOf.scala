@@ -59,7 +59,7 @@ object PersistentActorOf {
           Sync[F].delay[Throwable] { persistentActorError("has been stopped", none) }
         }
         val result = for {
-          stopped        <- Resource.liftF(stopped)
+          stopped        <- stopped.toResource
           act            <- act.value.toSafe.pure[Resource[F, *]]
           append         <- Append.adapter[F, Any](act, actor, stopped.get)
           deleteEventsTo <- DeleteEventsTo.of(actor, timeout)

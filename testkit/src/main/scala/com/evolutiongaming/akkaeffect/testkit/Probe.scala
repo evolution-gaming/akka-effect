@@ -1,10 +1,11 @@
-package com.evolutiongaming.akkaeffect
+package com.evolutiongaming.akkaeffect.testkit
 
 import akka.actor.{Actor, ActorRef, Props}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
+import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
@@ -133,11 +134,11 @@ object Probe {
     def listeners = Ref[F].of(Set.empty[Listener])
 
     for {
-      listeners <- Resource.liftF(listeners)
+      listeners <- listeners.toResource
       props      = Props(actor(receiveOf(listeners)))
       actorRef  <- actorRefOf(props)
       subscribe  = (listener: Listener) => listeners.update { _ + listener }
-      lastRef   <- Resource.liftF(lastRef(subscribe))
+      lastRef   <- lastRef(subscribe).toResource
     } yield {
 
       val ask = Ask

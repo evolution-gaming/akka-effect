@@ -3,6 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import cats.Monad
 import cats.effect.Resource
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 
 /**
   * Describes "Started" phase
@@ -44,7 +45,7 @@ object Started {
         }
 
         for {
-          snapshotOffer <- Resource.liftF(snapshotOffer1)
+          snapshotOffer <- snapshotOffer1.toResource
           recovering    <- self.recoveryStarted(snapshotOffer)
         } yield for {
           recovering <- recovering
@@ -68,7 +69,7 @@ object Started {
         }
 
         for {
-          snapshotOffer <- Resource.liftF(snapshotOffer1)
+          snapshotOffer <- snapshotOffer1.toResource
           recovering    <- self.recoveryStarted(snapshotOffer)
         } yield for {
           recovering <- recovering

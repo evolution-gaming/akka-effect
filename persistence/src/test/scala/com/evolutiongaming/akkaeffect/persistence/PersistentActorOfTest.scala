@@ -9,9 +9,11 @@ import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.akkaeffect.IOSuite._
-import com.evolutiongaming.akkaeffect._
+import com.evolutiongaming.akkaeffect.{ActorSuite, _}
 import com.evolutiongaming.akkaeffect.persistence.InstrumentEventSourced.Action
+import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.CatsHelper._
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -112,7 +114,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   ) = {
 
                     for {
-                      stateRef <- Resource.liftF(Ref[F].of(state))
+                      stateRef <- Ref[F].of(state).toResource
                     } yield {
                       val receive: Receive[F, Cmd, Any] = new Receive[F, Cmd, Any] {
 
@@ -356,7 +358,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     } yield {
                       Receive.empty[F, C, R].some
                     }
-                    Resource.liftF(receive)
+                    receive.toResource
                   }
                 }
 
@@ -470,7 +472,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     } yield {
                       Receive.empty[F, C, R].some
                     }
-                    Resource.liftF(receive)
+                    receive.toResource
                   }
                 }
 
@@ -596,7 +598,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     } yield {
                       Receive.empty[F, C, R].some
                     }
-                    Resource.liftF(receive)
+                    receive.toResource
                   }
                 }
 
@@ -713,7 +715,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     } yield {
                       Receive.empty[F, C, R].some
                     }
-                    Resource.liftF(receive)
+                    receive.toResource
                   }
                 }
 
@@ -847,7 +849,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                       Receive.empty[F, C, R].some
                     }
 
-                    Resource.liftF(receive)
+                    receive.toResource
                   }
                 }
 
@@ -1184,7 +1186,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     } yield {
                       none[Receive[F, C, R]]
                     }
-                    Resource.liftF(receive)
+                    receive.toResource
                   }
                 }
                 recovering.some.pure[Resource[F, *]]

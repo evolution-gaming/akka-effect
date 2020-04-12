@@ -52,7 +52,7 @@ private[akkaeffect] object Batch {
             .void
         }
 
-        (a: A) => {
+        (a: A) => Concurrent[F].uncancelable {
           for {
             d <- Deferred.uncancelable[F, Either[Throwable, B]]
             e  = E(a, d)

@@ -6,6 +6,7 @@ import cats.arrow.FunctionK
 import cats.effect.{Concurrent, IO, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
+import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers

@@ -8,6 +8,8 @@ import cats.implicits._
 import com.evolutiongaming.akkaeffect.Releasable.implicits._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.akkaeffect.persistence.Fail.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
+
 
 private[akkaeffect] trait Persistence[F[_], S, C, E, R] {
 
@@ -62,9 +64,9 @@ private[akkaeffect] object Persistence {
           .flatMap { recovering =>
             recovering.traverse { recovering =>
               for {
-                state  <- Resource.liftF(recovering.initial)
+                state  <- recovering.initial.toResource
                 replay <- Allocated.of(recovering.replay)
-                state  <- Resource.liftF(replay.value(state, event, seqNr))
+                state  <- replay.value(state, event, seqNr).toResource
               } yield {
                 Persistence.recovering(state, replay.some, recovering)
               }
@@ -82,7 +84,7 @@ private[akkaeffect] object Persistence {
 
         val receive = for {
           recovering <- OptionT(started.recoveryStarted(none))
-          state      <- OptionT.liftF(Resource.liftF(recovering.initial))
+          state      <- OptionT.liftF(recovering.initial.toResource)
           receive    <- OptionT(recovering.completed(state, seqNr, journaller, snapshotter))
         } yield {
           Persistence.receive[F, S, C, E, R](replyOf, receive)
@@ -127,7 +129,7 @@ private[akkaeffect] object Persistence {
           case None =>
             val result = for {
               replay <- Allocated.of(recovering.replay)
-              state  <- Resource.liftF(replay.value(state, event, seqNr))
+              state  <- replay.value(state, event, seqNr).toResource
             } yield {
               Persistence.recovering(state, replay.some, recovering)
             }

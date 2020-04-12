@@ -8,6 +8,7 @@ import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.akkaeffect.persistence.DeleteEventsTo
+import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
@@ -43,7 +44,7 @@ class DeleteEventsToInteropTest extends AsyncFunSuite with ActorSuite with Match
           }
           val result = for {
             deleteEventsTo <- DeleteEventsToInterop[F](interop, 1.minute)
-            _              <- Resource.liftF(deferred.complete(deleteEventsTo))
+            _              <- deferred.complete(deleteEventsTo).toResource
           } yield {
           }
           result.allocated.toFuture
@@ -55,12 +56,12 @@ class DeleteEventsToInteropTest extends AsyncFunSuite with ActorSuite with Match
     }
 
     val result = for {
-      probe       <- Probe.of(actorRefOf)
-      deleteEventsTo <- Resource.liftF(Deferred[F, DeleteEventsTo[F]])
-      props        = Props(actor(probe, deleteEventsTo))
-      _           <- actorRefOf(props)
-      deleteEventsTo <- Resource.liftF(deleteEventsTo.get)
-      result      <- {
+      probe          <- Probe.of(actorRefOf)
+      deleteEventsTo <- Deferred[F, DeleteEventsTo[F]].toResource
+      props           = Props(actor(probe, deleteEventsTo))
+      _              <- actorRefOf(props)
+      deleteEventsTo <- deleteEventsTo.get.toResource
+      result         <- {
         val error = new RuntimeException with NoStackTrace
 
         def verify[A](
@@ -70,13 +71,13 @@ class DeleteEventsToInteropTest extends AsyncFunSuite with ActorSuite with Match
           expected: Either[Throwable, A]
         ) = {
           for {
-            a <- probe.expect
-            b <- fa
-            a <- a
+            a      <- probe.expect
+            b      <- fa
+            a      <- a
             sender  = a.msg should matchPattern(req)
-            _ <- Sync[F].delay { a.from.tell(res, ActorRef.noSender) }
-            b <- b.attempt
-            _  = b shouldEqual expected
+            _      <- Sync[F].delay { a.from.tell(res, ActorRef.noSender) }
+            b      <- b.attempt
+            _       = b shouldEqual expected
           } yield {}
         }
 
@@ -93,7 +94,7 @@ class DeleteEventsToInteropTest extends AsyncFunSuite with ActorSuite with Match
             DeleteMessagesFailure(error, 0L),
             error.asLeft)
         } yield {}
-        Resource.liftF(result)
+        result.toResource
       }
     } yield result
 

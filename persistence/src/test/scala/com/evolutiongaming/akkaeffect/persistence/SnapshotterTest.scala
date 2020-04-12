@@ -6,7 +6,8 @@ import cats.effect.concurrent.Deferred
 import cats.effect.{Concurrent, IO, Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
-import com.evolutiongaming.akkaeffect._
+import com.evolutiongaming.akkaeffect.{ActorSuite, _}
+import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
@@ -51,10 +52,10 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     val result = for {
       probe       <- Probe.of(actorRefOf)
-      snapshotter <- Resource.liftF(Deferred[F, Snapshotter[F, Any]])
+      snapshotter <- Deferred[F, Snapshotter[F, Any]].toResource
       props        = Props(actor(probe, snapshotter))
       _           <- actorRefOf(props)
-      snapshotter <- Resource.liftF(snapshotter.get)
+      snapshotter <- snapshotter.get.toResource
       result      <- {
         val metadata = SnapshotMetadata("snapshotterId", 0L)
 
@@ -118,7 +119,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
             DeleteSnapshotsFailure(criteria, error),
             error.asLeft)
         } yield {}
-        Resource.liftF(result)
+        result.toResource
       }
     } yield result
 

@@ -4,6 +4,7 @@ import cats.effect.Resource
 import cats.Monad
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Receive
+import com.evolutiongaming.catshelper.CatsHelper._
 
 /**
   * Describes "Recovery" phase
@@ -65,7 +66,7 @@ object Recovering {
         val snapshotter1 = snapshotter.convert(sf)
 
         for {
-          state   <- Resource.liftF(s1f(state))
+          state   <- s1f(state).toResource
           receive <- self.completed(state, seqNr, journaller1, snapshotter1)
         } yield for {
           receive <- receive
@@ -94,7 +95,7 @@ object Recovering {
         snapshotter: Snapshotter[F, S1]
       ) = {
         for {
-          state   <- Resource.liftF(sf(state))
+          state   <- sf(state).toResource
           receive <- self.completed(state, seqNr, journaller, snapshotter)
         } yield for {
           receive <- receive

@@ -8,6 +8,8 @@ import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.akkaeffect.IOSuite._
+import com.evolutiongaming.akkaeffect.testkit.Probe
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -283,7 +285,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         }
 
         for {
-          _ <- Resource.liftF(started)
+          _ <- started.toResource
           a <- Resource.make { shift as receive } { _ => shift }
         } yield {
           a.some
@@ -322,13 +324,13 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   ) = {
     val actorRefOf = ActorRefOf[F](actorSystem)
 
-    val actor = () => ActorOf[F] { _ => Resource.liftF(shift *> error.raiseError[F, Option[Receive[F, Any, Any]]]) }
+    val actor = () => ActorOf[F] { _ => (shift *> error.raiseError[F, Option[Receive[F, Any, Any]]]).toResource }
     val props = Props(actor())
 
     val result = for {
       actorRef <- actorRefOf(props)
       probe    <- Probe.of[F](actorRefOf)
-      result   <- Resource.liftF { probe.watch(actorRef).flatten }
+      result   <- probe.watch(actorRef).flatten.toResource
     } yield result
 
     result.use { _.pure[F] }
@@ -483,16 +485,16 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         actorRef0   <- actorRefOf(TestActors.blackholeProps)
         actorRef1   <- actorRefOf(TestActors.blackholeProps)
         result      <- Resource.liftF {
-         for {
-           _ <- actorEffect.ask(Msg.Watch(actorRef0), timeout)
-           _ <- actorEffect.ask(Msg.Unwatch(actorRef0), timeout).flatten
-           _ <- Sync[F].delay { actorSystem.stop(actorRef0) }
-           _ <- actorEffect.ask(Msg.Watch(actorRef1), timeout).flatten
-           _ <- Sync[F].delay { actorSystem.stop(actorRef1) }
-           _ <- stopped.get
-           a <- terminated.get
-           _ = a shouldEqual actorRef1
-         } yield {}
+          for {
+            _ <- actorEffect.ask(Msg.Watch(actorRef0), timeout)
+            _ <- actorEffect.ask(Msg.Unwatch(actorRef0), timeout).flatten
+            _ <- Sync[F].delay { actorSystem.stop(actorRef0) }
+            _ <- actorEffect.ask(Msg.Watch(actorRef1), timeout).flatten
+            _ <- Sync[F].delay { actorSystem.stop(actorRef1) }
+            _ <- stopped.get
+            a <- terminated.get
+            _ = a shouldEqual actorRef1
+          } yield {}
         }
       } yield result
       result     <- result.use { _.pure[F] }
