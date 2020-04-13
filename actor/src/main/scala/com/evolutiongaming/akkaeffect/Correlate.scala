@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
 import cats.effect.concurrent.Ref
-import cats.effect.{Async, Concurrent, IO, Resource, Timer}
 import cats.effect.implicits._
+import cats.effect.{Async, Concurrent, IO, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
@@ -27,10 +27,7 @@ trait Correlate[F[_], A, B] {
 
 object Correlate {
 
-  val released: Throwable = new RuntimeException("released") with NoStackTrace
-
-
-  def of[F[_] : Concurrent : Timer : FromFuture, A, B](released: F[B]): Resource[F, Correlate[F, A, B]] = {
+  def of[F[_]: Concurrent: Timer: FromFuture, A, B](released: F[B]): Resource[F, Correlate[F, A, B]] = {
     Resource
       .make {
         Ref[F].of(Map.empty[A, PromiseEffect[F, B]].some)
@@ -178,4 +175,7 @@ object Correlate {
 
     def toUnsafe(implicit toTry: ToTry[F], toFuture: ToFuture[F]): Unsafe[A, B] = Unsafe(self)
   }
+
+
+  final case object Released extends RuntimeException("released") with NoStackTrace
 }
