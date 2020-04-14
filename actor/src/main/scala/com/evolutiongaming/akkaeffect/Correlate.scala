@@ -10,7 +10,6 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
-import scala.util.control.NoStackTrace
 
 /**
   * `Correlate` represents convenient way of modeling cross actor communication
@@ -175,7 +174,4 @@ object Correlate {
 
     def toUnsafe(implicit toTry: ToTry[F], toFuture: ToFuture[F]): Unsafe[A, B] = Unsafe(self)
   }
-
-
-  final case object Released extends RuntimeException("released") with NoStackTrace
 }
