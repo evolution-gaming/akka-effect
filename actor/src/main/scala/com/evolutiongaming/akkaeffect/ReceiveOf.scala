@@ -12,7 +12,7 @@ import cats.{Applicative, Monad, ~>}
   */
 trait ReceiveOf[F[_], A, B] {
 
-  def apply(actorCtx: ActorCtx[F, A, B]): Resource[F, Option[Receive[F, A, B]]]
+  def apply(actorCtx: ActorCtx[F]): Resource[F, Option[Receive[F, A, B]]]
 }
 
 object ReceiveOf {
@@ -28,49 +28,40 @@ object ReceiveOf {
   implicit class ReceiveOfOps[F[_], A, B](val self: ReceiveOf[F, A, B]) extends AnyVal {
 
     def convert[A1, B1](
-      af: A => F[A1],
-      a1f: A1 => F[A],
-      bf: B => F[B1],
-      b1f: B1 => F[B])(implicit
+      af: A1 => F[A],
+      bf: B => F[B1])(implicit
       F: Monad[F],
     ): ReceiveOf[F, A1, B1] = new ReceiveOf[F, A1, B1] {
 
-      def apply(actorCtx: ActorCtx[F, A1, B1]) = {
-        val ctx1 = actorCtx.convert[A, B](af, b1f)
+      def apply(actorCtx: ActorCtx[F]) = {
         for {
-          receive <- self(ctx1)
+          receive <- self(actorCtx)
         } yield for {
           receive <- receive
         } yield {
-          receive.convert(a1f, bf)
+          receive.convert(af, bf)
         }
       }
     }
 
 
     def widen[A1 >: A, B1 >: B](
-      fa: A1 => F[A],
-      fb: B1 => F[B])(implicit
+      f: A1 => F[A])(implicit
       F: Monad[F]
     ): ReceiveOf[F, A1, B1] = {
-      actorCtx: ActorCtx[F, A1, B1] => {
-        val ctx1 = actorCtx.narrow[A, B](fb)
+      actorCtx: ActorCtx[F] => {
         for {
-          receive <- self(ctx1)
+          receive <- self(actorCtx)
         } yield for {
           receive <- receive
         } yield {
-          receive.widen(fa)
+          receive.widen(f)
         }
       }
     }
 
 
-    def typeless(
-      fa: Any => F[A],
-      fb: Any => F[B])(implicit
-      F: Monad[F]
-    ): ReceiveOf[F, Any, Any] = widen(fa, fb)
+    def typeless(f: Any => F[A])(implicit F: Monad[F]): ReceiveOf[F, Any, Any] = widen(f)
 
 
     def mapK[G[_]](
@@ -80,7 +71,7 @@ object ReceiveOf {
       G: Sync[G],
     ): ReceiveOf[G, A, B] = new ReceiveOf[G, A, B] {
 
-      def apply(actorCtx: ActorCtx[G, A, B]) = {
+      def apply(actorCtx: ActorCtx[G]) = {
         for {
           receive <- self(actorCtx.mapK(gf)).mapK(fg)
         } yield for {

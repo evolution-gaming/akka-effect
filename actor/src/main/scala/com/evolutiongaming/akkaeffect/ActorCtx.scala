@@ -1,33 +1,30 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{ActorContext, ActorRef, ActorRefFactory}
+import akka.actor.{ActorContext, ActorRef}
 import cats.effect.{Bracket, Sync}
-import cats.implicits._
-import cats.{Applicative, Defer, FlatMap, ~>}
+import cats.{Applicative, Defer, ~>}
 import com.evolutiongaming.catshelper.FromFuture
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
 
 /**
-  * Typesafe api for ActorContext
-  * Unlike the ActorContext, all methods of ActorCtx are thread-safe
+  * Refined for ActorContext
+  * Unlike the original ActorContext, all methods of ActorCtx are thread-safe
   *
   * @see [[akka.actor.ActorContext]]
-  * @tparam A message
-  * @tparam B reply
   */
-trait ActorCtx[F[_], -A, B] {
+trait ActorCtx[F[_]] {
 
   /**
     * @see [[akka.actor.ActorContext.self]]
     */
-  def self: ActorEffect[F, A, B]
+  def self: ActorRef
 
   /**
     * @see [[akka.actor.ActorContext.parent]]
     */
-  def parent: ActorEffect[F, Any, Any]
+  def parent: ActorRef
 
   /**
     * @see [[akka.actor.ActorContext.dispatcher]]
@@ -57,7 +54,7 @@ trait ActorCtx[F[_], -A, B] {
   /**
     * @see [[akka.actor.ActorContext.watchWith]]
     */
-  def watch(actorRef: ActorRef, msg: A): F[Unit]
+  def watch[A](actorRef: ActorRef, msg: A): F[Unit]
 
   /**
     * @see [[akka.actor.ActorContext.unwatch]]
@@ -72,16 +69,16 @@ trait ActorCtx[F[_], -A, B] {
 
 object ActorCtx {
 
-  def apply[F[_] : Sync : FromFuture](
+  def apply[F[_]: Sync: FromFuture](
     act: Act[F],
     context: ActorContext
-  ): ActorCtx[F, Any, Any] = {
+  ): ActorCtx[F] = {
 
-    new ActorCtx[F, Any, Any] {
+    new ActorCtx[F] {
 
-      val self = ActorEffect.fromActor(context.self)
+      val self = context.self
 
-      val parent = ActorEffect.fromActor(context.parent)
+      val parent = context.parent
 
       val executor = context.dispatcher
 
@@ -93,7 +90,7 @@ object ActorCtx {
 
       val actorRefOf = ActorRefOf[F](context)
 
-      def watch(actorRef: ActorRef, msg: Any) = act { context.watchWith(actorRef, msg); () }
+      def watch[A](actorRef: ActorRef, msg: A) = act { context.watchWith(actorRef, msg); () }
 
       def unwatch(actorRef: ActorRef) = act { context.unwatch(actorRef); () }
 
@@ -102,78 +99,18 @@ object ActorCtx {
   }
 
 
-  implicit class ActorCtxOps[F[_], A, B](val actorCtx: ActorCtx[F, A, B]) extends AnyVal {
-
-    def convert[A1, B1](
-      af: A1 => F[A],
-      bf: B => F[B1])(implicit
-      F: FlatMap[F],
-    ): ActorCtx[F, A1, B1] = new ActorCtx[F, A1, B1] {
-
-      val self = actorCtx.self.convert(af, bf)
-
-      def parent = actorCtx.parent
-
-      def executor = actorCtx.executor
-
-      def setReceiveTimeout(timeout: Duration) = actorCtx.setReceiveTimeout(timeout)
-
-      def child(name: String) = actorCtx.child(name)
-
-      def children = actorCtx.children
-
-      def actorRefOf = actorCtx.actorRefOf
-
-      def watch(actorRef: ActorRef, msg: A1) = {
-        for {
-          msg    <- af(msg)
-          result <- actorCtx.watch(actorRef, msg)
-        } yield result
-      }
-
-      def unwatch(actorRef: ActorRef) = actorCtx.unwatch(actorRef)
-
-      def stop = actorCtx.stop
-    }
-
-
-    def narrow[A1 <: A, B1](
-      f: B => F[B1])(implicit
-      F: FlatMap[F]
-    ): ActorCtx[F, A1, B1] = new ActorCtx[F, A1, B1] {
-
-      val self = actorCtx.self.narrow(f)
-
-      def parent = actorCtx.parent
-
-      def executor = actorCtx.executor
-
-      def setReceiveTimeout(timeout: Duration) = actorCtx.setReceiveTimeout(timeout)
-
-      def child(name: String) = actorCtx.child(name)
-
-      def children = actorCtx.children
-
-      def actorRefOf = actorCtx.actorRefOf
-
-      def watch(actorRef: ActorRef, msg: A1) = actorCtx.watch(actorRef, msg)
-
-      def unwatch(actorRef: ActorRef) = actorCtx.unwatch(actorRef)
-
-      def stop = actorCtx.stop
-    }
-
+  implicit class ActorCtxOps[F[_]](val actorCtx: ActorCtx[F]) extends AnyVal {
 
     def mapK[G[_]](
       f: F ~> G)(implicit
       B: Bracket[F, Throwable],
       D: Defer[G],
       G: Applicative[G]
-    ): ActorCtx[G, A, B] = new ActorCtx[G, A, B] {
+    ): ActorCtx[G] = new ActorCtx[G] {
 
-      val self = actorCtx.self.mapK(f)
+      val self = actorCtx.self
 
-      val parent = actorCtx.parent.mapK(f)
+      val parent = actorCtx.parent
 
       def executor = actorCtx.executor
 
@@ -185,17 +122,11 @@ object ActorCtx {
 
       val actorRefOf = actorCtx.actorRefOf.mapK(f)
 
-      def watch(actorRef: ActorRef, msg: A) = f(actorCtx.watch(actorRef, msg))
+      def watch[A](actorRef: ActorRef, msg: A) = f(actorCtx.watch(actorRef, msg))
 
       def unwatch(actorRef: ActorRef) = f(actorCtx.unwatch(actorRef))
 
       def stop = f(actorCtx.stop)
     }
-  }
-
-
-  implicit class ActorCtxAnyOps[F[_]](val self: ActorCtx[F, Any, Any]) extends AnyVal {
-
-    def typeful[A, B](f: Any => F[B])(implicit F: FlatMap[F]): ActorCtx[F, A, B] = self.narrow[A, B](f)
   }
 }

@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef}
-import cats.effect.{Concurrent, Sync}
+import cats.effect.Sync
 import cats.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
@@ -20,17 +20,17 @@ private[akkaeffect] trait Act[F[_]] {
 
 private[akkaeffect] object Act {
 
-  def now[F[_] : Sync]: Act[F] = new Act[F] {
+  def now[F[_]: Sync]: Act[F] = new Act[F] {
     def apply[A](f: => A) = Sync[F].delay { f }
   }
 
 
-  def of[F[_] : Sync : ToFuture : FromFuture : ToTry]: F[Act[F]] = {
+  def of[F[_]: Sync: ToFuture: FromFuture: ToTry]: F[Act[F]] = {
     Serial.of[F].map { serially => apply(serially) }
   }
 
 
-  def apply[F[_] : Sync : ToTry](serial: Serial[F]): Act[F] = new Act[F] {
+  def apply[F[_]: Sync: ToTry](serial: Serial[F]): Act[F] = new Act[F] {
     def apply[A](f: => A) = {
       serial { Sync[F].delay { f } }
         .toTry
@@ -91,10 +91,10 @@ private[akkaeffect] object Act {
     }
   }
 
-          
+
   implicit class ActFutureOps(val self: Act[Future]) extends AnyVal {
 
-    def toSafe[F[_] : FromFuture]: Act[F] = new Act[F] {
+    def toSafe[F[_]: FromFuture]: Act[F] = new Act[F] {
       def apply[A](f: => A) = FromFuture[F].apply { self(f) }
     }
   }

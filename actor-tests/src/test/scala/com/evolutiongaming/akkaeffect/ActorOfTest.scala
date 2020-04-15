@@ -78,7 +78,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
       val timeout = 1.second
 
-      def withCtx[A : ClassTag](f: ActorCtx[F, Any, Any] => F[A]): F[A] = {
+      def withCtx[A : ClassTag](f: ActorCtx[F] => F[A]): F[A] = {
         for {
           a <- actorRef.ask(WithCtx(f), timeout)
           a <- a
@@ -116,7 +116,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     }
 
     def receiveOf(receiveTimeout: F[Unit]): ReceiveOf[F, Any, Any] = {
-      (actorCtx: ActorCtx[F, Any, Any]) => {
+      (actorCtx: ActorCtx[F]) => {
 
         val receive: Receive[F, Any, Any] = {
 
@@ -172,7 +172,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     case class GetAndInc(delay: F[Unit])
 
     def receiveOf: ReceiveOf[F, Any, Any] = {
-      (_: ActorCtx[F, Any, Any]) => {
+      (_: ActorCtx[F]) => {
 
         val receive = for {
           state <- Ref[F].of(0)
@@ -265,7 +265,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     val actorRefOf = ActorRefOf[F](actorSystem)
 
     def receiveOf(started: F[Unit]): ReceiveOf[F, Any, Any] = {
-      (_: ActorCtx[F, Any, Any]) => {
+      (_: ActorCtx[F]) => {
 
         val receive: Receive[F, Any, Any] = {
           (a: Any, reply: Reply[F, Any], sender: ActorRef) => {
@@ -301,7 +301,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       started   <- Deferred[F, Unit]
       ref       <- Ref[F].of(started)
       receiveOf <- receiveOf(ref.get.flatMap(_.complete(())))
-        .convert[Any, Any](_.pure[F], _.pure[F], _.pure[F], _.pure[F])
+        .convert[Any, Any](_.pure[F], _.pure[F])
         .pure[F]
       actor      = () => ActorOf[F](receiveOf)
       props      = Props(actor())
@@ -349,7 +349,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     val actorRefOf = ActorRefOf[F](actorSystem)
 
     def receiveOf(stopped: F[Unit]): ReceiveOf[F, Any, Any] = {
-      (_: ActorCtx[F, Any, Any]) => {
+      (_: ActorCtx[F]) => {
         Resource
           .make {
             val receive: Receive[F, Any, Any] = {
@@ -394,7 +394,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     val actorRefOf = ActorRefOf[F](actorSystem)
 
     def receiveOf(stopped: F[Unit]): ReceiveOf[F, Any, Any] = {
-      (ctx: ActorCtx[F, Any, Any]) => {
+      (ctx: ActorCtx[F]) => {
         Resource
           .make {
             val receive: Receive[F, Any, Any] = {
@@ -439,7 +439,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     val actorRefOf = ActorRefOf[F](actorSystem)
 
     def receiveOf(stopped: F[Unit]): ReceiveOf[F, Any, Any] = {
-      (_: ActorCtx[F, Any, Any]) => {
+      (_: ActorCtx[F]) => {
         Resource
           .make {
             shift as Receive.empty[F, Any, Any].some
@@ -484,7 +484,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       terminated: Deferred[F, ActorRef],
       stopped: F[Unit]
     ): ReceiveOf[F, Msg, Unit] = {
-      (actorCtx: ActorCtx[F, Msg, Unit]) => {
+      (actorCtx: ActorCtx[F]) => {
         Resource
           .make {
             for {
@@ -526,7 +526,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       stopped    <- Deferred[F, Unit]
       terminated <- Deferred[F, ActorRef]
       receiveOf  <- receiveOf(terminated, stopped.complete(()))
-        .typeless(_.cast[F, Msg], _.cast[F, Unit])
+        .typeless(_.cast[F, Msg])
         .mapK(FunctionK.id, FunctionK.id)
         .pure[F]
       result  = for {
@@ -556,5 +556,5 @@ object ActorOfTest {
 
   val error: Throwable = new RuntimeException("test") with NoStackTrace
 
-  final case class WithCtx[F[_], A](f: ActorCtx[F, Any, Any] => F[A])
+  final case class WithCtx[F[_], A](f: ActorCtx[F] => F[A])
 }

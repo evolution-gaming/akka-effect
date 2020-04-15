@@ -18,7 +18,7 @@ object ActorOf {
 
     type State = Receive[F, Any, Any]
 
-    def onPreStart(actorCtx: ActorCtx[F, Any, Any])(implicit fail: Fail[F]) = {
+    def onPreStart(actorCtx: ActorCtx[F])(implicit fail: Fail[F]) = {
       receiveOf(actorCtx)
         .handleErrorWith { error =>
           s"failed to allocate receive".fail[F, Option[State]](error).toResource

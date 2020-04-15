@@ -25,7 +25,7 @@ object InstrumentEventSourced {
       }
     }
 
-    actorCtx: ActorCtx[F, C, R] => {
+    actorCtx: ActorCtx[F] => {
       for {
         eventSourced <- eventSourcedOf(actorCtx)
         _            <- record(Action.Created(

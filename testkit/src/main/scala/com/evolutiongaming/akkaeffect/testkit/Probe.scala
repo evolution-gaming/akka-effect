@@ -43,9 +43,9 @@ object Probe {
 
     type Listener = Envelop => F[Unsubscribe]
 
-    def actor(receiveOf: ActorCtx[F, Any, Any] => Rcv): Actor = {
+    def actor(receiveOf: ActorCtx[F] => Rcv): Actor = {
 
-      def onPreStart(actorCtx: ActorCtx[F, Any, Any]): Resource[F, Option[Rcv]] = {
+      def onPreStart(actorCtx: ActorCtx[F]): Resource[F, Option[Rcv]] = {
         receiveOf(actorCtx)
           .some
           .pure[Resource[F, *]]
@@ -91,8 +91,8 @@ object Probe {
     }
 
 
-    def receiveOf(listenersRef: Ref[F, Set[Listener]]): (ActorCtx[F, Any, Any] => Rcv) = {
-      actorCtx: ActorCtx[F, Any, Any] => {
+    def receiveOf(listenersRef: Ref[F, Set[Listener]]): (ActorCtx[F] => Rcv) = {
+      actorCtx: ActorCtx[F] => {
         (msg: Any, sender: ActorRef) => {
 
           msg match {
@@ -106,7 +106,7 @@ object Probe {
               val envelop = Envelop(msg, sender)
 
               for {
-                listeners <- listenersRef.get
+                listeners   <- listenersRef.get
                 unsubscribe <- listeners.foldLeft(List.empty[Listener].pure[F]) { (listeners, listener) =>
                   for {
                     listeners   <- listeners
