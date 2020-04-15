@@ -6,6 +6,7 @@ import akka.persistence.{SnapshotSelectionCriteria, Snapshotter => _, _}
 import cats.FlatMap
 import cats.effect.Sync
 import cats.implicits._
+import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.{FromFuture, MonadThrowable}
 
 import scala.concurrent.duration.FiniteDuration

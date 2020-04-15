@@ -1,6 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.Monad
+import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.MonadThrowable
 
 

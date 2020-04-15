@@ -7,7 +7,7 @@ import cats.effect.{Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Releasable.implicits._
 import com.evolutiongaming.akkaeffect._
-import com.evolutiongaming.akkaeffect.persistence.Fail.implicits._
+import com.evolutiongaming.akkaeffect.Fail.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 
 

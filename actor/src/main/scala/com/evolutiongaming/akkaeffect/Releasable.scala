@@ -57,12 +57,6 @@ object Releasable {
   }
 
 
-  implicit class ReleasableOps[F[_], A](val self: Releasable[F, A]) extends AnyVal {
-
-    def map[B](f: A => B): Releasable[F, B] = self.copy(value = f(self.value))
-  }
-
-
   object implicits {
 
     implicit class ResourceOpsReleasable[F[_], A](val self: Resource[F, A]) extends AnyVal {

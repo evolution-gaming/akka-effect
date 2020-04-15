@@ -52,6 +52,10 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       stop[IO](actorSystem, shift).run()
     }
 
+    test(s"$prefix ctx.stop") {
+      `ctx.stop`[IO](actorSystem, shift).run()
+    }
+
     test(s"$prefix stop externally") {
       `stop externally`[IO](actorSystem, shift).run()
     }
@@ -355,6 +359,51 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
                     _ <- shift
                     _ <- reply(())
                   } yield true
+                  case _      =>
+                    shift as false
+                }
+            }
+            shift as receive.some
+          } { _ =>
+            shift *> stopped
+          }
+      }
+    }
+
+    for {
+      stopped <- Deferred[F, Unit]
+      receive  = receiveOf(stopped.complete(()))
+      actor    = () => ActorOf[F](receive)
+      props    = Props(actor())
+      result  <- actorRefOf(props).use { actorRef =>
+        val ask = Ask.fromActorRef[F](actorRef)
+        for {
+          _ <- ask("stop", 1.second, none)
+          _ <- stopped.get
+        } yield {}
+      }
+    } yield result
+  }
+
+
+  private def `ctx.stop`[F[_] : Concurrent : ToFuture : FromFuture](
+    actorSystem: ActorSystem,
+    shift: F[Unit]
+  ) = {
+
+    val actorRefOf = ActorRefOf[F](actorSystem)
+
+    def receiveOf(stopped: F[Unit]): ReceiveOf[F, Any, Any] = {
+      (ctx: ActorCtx[F, Any, Any]) => {
+        Resource
+          .make {
+            val receive: Receive[F, Any, Any] = {
+              (a: Any, reply: Reply[F, Any], sender: ActorRef) =>
+                a match {
+                  case "stop" => for {
+                    _ <- shift
+                    _ <- ctx.stop
+                  } yield false
                   case _      =>
                     shift as false
                 }

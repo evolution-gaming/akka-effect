@@ -18,7 +18,7 @@ trait Receive[F[_], -A, B] {
     * Called strictly sequentially, next message will be processed only after we've done with the previous one
     * This basically preserves the semantic of Actors
     */
-  def apply(msg: A, reply: Reply[F, B], sender: ActorRef/*TODO remove*/): F[Stop]
+  def apply(msg: A, reply: Reply[F, B], sender: ActorRef /*TODO remove*/): F[Stop]
 }
 
 object Receive {
@@ -26,11 +26,11 @@ object Receive {
   type Stop = Boolean
 
 
-  def empty[F[_] : Applicative, A, B]: Receive[F, A, B] = const(false.pure[F])
+  def empty[F[_]: Applicative, A, B]: Receive[F, A, B] = const(false.pure[F])
 
-  def stop[F[_] : Applicative, A, B]: Receive[F, A, B] = const(true.pure[F])
+  def stop[F[_]: Applicative, A, B]: Receive[F, A, B] = const(true.pure[F])
 
-  def const[F[_] : Applicative, A, B](stop: F[Stop]): Receive[F, A, B] = (_: A, _: Reply[F, B], _) => stop
+  def const[F[_]: Applicative, A, B](stop: F[Stop]): Receive[F, A, B] = (_: A, _: Reply[F, B], _) => stop
 
 
   implicit class ReceiveOps[F[_], A, B](val self: Receive[F, A, B]) extends AnyVal {

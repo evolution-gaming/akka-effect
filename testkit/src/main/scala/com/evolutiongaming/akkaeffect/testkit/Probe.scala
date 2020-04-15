@@ -60,6 +60,7 @@ object Probe {
             .as(false)
       }
 
+      // TODO replace with actorOf
       new Actor {
 
         val act = Act.adapter(self)

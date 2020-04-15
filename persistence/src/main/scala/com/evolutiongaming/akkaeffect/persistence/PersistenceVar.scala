@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.{ActorContext, ActorRef}
 import cats.effect.Sync
-import com.evolutiongaming.akkaeffect.{Act, ActorVar, ReplyOf}
+import com.evolutiongaming.akkaeffect.{Act, ActorVar, Fail, ReplyOf}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 import scala.concurrent.Future

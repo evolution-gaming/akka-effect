@@ -4,6 +4,7 @@ import akka.persistence.DeleteEventsToInterop
 import cats.Applicative
 import cats.implicits._
 import cats.effect.{Resource, Sync}
+import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.{FromFuture, MonadThrowable}
 
 import scala.concurrent.duration.FiniteDuration

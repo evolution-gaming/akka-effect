@@ -63,6 +63,11 @@ trait ActorCtx[F[_], -A, B] {
     * @see [[akka.actor.ActorContext.unwatch]]
     */
   def unwatch(actorRef: ActorRef): F[Unit]
+
+  /**
+    * @see [[akka.actor.ActorContext.stop]]
+    */
+  def stop: F[Unit]
 }
 
 object ActorCtx {
@@ -91,6 +96,8 @@ object ActorCtx {
       def watch(actorRef: ActorRef, msg: Any) = act { context.watchWith(actorRef, msg); () }
 
       def unwatch(actorRef: ActorRef) = act { context.unwatch(actorRef); () }
+
+      val stop = act { context.stop(context.self) }
     }
   }
 
@@ -125,6 +132,8 @@ object ActorCtx {
       }
 
       def unwatch(actorRef: ActorRef) = actorCtx.unwatch(actorRef)
+
+      def stop = actorCtx.stop
     }
 
 
@@ -150,6 +159,8 @@ object ActorCtx {
       def watch(actorRef: ActorRef, msg: A1) = actorCtx.watch(actorRef, msg)
 
       def unwatch(actorRef: ActorRef) = actorCtx.unwatch(actorRef)
+
+      def stop = actorCtx.stop
     }
 
 
@@ -177,6 +188,8 @@ object ActorCtx {
       def watch(actorRef: ActorRef, msg: A) = f(actorCtx.watch(actorRef, msg))
 
       def unwatch(actorRef: ActorRef) = f(actorCtx.unwatch(actorRef))
+
+      def stop = f(actorCtx.stop)
     }
   }
 

@@ -88,7 +88,10 @@ object ActorEffect {
     }
 
 
-    def narrow[A1 <: A, B1](f: B => F[B1])(implicit F: FlatMap[F]): ActorEffect[F, A1, B1] = new ActorEffect[F, A1, B1] {
+    def narrow[A1 <: A, B1](
+      f: B => F[B1])(implicit
+      F: FlatMap[F]
+    ): ActorEffect[F, A1, B1] = new ActorEffect[F, A1, B1] {
 
       def path = self.path
 

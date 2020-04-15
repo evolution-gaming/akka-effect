@@ -24,20 +24,21 @@ trait ActorVar[F[_], A] {
   /**
     * @param f takes current state and returns boolean whether to stop an actor
     */
-  def receive(f: A => F[Boolean]): Unit
+  def receive(f: A => F[Boolean]): Unit // TODO remove
 
   def postStop(): F[Unit]
 }
 
 object ActorVar {
 
-  private val stopped: Throwable = new RuntimeException with NoStackTrace
+  private val released: Throwable = new RuntimeException with NoStackTrace
 
   type Release = Boolean
 
   type Stop = () => Unit
+  
 
-  def apply[F[_] : BracketThrowable : ToFuture : FromFuture, A](
+  def apply[F[_]: BracketThrowable: ToFuture: FromFuture, A](
     act: Act[Future],
     context: ActorContext
   ): ActorVar[F, A] = {
@@ -45,7 +46,7 @@ object ActorVar {
     apply(act, stop)
   }
 
-  def apply[F[_] : BracketThrowable : ToFuture : FromFuture, A](
+  def apply[F[_]: BracketThrowable: ToFuture: FromFuture, A](
     act: Act[Future],
     stop: Stop
   ): ActorVar[F, A] = {
@@ -58,7 +59,7 @@ object ActorVar {
 
     def stateAndFunc(a: Try[Option[State]]): (Option[State], () => Unit) = {
       a match {
-        case Success(Some(a)) => (a.some, () => ())
+        case Success(Some(a)) => (a.some     , () => ())
         case Success(None)    => (none[State], () => { stateVar = none; stop() })
         case Failure(e)       => (none[State], () => { stateVar = none; throw e })
       }
@@ -81,7 +82,7 @@ object ActorVar {
               act { func() }
               state match {
                 case Some(state) => state.pure[Try]
-                case None        => Failure(stopped)
+                case None        => released.raiseError[Try, State]
               }
             }(executor)
             .some
@@ -129,9 +130,7 @@ object ActorVar {
                   .handleErrorWith { error =>
                     state
                       .release
-                      .productR {
-                        error.raiseError[F, Option[State]]
-                      }
+                      .productR { error.raiseError[F, Option[State]] }
                   }
               }
           }
