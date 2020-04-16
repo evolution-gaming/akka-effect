@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect.testkit
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{ActorRef, Props}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
@@ -37,70 +37,22 @@ object Probe {
 
     final case class Terminated(actorRef: ActorRef)
 
-    type Unsubscribe = Boolean
 
-    type Rcv = (Any, ActorRef) => F[Unit]
+    type Unsubscribe = Boolean
 
     type Listener = Envelop => F[Unsubscribe]
 
-    def actor(receiveOf: ActorCtx[F] => Rcv): Actor = {
 
-      def onPreStart(actorCtx: ActorCtx[F]): Resource[F, Option[Rcv]] = {
-        receiveOf(actorCtx)
-          .some
-          .pure[Resource[F, *]]
-      }
-
-      def onReceive(a: Any, self: ActorRef, sender: ActorRef) = {
-        state: Rcv =>
-          state(a, sender)
-            .adaptError { case error =>
-              ActorError(s"$self.receive failed on $a from $sender with $error", error)
-            }
-            .as(false)
-      }
-
-      // TODO replace with actorOf
-      new Actor {
-
-        val act = Act.adapter(self)
-
-        val actorVar = ActorVar[F, Rcv](act.value, context)
-
-        override def preStart(): Unit = {
-          super.preStart()
-          act.sync {
-            val ctx = ActorCtx[F](act.value.toSafe, context)
-            actorVar.preStart {
-              onPreStart(ctx)
-            }
-          }
-        }
-
-        def receive: Receive = act.receive {
-          case a => actorVar.receive { onReceive(a, self = self, sender = sender()) }
-        }
-
-        override def postStop(): Unit = {
-          act.sync {
-            actorVar.postStop().toFuture
-          }
-          super.postStop()
-        }
-      }
-    }
-
-
-    def receiveOf(listenersRef: Ref[F, Set[Listener]]): (ActorCtx[F] => Rcv) = {
+    def receiveOf(listenersRef: Ref[F, Set[Listener]]): ReceiveAnyOf[F] = {
       actorCtx: ActorCtx[F] => {
-        (msg: Any, sender: ActorRef) => {
+        val receive: ReceiveAny[F] = (msg: Any, sender: ActorRef) => {
 
           msg match {
             case Watch(actorRef) =>
               for {
                 _ <- actorCtx.watch(actorRef, Terminated(actorRef))
                 _ <- Sync[F].delay { sender.tell((), ActorRef.noSender) }
-              } yield {}
+              } yield false
 
             case msg =>
               val envelop = Envelop(msg, sender)
@@ -115,12 +67,13 @@ object Probe {
                     if (unsubscribe) listener :: listeners else listeners
                   }
                 }
-                _ <- listenersRef.update { _ -- unsubscribe }
-              } yield {
-
-              }
+                _           <- listenersRef.update { _ -- unsubscribe }
+              } yield false
           }
         }
+        receive
+          .some
+          .pure[Resource[F, *]]
       }
     }
 
@@ -136,7 +89,7 @@ object Probe {
 
     for {
       listeners <- listeners.toResource
-      props      = Props(actor(receiveOf(listeners)))
+      props      = Props(ActorOf(receiveOf(listeners)))
       actorRef  <- actorRefOf(props)
       subscribe  = (listener: Listener) => listeners.update { _ + listener }
       lastRef   <- lastRef(subscribe).toResource
