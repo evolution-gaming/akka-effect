@@ -13,10 +13,10 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 object ActorOf {
 
   def apply[F[_]: Sync: ToFuture: FromFuture](
-    receiveOf: ReceiveOf[F, Any, Any]
+    receiveOf: ReceiveAnyOf[F]
   ): Actor = {
 
-    type State = Receive[F, Any, Any]
+    type State = ReceiveAny[F]
 
     def onPreStart(actorCtx: ActorCtx[F])(implicit fail: Fail[F]) = {
       receiveOf(actorCtx)
@@ -25,10 +25,9 @@ object ActorOf {
         }
     }
 
-    def onReceive(a: Any, self: ActorRef, sender: ActorRef)(implicit fail: Fail[F]) = {
-      val reply = Reply.fromActorRef[F](to = sender, from = self.some)
+    def onReceive(a: Any, sender: ActorRef)(implicit fail: Fail[F]) = {
       state: State =>
-        state(a, reply, sender)
+        state(a, sender)
           .map {
             case false => Releasable[F, State](state).some
             case true  => none[Releasable[F, State]]
@@ -57,7 +56,7 @@ object ActorOf {
       }
 
       def receive: Receive = act.receive {
-        case a => actorVar.receiveUpdate { onReceive(a, self = self, sender = sender()) }
+        case a => actorVar.receiveUpdate { onReceive(a, sender = sender()) }
       }
 
       override def postStop(): Unit = {

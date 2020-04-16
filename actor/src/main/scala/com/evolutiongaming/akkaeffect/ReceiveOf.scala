@@ -17,12 +17,12 @@ trait ReceiveOf[F[_], A, B] {
 
 object ReceiveOf {
 
-  def const[F[_] : Applicative, A, B](receive: Option[Receive[F, A, B]]): ReceiveOf[F, A, B] = {
+  def const[F[_]: Applicative, A, B](receive: Option[Receive[F, A, B]]): ReceiveOf[F, A, B] = {
     _ => Resource.pure[F, Option[Receive[F, A, B]]](receive)
   }
 
 
-  def empty[F[_] : Applicative, A, B]: ReceiveOf[F, A, B] = const(none[Receive[F, A, B]])
+  def empty[F[_]: Applicative, A, B]: ReceiveOf[F, A, B] = const(none[Receive[F, A, B]])
 
 
   implicit class ReceiveOfOps[F[_], A, B](val self: ReceiveOf[F, A, B]) extends AnyVal {
@@ -31,9 +31,8 @@ object ReceiveOf {
       af: A1 => F[A],
       bf: B => F[B1])(implicit
       F: Monad[F],
-    ): ReceiveOf[F, A1, B1] = new ReceiveOf[F, A1, B1] {
-
-      def apply(actorCtx: ActorCtx[F]) = {
+    ): ReceiveOf[F, A1, B1] = {
+      actorCtx: ActorCtx[F] => {
         for {
           receive <- self(actorCtx)
         } yield for {
@@ -69,9 +68,8 @@ object ReceiveOf {
       gf: G ~> F)(implicit
       F: Sync[F],
       G: Sync[G],
-    ): ReceiveOf[G, A, B] = new ReceiveOf[G, A, B] {
-
-      def apply(actorCtx: ActorCtx[G]) = {
+    ): ReceiveOf[G, A, B] = {
+      actorCtx: ActorCtx[G] => {
         for {
           receive <- self(actorCtx.mapK(gf)).mapK(fg)
         } yield for {
@@ -81,5 +79,11 @@ object ReceiveOf {
         }
       }
     }
+  }
+
+
+  implicit class ReceiveAnyOfOps[F[_]](val self: ReceiveOf[F, Any, Any]) extends AnyVal {
+
+    def toReceiveAnyOf(implicit F: Sync[F]): ReceiveAnyOf[F] = ReceiveAnyOf.fromReceiveOf(self)
   }
 }

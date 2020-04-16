@@ -23,17 +23,14 @@ object ActorRefOf {
     actorRefFactory: ActorRefFactory
   ): ActorRefOf[F] = {
 
-    new ActorRefOf[F] {
-
-      def apply(props: Props, name: Option[String]) = {
-        Resource.make {
-          name match {
-            case Some(name) => Sync[F].delay { actorRefFactory.actorOf(props, name) }
-            case None       => Sync[F].delay { actorRefFactory.actorOf(props) }
-          }
-        } { actorRef =>
-          Sync[F].delay { actorRefFactory.stop(actorRef) }
+    (props: Props, name: Option[String]) => {
+      Resource.make {
+        name match {
+          case Some(name) => Sync[F].delay { actorRefFactory.actorOf(props, name) }
+          case None       => Sync[F].delay { actorRefFactory.actorOf(props) }
         }
+      } { actorRef =>
+        Sync[F].delay { actorRefFactory.stop(actorRef) }
       }
     }
   }
@@ -46,9 +43,8 @@ object ActorRefOf {
       B: Bracket[F, Throwable],
       D: Defer[G],
       G: Applicative[G]
-    ): ActorRefOf[G] = new ActorRefOf[G] {
-
-      def apply(props: Props, name: Option[String]) = self(props, name).mapK(f)
+    ): ActorRefOf[G] = {
+      (props: Props, name: Option[String]) => self(props, name).mapK(f)
     }
   }
 }

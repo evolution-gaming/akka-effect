@@ -43,7 +43,7 @@ object ActorEffect {
     name: Option[String] = None
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 
-    def actor = ActorOf[F](receiveOf)
+    def actor = ActorOf[F](receiveOf.toReceiveAnyOf)
 
     val props = Props(actor)
 

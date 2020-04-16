@@ -1,6 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorRef
+import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
 
@@ -43,14 +44,11 @@ object Receive {
 
 
     def collect[AA](f: AA => F[Option[A]])(implicit F: Monad[F]): Receive[F, AA, B] = {
-      new Receive[F, AA, B] {
-
-        def apply(msg: AA, reply: Reply[F, B], sender: ActorRef) = {
-          for {
-            msg  <- f(msg)
-            stop <- msg.fold(false.pure[F]) { msg => self(msg, reply, sender) }
-          } yield stop
-        }
+      (msg: AA, reply: Reply[F, B], sender: ActorRef) => {
+        for {
+          msg  <- f(msg)
+          stop <- msg.fold(false.pure[F]) { msg => self(msg, reply, sender) }
+        } yield stop
       }
     }
 
@@ -90,5 +88,13 @@ object Receive {
 
 
     def typeless(f: Any => F[A])(implicit F: FlatMap[F]): Receive[F, Any, Any] = widen(f)
+  }
+
+
+  implicit class ReceiveAnyOps[F[_]](val self: Receive[F, Any, Any]) extends AnyVal {
+
+    def toReceiveAny(actorRef: ActorRef)(implicit F: Sync[F]): ReceiveAny[F] = {
+      ReceiveAny.fromReceive(self, actorRef)
+    }
   }
 }

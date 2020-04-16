@@ -250,7 +250,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     val receiveOf: ReceiveOf[F, Any, Any] = _ => Resource.make { shift as none[Receive[F, Any, Any]] } { _ => shift }
-    def actor = ActorOf[F](receiveOf)
+    def actor = ActorOf[F](receiveOf.toReceiveAnyOf)
     val props = Props(actor)
     val probe = Probe.of[F](actorRefOf)
     val actorRef = actorRefOf(props)
@@ -308,7 +308,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       receiveOf <- receiveOf(ref.get.flatMap(_.complete(())))
         .convert[Any, Any](_.pure[F], _.pure[F])
         .pure[F]
-      actor      = () => ActorOf[F](receiveOf)
+      actor      = () => ActorOf[F](receiveOf.toReceiveAnyOf)
       props      = Props(actor())
       result    <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
@@ -333,7 +333,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   ) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
-    val actor = () => ActorOf[F] { _ => (shift *> error.raiseError[F, Option[Receive[F, Any, Any]]]).toResource }
+    val actor = () => ActorOf[F] { _ => (shift *> error.raiseError[F, Option[ReceiveAny[F]]]).toResource }
     val props = Props(actor())
 
     val result = for {
@@ -378,7 +378,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       stopped <- Deferred[F, Unit]
       receive  = receiveOf(stopped.complete(()))
-      actor    = () => ActorOf[F](receive)
+      actor    = () => ActorOf[F](receive.toReceiveAnyOf)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
@@ -423,7 +423,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       stopped <- Deferred[F, Unit]
       receive  = receiveOf(stopped.complete(()))
-      actor    = () => ActorOf[F](receive)
+      actor    = () => ActorOf[F](receive.toReceiveAnyOf)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
@@ -457,7 +457,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       stopped <- Deferred[F, Unit]
       receive  = receiveOf(stopped.complete(()))
-      actor    = () => ActorOf[F](receive)
+      actor    = () => ActorOf[F](receive.toReceiveAnyOf)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
         val tell = Tell.fromActorRef[F](actorRef)

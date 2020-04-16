@@ -18,7 +18,7 @@ trait Reply[F[_], -A] {
 
 object Reply {
 
-  def empty[F[_] : Applicative, A]: Reply[F, A] = const(().pure[F])
+  def empty[F[_]: Applicative, A]: Reply[F, A] = const(().pure[F])
 
 
   def const[F[_], A](unit: F[Unit]): Reply[F, A] = (_: A) => unit
@@ -34,7 +34,7 @@ object Reply {
   }
 
 
-  def fromActorRef[F[_] : Sync](
+  def fromActorRef[F[_]: Sync](
     to: ActorRef,
     from: Option[ActorRef],
   ): Reply[F, Any] = {
