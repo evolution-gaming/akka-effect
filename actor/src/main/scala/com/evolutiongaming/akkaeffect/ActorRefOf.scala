@@ -15,9 +15,6 @@ trait ActorRefOf[F[_]] {
     props: Props,
     name: Option[String] = None
   ): Resource[F, ActorRef]
-
-  // TODO remove this
-  def toUnsafe: ActorRefFactory
 }
 
 object ActorRefOf {
@@ -38,8 +35,6 @@ object ActorRefOf {
           Sync[F].delay { actorRefFactory.stop(actorRef) }
         }
       }
-
-      def toUnsafe = actorRefFactory
     }
   }
 
@@ -54,8 +49,6 @@ object ActorRefOf {
     ): ActorRefOf[G] = new ActorRefOf[G] {
 
       def apply(props: Props, name: Option[String]) = self(props, name).mapK(f)
-
-      def toUnsafe = self.toUnsafe
     }
   }
 }
