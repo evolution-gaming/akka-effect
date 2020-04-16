@@ -27,7 +27,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
     actorSystem: ActorSystem
   ): F[Unit] = {
 
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     def actor(probe: Probe[F], deferred: Deferred[F, Snapshotter[F, Any]]) = {
 

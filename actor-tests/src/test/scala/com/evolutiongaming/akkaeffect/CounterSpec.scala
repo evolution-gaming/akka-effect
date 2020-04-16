@@ -71,7 +71,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
     actorSystem: ActorSystem
   ) = {
 
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     val probe = Probe.of[F](actorRefOf)
     probe.use { probe =>

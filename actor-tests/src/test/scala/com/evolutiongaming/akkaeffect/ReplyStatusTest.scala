@@ -25,7 +25,7 @@ class ReplyStatusTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def `toString`[F[_] : Concurrent](actorSystem: ActorSystem) = {
 
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     val actorRef = actorRefOf(TestActors.blackholeProps)
     (actorRef, actorRef).tupled.use { case (to, from) =>
       val reply = ReplyStatus.fromActorRef[F](to, from.some)
@@ -36,7 +36,7 @@ class ReplyStatusTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
   private def `fromActorRef`[F[_] : Concurrent : ToFuture : FromFuture](actorSystem: ActorSystem) = {
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     val resources = for {
       probe <- Probe.of[F](actorRefOf)
       actorRef <- actorRefOf(TestActors.blackholeProps)

@@ -22,7 +22,7 @@ trait ActorRefOf[F[_]] {
 
 object ActorRefOf {
 
-  def apply[F[_]: Sync](
+  def fromActorRefFactory[F[_]: Sync](
     actorRefFactory: ActorRefFactory
   ): ActorRefOf[F] = {
 

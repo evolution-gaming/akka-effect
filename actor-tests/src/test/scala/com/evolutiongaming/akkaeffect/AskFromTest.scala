@@ -20,7 +20,7 @@ class AskFromTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
   private def askFrom[F[_] : Concurrent : ToFuture : FromFuture] = {
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     val result = for {
       from     <- Probe.of(actorRefOf)
       to       <- Probe.of(actorRefOf)

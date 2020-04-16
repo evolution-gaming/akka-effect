@@ -24,7 +24,7 @@ class AskTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
   private def `toString`[F[_] : Sync : FromFuture](actorSystem: ActorSystem) = {
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     actorRefOf(TestActors.echoActorProps).use { actorRef =>
       val ask = Ask.fromActorRef[F](actorRef)
       Sync[F].delay {
@@ -35,7 +35,7 @@ class AskTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def `apply`[F[_] : Concurrent : ToFuture : FromFuture ](actorSystem: ActorSystem) = {
     val timeout = 1.second
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     actorRefOf(TestActors.echoActorProps).use { actorRef =>
       val ask = Ask.fromActorRef[F](actorRef).mapK(FunctionK.id)
       for {

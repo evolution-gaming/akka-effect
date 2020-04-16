@@ -24,7 +24,7 @@ object DeleteEventsToInterop {
     timeout: FiniteDuration
   ): Resource[F, DeleteEventsTo[F]] = {
 
-    val actorRefOf = ActorRefOf(eventsourced.context)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](eventsourced.context)
 
     AskFrom
       .of[F](actorRefOf, eventsourced.self, timeout)

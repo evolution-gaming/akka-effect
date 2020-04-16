@@ -28,7 +28,7 @@ class DeleteEventsToInteropTest extends AsyncFunSuite with ActorSuite with Match
     actorSystem: ActorSystem
   ): F[Unit] = {
 
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     def actor(probe: Probe[F], deferred: Deferred[F, DeleteEventsTo[F]]) = {
 

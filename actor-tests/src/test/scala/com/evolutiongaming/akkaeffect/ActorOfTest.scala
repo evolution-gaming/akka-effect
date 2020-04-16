@@ -90,8 +90,13 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         terminated0 <- probe.watch(actorRef.toUnsafe)
         dispatcher  <- withCtx { _.executor.pure[F] }
         _            = dispatcher.toString shouldEqual "Dispatcher[akka.actor.default-dispatcher]"
-        a           <- withCtx { _.actorRefOf(TestActors.blackholeProps, "child".some).allocated }
-        (child0, childRelease) = a
+        ab          <- withCtx { ctx =>
+          ActorRefOf
+            .fromActorRefFactory[F](ctx.actorRefFactory)
+            .apply(TestActors.blackholeProps, "child".some)
+            .allocated
+        }
+        (child0, childRelease) = ab
         terminated1 <- probe.watch(child0)
         children    <- withCtx { _.children }
         _            = children.toList shouldEqual List(child0)
@@ -155,7 +160,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       receiveTimeout <- Deferred[F, Unit]
       receive         = receiveOf(receiveTimeout.complete(()))
-      actorRefOf      = ActorRefOf[F](actorSystem)
+      actorRefOf      = ActorRefOf.fromActorRefFactory[F](actorSystem)
       actorEffect     = ActorEffect.of[F](actorRefOf, receive)
       probe           = Probe.of[F](actorRefOf)
       resources       = (actorEffect, probe).tupled
@@ -198,7 +203,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       }
     }
 
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     ActorEffect
       .of[F](actorRefOf, receiveOf)
@@ -242,7 +247,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     val receiveOf: ReceiveOf[F, Any, Any] = _ => Resource.make { shift as none[Receive[F, Any, Any]] } { _ => shift }
     def actor = ActorOf[F](receiveOf)
@@ -262,7 +267,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     shift: F[Unit]
   ) = {
 
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     def receiveOf(started: F[Unit]): ReceiveOf[F, Any, Any] = {
       (_: ActorCtx[F]) => {
@@ -326,7 +331,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     val actor = () => ActorOf[F] { _ => (shift *> error.raiseError[F, Option[Receive[F, Any, Any]]]).toResource }
     val props = Props(actor())
@@ -346,7 +351,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     shift: F[Unit]
   ) = {
 
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     def receiveOf(stopped: F[Unit]): ReceiveOf[F, Any, Any] = {
       (_: ActorCtx[F]) => {
@@ -391,7 +396,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     shift: F[Unit]
   ) = {
 
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     def receiveOf(stopped: F[Unit]): ReceiveOf[F, Any, Any] = {
       (ctx: ActorCtx[F]) => {
@@ -436,7 +441,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     shift: F[Unit]
   ) = {
 
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     def receiveOf(stopped: F[Unit]): ReceiveOf[F, Any, Any] = {
       (_: ActorCtx[F]) => {
@@ -478,7 +483,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       final case class Terminated(actorRef: ActorRef) extends Msg
     }
 
-    val actorRefOf = ActorRefOf[F](actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     def receiveOf(
       terminated: Deferred[F, ActorRef],
