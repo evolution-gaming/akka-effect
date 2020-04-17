@@ -56,7 +56,7 @@ object ActorOf {
       }
 
       def receive: Receive = act.receive {
-        case a => actorVar.receiveUpdate { onReceive(a, sender = sender()) }
+        case a => actorVar.receive { onReceive(a, sender = sender()) }
       }
 
       override def postStop(): Unit = {

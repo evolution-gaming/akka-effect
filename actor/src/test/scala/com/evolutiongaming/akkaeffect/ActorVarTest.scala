@@ -77,7 +77,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
       }
       _        <- Sync[F].delay { actorVar.preStart(resource) }
       set       = (state: Option[Int]) => Sync[F].delay {
-        actorVar.receiveUpdate { state0 =>
+        actorVar.receive { state0 =>
           for {
             _ <- actions.add(Action.Updated(state0, state))
           } yield for {

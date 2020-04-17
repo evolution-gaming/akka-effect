@@ -19,12 +19,7 @@ trait ActorVar[F[_], A] {
   /**
     * @param f takes current state and returns tuple from next state and optional release callback
     */
-  def receiveUpdate(f: A => F[Option[Releasable[F, A]]]): Unit
-
-  /**
-    * @param f takes current state and returns boolean whether to stop an actor
-    */
-  def receive(f: A => F[Boolean]): Unit // TODO remove
+  def receive(f: A => F[Option[Releasable[F, A]]]): Unit
 
   def postStop(): F[Unit]
 }
@@ -36,7 +31,7 @@ object ActorVar {
   type Release = Boolean
 
   type Stop = () => Unit
-  
+
 
   def apply[F[_]: BracketThrowable: ToFuture: FromFuture, A](
     act: Act[Future],
@@ -104,7 +99,7 @@ object ActorVar {
         }
       }
 
-      def receiveUpdate(f: A => F[Option[Releasable[F, A]]]) = {
+      def receive(f: A => F[Option[Releasable[F, A]]]) = {
         stateVar.foreach { state =>
           run {
             FromFuture[F]
@@ -133,15 +128,6 @@ object ActorVar {
                       .productR { error.raiseError[F, Option[State]] }
                   }
               }
-          }
-        }
-      }
-
-      def receive(f: A => F[Boolean]): Unit = {
-        receiveUpdate { a =>
-          f(a).map {
-            case false => Releasable(a).some
-            case true  => none
           }
         }
       }
