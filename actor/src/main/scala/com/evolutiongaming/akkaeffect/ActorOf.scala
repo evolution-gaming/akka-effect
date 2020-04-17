@@ -48,9 +48,9 @@ object ActorOf {
       override def preStart(): Unit = {
         super.preStart()
         act.sync {
-          val ctx = ActorCtx[F](act.value.toSafe, context)
+          val actorCtx = ActorCtx[F](act.value.toSafe, context)
           actorVar.preStart {
-            onPreStart(ctx)
+            onPreStart(actorCtx)
           }
         }
       }

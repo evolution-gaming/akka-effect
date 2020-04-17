@@ -9,13 +9,13 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
 import scala.collection.immutable.Seq
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 
 object PersistentActorOf {
 
-  def apply[F[_] : Sync : Timer : ToFuture : FromFuture : ToTry](
+  def apply[F[_]: Sync: Timer: ToFuture: FromFuture: ToTry](
     eventSourcedOf: EventSourcedOf[F, Any, Any, Any, Any],
     timeout: FiniteDuration = 1.minute
   ): PersistentActor = {
@@ -27,10 +27,11 @@ object PersistentActorOf {
       lazy val (act, eventSourced) = {
         val act = Act.adapter(self)
         val eventSourced = {
-          val ctx = ActorCtx[F](act.value.toSafe, context)
+          val actorCtx = ActorCtx[F](act.value.toSafe, context)
           await {
-            eventSourcedOf(ctx).adaptError { case error =>
-              PersistentActorError(s"$self failed to allocate eventSourced with $error", error)
+            eventSourcedOf(actorCtx).adaptError { case error =>
+              val path = self.path.toStringWithoutAddress
+              ActorError(s"$path failed to allocate eventSourced: $error", error)
             }
           }
         }
@@ -38,15 +39,15 @@ object PersistentActorOf {
         (act, eventSourced)
       }
 
-      def persistentActorError(msg: String, cause: Option[Throwable]) = {
+      private def actorError(msg: String, cause: Option[Throwable]): Throwable = {
         val path = self.path.toStringWithoutAddress
         val causeStr: String = cause.foldMap { a => s": $a" }
-        PersistentActorError(s"$path $persistenceId $msg$causeStr", cause)
+        ActorError(s"$path $persistenceId $msg$causeStr", cause)
       }
 
-      implicit val fail: Fail[F] = new Fail[F] {
+      private implicit val fail: Fail[F] = new Fail[F] {
         def apply[A](msg: String, cause: Option[Throwable]) = {
-          persistentActorError(msg, cause).raiseError[F, A]
+          actorError(msg, cause).raiseError[F, A]
         }
       }
 
@@ -55,9 +56,7 @@ object PersistentActorOf {
         deleteEventsTo: DeleteEventsTo[F])
 
       lazy val (resources: Resources, release) = {
-        val stopped = Lazy[F].of {
-          Sync[F].delay[Throwable] { persistentActorError("has been stopped", none) }
-        }
+        val stopped = Lazy[F].of { Sync[F].delay { actorError("has been stopped", none) } }
         val result = for {
           stopped        <- stopped.toResource
           act            <- act.value.toSafe.pure[Resource[F, *]]
@@ -98,7 +97,7 @@ object PersistentActorOf {
       }
 
       override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
-        val error = persistentActorError(s"[$seqNr] persist failed for $event", cause.some)
+        val error = actorError(s"[$seqNr] persist failed for $event", cause.some)
         act.sync {
           resources.append.onError(error, event, seqNr)
         }
@@ -106,7 +105,7 @@ object PersistentActorOf {
       }
 
       override protected def onPersistRejected(cause: Throwable, event: Any, seqNr: Long) = {
-        val error = persistentActorError(s"[$seqNr] persist rejected for $event", cause.some)
+        val error = actorError(s"[$seqNr] persist rejected for $event", cause.some)
         act.sync {
           resources.append.onError(error, event, seqNr)
         }
