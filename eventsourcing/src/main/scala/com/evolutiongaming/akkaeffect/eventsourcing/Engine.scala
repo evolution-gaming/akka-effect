@@ -44,14 +44,15 @@ object Engine {
             eventsAndEffects
               .toList
               .flatMap { _.events }
-              .toNel.fold {
-              none[Throwable].pure[F]
-            } { events =>
-              append(events)
-                .flatten
-                .as(none[Throwable])
-                .handleError { _.some }
-            }
+              .toNel
+              .fold {
+                none[Throwable].pure[F]
+              } { events =>
+                append(events)
+                  .flatten
+                  .as(none[Throwable])
+                  .handleError { _.some }
+              }
           } { error =>
             error.some.pure[F]
           }

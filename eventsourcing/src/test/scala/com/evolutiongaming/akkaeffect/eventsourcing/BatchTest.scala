@@ -11,7 +11,7 @@ import org.scalatest.matchers.should.Matchers
 
 class BatchTest extends AsyncFunSuite with Matchers {
 
-  test("apply") {
+  test("batch") {
     apply[IO].run()
   }
 

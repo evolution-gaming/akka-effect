@@ -17,5 +17,5 @@ trait Effect[F[_]] {
 
 object Effect {
 
-  def empty[F[_] : Applicative]: Effect[F] = _ => ().pure[F]
+  def empty[F[_]: Applicative]: Effect[F] = _ => ().pure[F]
 }

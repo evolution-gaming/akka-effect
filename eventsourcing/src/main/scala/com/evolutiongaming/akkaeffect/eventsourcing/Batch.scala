@@ -21,7 +21,7 @@ private[akkaeffect] object Batch {
     * This runs f strictly serially and keeps stashing A meanwhile,
     * when f done with previous batch, it will proceed with next one
     */
-  def of[F[_]: Concurrent, S, A, B](
+  def stateful[F[_]: Concurrent, S, A, B](
     s: S)(
     f: (S, Nel[A]) => F[(S, B)]
   ): F[Batch[F, S, A, B]] = {
@@ -76,7 +76,7 @@ private[akkaeffect] object Batch {
   final class ApplyBuilders[F[_]](val F: Concurrent[F]) extends AnyVal {
 
     def of[S, A, B](s: S)(f: (S, Nel[A]) => F[(S, B)]): F[Batch[F, S, A, B]] = {
-      Batch.of(s)(f)(F)
+      Batch.stateful(s)(f)(F)
     }
   }
 }
