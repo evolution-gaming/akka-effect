@@ -47,7 +47,7 @@ object InstrumentEventSourced {
             } yield for {
               started <- started
             } yield {
-              snapshotOffer: Option[SnapshotOffer[S]] => {
+              (seqNr, snapshotOffer) => {
 
                 val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
                   val metadata = snapshotOffer.metadata.copy(timestamp = 0)
@@ -55,7 +55,7 @@ object InstrumentEventSourced {
                 }
 
                 for {
-                  recovering <- started.recoveryStarted(snapshotOffer)
+                  recovering <- started.recoveryStarted(seqNr, snapshotOffer)
                   _          <- resource(Action.RecoveryAllocated(snapshotOffer1), Action.RecoveryReleased)
                 } yield for {
                   recovering <- recovering
@@ -73,20 +73,18 @@ object InstrumentEventSourced {
                         _      <- resource(Action.ReplayAllocated, Action.ReplayReleased)
                         replay <- recovering.replay
                       } yield {
-                        new Replay[F, S, E] {
-                          def apply(state: S, event: E, seqNr: SeqNr) = {
-                            for {
-                              after <- replay(state, event, seqNr)
-                              _     <- record(Action.Replayed(state, event, seqNr, after))
-                            } yield after
-                          }
+                        Replay[F, S, E] { (seqNr, state, event) =>
+                          for {
+                            after <- replay(seqNr, state, event)
+                            _     <- record(Action.Replayed(state, event, seqNr, after))
+                          } yield after
                         }
                       }
                     }
 
                     def completed(
-                      state: S,
                       seqNr: SeqNr,
+                      state: S,
                       journaller: Journaller[F, E],
                       snapshotter: Snapshotter[F, S]
                     ) = {
@@ -161,7 +159,7 @@ object InstrumentEventSourced {
                       }
 
                       for {
-                        receive <- recovering.completed(state, seqNr, journaller1, snapshotter1)
+                        receive <- recovering.completed(seqNr, state, journaller1, snapshotter1)
                         _       <- resource(Action.ReceiveAllocated(state, seqNr), Action.ReceiveReleased)
                       } yield for {
                         receive <- receive
@@ -190,7 +188,6 @@ object InstrumentEventSourced {
               }
             }
           }
-
         }
       }
     }

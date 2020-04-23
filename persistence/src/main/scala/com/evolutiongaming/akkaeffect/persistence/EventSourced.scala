@@ -1,6 +1,5 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import akka.persistence.Recovery
 import cats.Monad
 import cats.effect.Resource
 

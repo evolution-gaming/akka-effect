@@ -9,11 +9,11 @@ import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.akkaeffect.IOSuite._
-import com.evolutiongaming.akkaeffect.{ActorSuite, _}
 import com.evolutiongaming.akkaeffect.persistence.InstrumentEventSourced.Action
 import com.evolutiongaming.akkaeffect.testkit.Probe
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import com.evolutiongaming.akkaeffect.{ActorSuite, _}
 import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -97,8 +97,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def pluginIds = PluginIds.empty
 
           def start = {
-            val started: Started[F, State, Any, Event, Any] = new Started[F, State, Any, Event, Any] {
-              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[State]]) = {
+            val started = Started[F, State, Any, Event, Any] { (_, _) =>
 
                 val recovering: Recovering[F, State, Any, Event, Any] = new Recovering[F, State, Any, Event, Any] {
 
@@ -107,8 +106,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   val replay = Replay.empty[F, State, Event].pure[Resource[F, *]]
 
                   def completed(
-                    state: State,
                     seqNr: SeqNr,
+                    state: State,
                     journaller: Journaller[F, Event],
                     snapshotter: Snapshotter[F, State]
                   ) = {
@@ -163,7 +162,6 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   }
                 }
                 recovering.some.pure[Resource[F, *]]
-              }
             }
 
             started.some.pure[Resource[F, *]]
@@ -264,28 +262,25 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def pluginIds = PluginIds.empty
 
           def start = {
-            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
+            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
+              val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
-                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+                def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-                  def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
+                def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
 
-                  def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
-
-                  def completed(
-                    state: S,
-                    seqNr: SeqNr,
-                    journaller: Journaller[F, E],
-                    snapshotter: Snapshotter[F, S]
-                  ) = {
-                    Resource
-                      .liftF(startedDeferred.complete(()))
-                      .as(Receive.empty[F, C, R].some)
-                  }
+                def completed(
+                  seqNr: SeqNr,
+                  state: S,
+                  journaller: Journaller[F, E],
+                  snapshotter: Snapshotter[F, S]
+                ) = {
+                  Resource
+                    .liftF(startedDeferred.complete(()))
+                    .as(Receive.empty[F, C, R].some)
                 }
-                recovering.some.pure[Resource[F, *]]
               }
+              recovering.some.pure[Resource[F, *]]
             }
             Resource
               .make(().pure[F]) { _ => stoppedDeferred.complete(()) }
@@ -342,33 +337,31 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def pluginIds = PluginIds.empty
 
           def start = {
-            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
-              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
-                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
+              val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-                  def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
+                def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-                  def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
+                def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
 
-                  def completed(
-                    state: S,
-                    seqNr: SeqNr,
-                    journaller: Journaller[F, E],
-                    snapshotter: Snapshotter[F, S]
-                  ) = {
-                    val receive = for {
-                      seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
-                      _     <- snapshotter.save(seqNr, 1).flatten
-                      _     <- startedDeferred.complete(())
-                    } yield {
-                      Receive.empty[F, C, R].some
-                    }
-                    receive.toResource
+                def completed(
+                  seqNr: SeqNr,
+                  state: S,
+                  journaller: Journaller[F, E],
+                  snapshotter: Snapshotter[F, S]
+                ) = {
+                  val receive = for {
+                    seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
+                    _     <- snapshotter.save(seqNr, 1).flatten
+                    _     <- startedDeferred.complete(())
+                  } yield {
+                    Receive.empty[F, C, R].some
                   }
+                  receive.toResource
                 }
-
-                recovering.some.pure[Resource[F, *]]
               }
+
+              recovering.some.pure[Resource[F, *]]
             }
 
             Resource
@@ -454,35 +447,33 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def pluginIds = PluginIds.empty
 
           def start = {
-            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
-              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
-                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
+              val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-                  def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
+                def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-                  def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
+                def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
 
-                  def completed(
-                    state: S,
-                    seqNr: SeqNr,
-                    journaller: Journaller[F, E],
-                    snapshotter: Snapshotter[F, S]
-                  ) = {
-                    val receive = for {
-                      seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
-                      _     <- snapshotter.save(seqNr, 1).flatten
-                      seqNr <- journaller.append(Nel.of(Nel.of(1))).flatten
-                      _     <- journaller.deleteTo(seqNr).flatten
-                      _     <- startedDeferred.complete(())
-                    } yield {
-                      Receive.empty[F, C, R].some
-                    }
-                    receive.toResource
+                def completed(
+                  seqNr: SeqNr,
+                  state: S,
+                  journaller: Journaller[F, E],
+                  snapshotter: Snapshotter[F, S]
+                ) = {
+                  val receive = for {
+                    seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
+                    _     <- snapshotter.save(seqNr, 1).flatten
+                    seqNr <- journaller.append(Nel.of(Nel.of(1))).flatten
+                    _     <- journaller.deleteTo(seqNr).flatten
+                    _     <- startedDeferred.complete(())
+                  } yield {
+                    Receive.empty[F, C, R].some
                   }
+                  receive.toResource
                 }
-
-                recovering.some.pure[Resource[F, *]]
               }
+
+              recovering.some.pure[Resource[F, *]]
             }
 
             Resource
@@ -580,35 +571,33 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def pluginIds = PluginIds.empty
 
           def start = {
-            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
-              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
-                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
+              val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-                  def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
+                def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-                  def replay = {
-                    val replay: Replay[F, S, E] = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
-                    replay.pure[Resource[F, *]]
-                  }
-
-                  def completed(
-                    state: S,
-                    seqNr: SeqNr,
-                    journaller: Journaller[F, E],
-                    snapshotter: Snapshotter[F, S]
-                  ) = {
-                    val receive = for {
-                      _ <- journaller.append(Nel.of(Nel.of(0, 1), Nel.of(2))).flatten
-                      _ <- startedDeferred.complete(())
-                    } yield {
-                      Receive.empty[F, C, R].some
-                    }
-                    receive.toResource
-                  }
+                def replay = {
+                  val replay: Replay[F, S, E] = (_, state, event) => (state + event).pure[F]
+                  replay.pure[Resource[F, *]]
                 }
 
-                recovering.some.pure[Resource[F, *]]
+                def completed(
+                  seqNr: SeqNr,
+                  state: S,
+                  journaller: Journaller[F, E],
+                  snapshotter: Snapshotter[F, S]
+                ) = {
+                  val receive = for {
+                    _ <- journaller.append(Nel.of(Nel.of(0, 1), Nel.of(2))).flatten
+                    _ <- startedDeferred.complete(())
+                  } yield {
+                    Receive.empty[F, C, R].some
+                  }
+                  receive.toResource
+                }
               }
+
+              recovering.some.pure[Resource[F, *]]
             }
 
             Resource
@@ -694,20 +683,19 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def pluginIds = PluginIds.empty
 
           def start = {
-            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
-              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
+            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
                 val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
                   def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
                   def replay = {
-                    val replay: Replay[F, S, E] = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
+                    val replay: Replay[F, S, E] = (_, state, event) => (state + event).pure[F]
                     replay.pure[Resource[F, *]]
                   }
 
                   def completed(
-                    state: S,
                     seqNr: SeqNr,
+                    state: S,
                     journaller: Journaller[F, E],
                     snapshotter: Snapshotter[F, S]
                   ) = {
@@ -725,7 +713,6 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                 }
 
                 recovering.some.pure[Resource[F, *]]
-              }
             }
 
             Resource
@@ -828,38 +815,36 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def pluginIds = PluginIds.empty
 
           def start = {
-            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
-              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
-                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
+              val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-                  def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
+                def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
 
-                  def replay = {
-                    val replay: Replay[F, S, E] = (state: S, event: E, _: SeqNr) => (state + event).pure[F]
-                    replay.pure[Resource[F, *]]
-                  }
-
-                  def completed(
-                    state: S,
-                    seqNr: SeqNr,
-                    journaller: Journaller[F, E],
-                    snapshotter: Snapshotter[F, S]
-                  ) = {
-                    val receive = for {
-                      seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
-                      _     <- snapshotter.save(seqNr, 1).flatten
-                      _     <- journaller.append(Nel.of(Nel.of(1))).flatten
-                      _     <- startedDeferred.complete(())
-                    } yield {
-                      Receive.empty[F, C, R].some
-                    }
-
-                    receive.toResource
-                  }
+                def replay = {
+                  val replay: Replay[F, S, E] = (_, state, event) => (state + event).pure[F]
+                  replay.pure[Resource[F, *]]
                 }
 
-                recovering.some.pure[Resource[F, *]]
+                def completed(
+                  seqNr: SeqNr,
+                  state: S,
+                  journaller: Journaller[F, E],
+                  snapshotter: Snapshotter[F, S]
+                ) = {
+                  val receive = for {
+                    seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
+                    _     <- snapshotter.save(seqNr, 1).flatten
+                    _     <- journaller.append(Nel.of(Nel.of(1))).flatten
+                    _     <- startedDeferred.complete(())
+                  } yield {
+                    Receive.empty[F, C, R].some
+                  }
+
+                  receive.toResource
+                }
               }
+
+              recovering.some.pure[Resource[F, *]]
             }
 
             Resource
@@ -1009,12 +994,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def pluginIds = PluginIds.empty
 
           def start = {
-            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
-              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
-                Resource
-                  .make(lock.get) { _ => stopped.complete(()) }
-                  .as(none[Recovering[F, S, C, E, R]])
-              }
+            val started = Started[F, S, C, E, R] { (_, _) =>
+              Resource
+                .make(lock.get) { _ => stopped.complete(()) }
+                .as(none[Recovering[F, S, C, E, R]])
             }
             started.some.pure[Resource[F, *]]
           }
@@ -1071,28 +1054,26 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def pluginIds = PluginIds.empty
 
           def start = {
-            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
-              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
+            val started = Started[F, S, C, E, R] { (_, _) =>
 
-                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+              val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-                  def initial = ().pure[F]
+                def initial = ().pure[F]
 
-                  def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
+                def replay = Replay.empty[F, S, E].pure[Resource[F, *]]
 
-                  def completed(
-                    state: S,
-                    seqNr: SeqNr,
-                    journaller: Journaller[F, E],
-                    snapshotter: Snapshotter[F, S]
-                  ) = {
-                    Resource
-                      .make(lock.get) { _ => stopped.complete(()) }
-                      .as(none[Receive[F, C, R]])
-                  }
+                def completed(
+                  seqNr: SeqNr,
+                  state: S,
+                  journaller: Journaller[F, E],
+                  snapshotter: Snapshotter[F, S]
+                ) = {
+                  Resource
+                    .make(lock.get) { _ => stopped.complete(()) }
+                    .as(none[Receive[F, C, R]])
                 }
-                recovering.some.pure[Resource[F, *]]
               }
+              recovering.some.pure[Resource[F, *]]
             }
             started.some.pure[Resource[F, *]]
           }
@@ -1156,46 +1137,44 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def pluginIds = PluginIds.empty
 
           def start = {
-            val started: Started[F, S, C, E, R] = new Started[F, S, C, E, R] {
-              def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]) = {
+            val started = Started[F, S, C, E, R] { (_, _) =>
 
-                val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+              val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
-                  def initial = true.pure[F]
+                def initial = true.pure[F]
 
-                  val replay = {
-                    val  replay: Replay[F, S, E] = (_: S, _: E, _: SeqNr) => false.pure[F]
-                    replay.pure[Resource[F, *]]
-                  }
-
-                  def completed(
-                    state: S,
-                    seqNr: SeqNr,
-                    journaller: Journaller[F, E],
-                    snapshotter: Snapshotter[F, S]
-                  ) = {
-
-                    def append: F[Unit] = {
-                      if (state) {
-                        events
-                          .traverse { event => journaller.append(Nel.of(Nel.of(event))) }
-                          .flatMap { _.foldMapM { _.void } }
-                      } else {
-                        ().pure[F]
-                      }
-                    }
-
-                    val receive = for {
-                      _ <- append
-                      _ <- startedDeferred.complete(())
-                    } yield {
-                      none[Receive[F, C, R]]
-                    }
-                    receive.toResource
-                  }
+                val replay = {
+                  val replay: Replay[F, S, E] = (_, _, _) => false.pure[F]
+                  replay.pure[Resource[F, *]]
                 }
-                recovering.some.pure[Resource[F, *]]
+
+                def completed(
+                  seqNr: SeqNr,
+                  state: S,
+                  journaller: Journaller[F, E],
+                  snapshotter: Snapshotter[F, S]
+                ) = {
+
+                  def append: F[Unit] = {
+                    if (state) {
+                      events
+                        .traverse { event => journaller.append(Nel.of(Nel.of(event))) }
+                        .flatMap { _.foldMapM { _.void } }
+                    } else {
+                      ().pure[F]
+                    }
+                  }
+
+                  val receive = for {
+                    _ <- append
+                    _ <- startedDeferred.complete(())
+                  } yield {
+                    none[Receive[F, C, R]]
+                  }
+                  receive.toResource
+                }
               }
+              recovering.some.pure[Resource[F, *]]
             }
             Resource
               .make(().pure[F]) { _ => stoppedDeferred.complete(()) }

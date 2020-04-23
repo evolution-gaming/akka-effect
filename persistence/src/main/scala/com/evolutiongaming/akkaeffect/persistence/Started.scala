@@ -21,10 +21,20 @@ trait Started[F[_], S, C, E, R] {
     * @see [[akka.persistence.SnapshotOffer]]
     * @return None to stop actor, Some to continue
     */
-  def recoveryStarted(snapshotOffer: Option[SnapshotOffer[S]]): Resource[F, Option[Recovering[F, S, C, E, R]]]
+  def recoveryStarted(
+    seqNr: SeqNr,
+    snapshotOffer: Option[SnapshotOffer[S]]
+  ): Resource[F, Option[Recovering[F, S, C, E, R]]]
 }
 
 object Started {
+
+  def apply[F[_], S, C, E, R](
+    f: (SeqNr, Option[SnapshotOffer[S]]) => Resource[F, Option[Recovering[F, S, C, E, R]]]
+  ): Started[F, S, C, E, R] = {
+    (seqNr, snapshotOffer) => f(seqNr, snapshotOffer)
+  }
+
 
   implicit class StartedOps[F[_], S, C, E, R](val self: Started[F, S, C, E, R]) extends AnyVal {
 
@@ -38,7 +48,7 @@ object Started {
       F: Monad[F],
     ): Started[F, S1, C1, E1, R1] = {
 
-      snapshotOffer: Option[SnapshotOffer[S1]] => {
+      (seqNr, snapshotOffer) => {
 
         val snapshotOffer1 = snapshotOffer.traverse { snapshotOffer =>
           s1f(snapshotOffer.snapshot).map { snapshot => snapshotOffer.as(snapshot) }
@@ -46,7 +56,7 @@ object Started {
 
         for {
           snapshotOffer <- snapshotOffer1.toResource
-          recovering    <- self.recoveryStarted(snapshotOffer)
+          recovering    <- self.recoveryStarted(seqNr, snapshotOffer)
         } yield for {
           recovering <- recovering
         } yield {
@@ -62,7 +72,7 @@ object Started {
       ef: E1 => F[E])(implicit
       F: Monad[F],
     ): Started[F, S1, C1, E1, R1] = {
-      snapshotOffer: Option[SnapshotOffer[S1]] => {
+      (seqNr, snapshotOffer) => {
 
         val snapshotOffer1 = snapshotOffer.traverse { snapshotOffer =>
           sf(snapshotOffer.snapshot).map { snapshot => snapshotOffer.copy(snapshot = snapshot) }
@@ -70,7 +80,7 @@ object Started {
 
         for {
           snapshotOffer <- snapshotOffer1.toResource
-          recovering    <- self.recoveryStarted(snapshotOffer)
+          recovering    <- self.recoveryStarted(seqNr, snapshotOffer)
         } yield for {
           recovering <- recovering
         } yield {

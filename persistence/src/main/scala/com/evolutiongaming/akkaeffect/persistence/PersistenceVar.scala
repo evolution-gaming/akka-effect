@@ -11,9 +11,9 @@ private[akkaeffect] trait PersistenceVar[F[_], S, C, E, R] {
 
   def preStart(eventSourced: EventSourced[F, S, C, E, R]): Unit
 
-  def snapshotOffer(snapshotOffer: SnapshotOffer[S]): Unit
+  def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]): Unit
 
-  def event(event: E, seqNr: SeqNr): Unit
+  def event(seqNr: SeqNr, event: E): Unit
 
   def recoveryCompleted(
     seqNr: SeqNr,
@@ -48,12 +48,12 @@ private[akkaeffect] object PersistenceVar {
         }
       }
 
-      def snapshotOffer(snapshotOffer: SnapshotOffer[S]) = {
-        actorVar.receive { _.snapshotOffer(snapshotOffer) }
+      def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]) = {
+        actorVar.receive { _.snapshotOffer(seqNr, snapshotOffer) }
       }
 
-      def event(event: E, seqNr: SeqNr) = {
-        actorVar.receive { _.event(event, seqNr) }
+      def event(seqNr: SeqNr, event: E) = {
+        actorVar.receive { _.event(seqNr, event) }
       }
 
       def recoveryCompleted(
@@ -66,7 +66,7 @@ private[akkaeffect] object PersistenceVar {
       }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {
-        actorVar.receive { _.command(cmd, seqNr, sender) }
+        actorVar.receive { _.command(seqNr, cmd, sender) }
       }
 
       def postStop(seqNr: SeqNr) = {

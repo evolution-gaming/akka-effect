@@ -11,14 +11,19 @@ import cats.{Applicative, FlatMap}
   */
 trait Replay[F[_], S, E] {
 
-  def apply(state: S, event: E, seqNr: SeqNr): F[S]
+  def apply(seqNr: SeqNr, state: S, event: E): F[S]
 }
 
 object Replay {
 
-  def const[F[_], S, E](state: F[S]): Replay[F, S, E] = (_: S, _: E, _: SeqNr) => state
+  def const[F[_], S, E](state: F[S]): Replay[F, S, E] = (_, _, _) => state
 
-  def empty[F[_] : Applicative, S, E]: Replay[F, S, E] = (state: S, _: E, _: SeqNr) => state.pure[F]
+  def empty[F[_] : Applicative, S, E]: Replay[F, S, E] = (_, state, _) => state.pure[F]
+
+
+  def apply[F[_], S, E](f: (SeqNr, S, E) => F[S]): Replay[F, S, E] = {
+    (seqNr, state, event) => f(seqNr, state, event)
+  }
 
 
   implicit class ReplayOps[F[_], S, E](val self: Replay[F, S, E]) extends AnyVal {
@@ -29,11 +34,11 @@ object Replay {
       ef: E1 => F[E])(implicit
       F: FlatMap[F]
     ): Replay[F, S1, E1] = {
-      (state: S1, event: E1, seqNr: SeqNr) => {
+      (seqNr, state, event) => {
         for {
           s <- s1f(state)
           e <- ef(event)
-          s <- self(s, e, seqNr)
+          s <- self(seqNr, s, e)
           s <- sf(s)
         } yield s
       }
@@ -41,11 +46,11 @@ object Replay {
 
 
     def widen[S1 >: S, E1 >: E](sf: S1 => F[S], ef: E1 => F[E])(implicit F: FlatMap[F]): Replay[F, S1, E1] = {
-      (state: S1, event: E1, seqNr: SeqNr) =>
+      (seqNr, state, event) =>
         for {
           s <- sf(state)
           e <- ef(event)
-          s <- self(s, e, seqNr)
+          s <- self(seqNr, s, e)
         } yield s
     }
     

@@ -30,8 +30,8 @@ trait Recovering[F[_], S, C, E, R] {
     * @return None to stop actor, Some to continue
     */
   def completed(
-    state: S,
     seqNr: SeqNr,
+    state: S,
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]
   ): Resource[F, Option[Receive[F, C, R]]]
@@ -56,8 +56,8 @@ object Recovering {
       val replay = self.replay.map { _.convert(sf, s1f, e1f) }
 
       def completed(
-        state: S1,
         seqNr: SeqNr,
+        state: S1,
         journaller: Journaller[F, E1],
         snapshotter: Snapshotter[F, S1]
       ) = {
@@ -67,7 +67,7 @@ object Recovering {
 
         for {
           state   <- s1f(state).toResource
-          receive <- self.completed(state, seqNr, journaller1, snapshotter1)
+          receive <- self.completed(seqNr, state, journaller1, snapshotter1)
         } yield for {
           receive <- receive
         } yield {
@@ -89,14 +89,14 @@ object Recovering {
       val replay = self.replay.map { _.widen(sf, ef) }
 
       def completed(
-        state: S1,
         seqNr: SeqNr,
+        state: S1,
         journaller: Journaller[F, E1],
         snapshotter: Snapshotter[F, S1]
       ) = {
         for {
           state   <- sf(state).toResource
-          receive <- self.completed(state, seqNr, journaller, snapshotter)
+          receive <- self.completed(seqNr, state, journaller, snapshotter)
         } yield for {
           receive <- receive
         } yield {

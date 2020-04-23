@@ -113,9 +113,9 @@ object PersistentActorOf {
       }
 
       def receiveRecover: Receive = act.receive {
-        case ap.SnapshotOffer(m, s) => persistence.snapshotOffer(SnapshotOffer(m, s))
-        case RecoveryCompleted      => recoveryCompleted()
-        case event                  => persistence.event(event, lastSeqNr())
+        case ap.SnapshotOffer(m, s) => persistence.snapshotOffer(lastSeqNr(), SnapshotOffer(m, s))
+        case RecoveryCompleted      => recoveryCompleted(lastSeqNr())
+        case event                  => persistence.event(lastSeqNr(), event)
       }
 
       def receiveCommand: Receive = act.receive {
@@ -158,11 +158,11 @@ object PersistentActorOf {
         super.postStop()
       }
 
-      private def recoveryCompleted(): Unit = {
+      private def recoveryCompleted(seqNr: SeqNr): Unit = {
         val journaller = Journaller[F, Any](resources.append.value, resources.deleteEventsTo).withFail(fail)
         val snapshotter = Snapshotter[F, Any](actor, timeout).withFail(fail)
         persistence.recoveryCompleted(
-          lastSeqNr(),
+          seqNr,
           ReplyOf.fromActorRef(self),
           journaller,
           snapshotter)
