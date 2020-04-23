@@ -25,6 +25,13 @@ object ReceiveOf {
   def empty[F[_]: Applicative, A, B]: ReceiveOf[F, A, B] = const(none[Receive[F, A, B]])
 
 
+  def apply[F[_], A, B](
+    f: ActorCtx[F] => Resource[F, Option[Receive[F, A, B]]]
+  ): ReceiveOf[F, A, B] = {
+    a => f(a)
+  }
+
+
   implicit class ReceiveOfOps[F[_], A, B](val self: ReceiveOf[F, A, B]) extends AnyVal {
 
     def convert[A1, B1](

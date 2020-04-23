@@ -39,29 +39,26 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
     } yield {}
   }
 
-  private def counter[F[_] : Sync] = {
+  private def counter[F[_]: Sync] = {
     Ref[F]
       .of(0)
       .map { ref =>
-        new Receive[F, Msg, Any] {
+        Receive[F, Msg, Any] { (msg, reply, sender) =>
+          msg match {
+            case Msg.Inc =>
+              for {
+                n <- ref.modify { n =>
+                  val n1 = n + 1
+                  (n1, n1)
+                }
+                _ <- reply(n)
+              } yield false
 
-          def apply(msg: Msg, reply: Reply[F, Any], sender: ActorRef) = {
-            msg match {
-              case Msg.Inc =>
-                for {
-                  n <- ref.modify { n =>
-                    val n1 = n + 1
-                    (n1, n1)
-                  }
-                  _ <- reply(n)
-                } yield false
-
-              case Msg.Stop =>
-                for {
-                  n <- ref.get
-                  _ <- reply(n)
-                } yield true
-            }
+            case Msg.Stop =>
+              for {
+                n <- ref.get
+                _ <- reply(n)
+              } yield true
           }
         }
       }

@@ -115,40 +115,37 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     for {
                       stateRef <- Ref[F].of(state).toResource
                     } yield {
-                      val receive: Receive[F, Cmd, Any] = new Receive[F, Cmd, Any] {
+                      val receive = Receive[F, Cmd, Any] { (msg, reply, _) =>
+                        msg match {
+                          case a: Cmd.WithCtx[_] =>
+                            for {
+                              a <- a.f(actorCtx)
+                              _ <- reply(a)
+                            } yield false
 
-                        def apply(msg: Cmd, reply: Reply[F, Any], sender: ActorRef) = {
-                          msg match {
-                            case a: Cmd.WithCtx[_] =>
-                              for {
-                                a <- a.f(actorCtx)
-                                _ <- reply(a)
-                              } yield false
+                          case Cmd.Timeout =>
+                            for {
+                              _ <- actorCtx.setReceiveTimeout(Duration.Inf)
+                              _ <- receiveTimeout
+                            } yield false
 
-                            case Cmd.Timeout =>
-                              for {
-                                _ <- actorCtx.setReceiveTimeout(Duration.Inf)
-                                _ <- receiveTimeout
-                              } yield false
+                          case Cmd.Inc =>
+                            for {
+                              seqNr  <- journaller.append(Nel.of(Nel.of("a"))).flatten
+                              _      <- stateRef.update { _ + 1 }
+                              state  <- stateRef.get
+                              result <- snapshotter.save(seqNr, state)
+                              seqNr  <- journaller.append(Nel.of(Nel.of("b"), Nel.of("c", "d")))
+                              seqNr  <- seqNr
+                              _      <- result
+                              _      <- stateRef.update { _ + 1 }
+                              _      <- reply(seqNr)
+                            } yield false
 
-                            case Cmd.Inc =>
-                              for {
-                                seqNr  <- journaller.append(Nel.of(Nel.of("a"))).flatten
-                                _      <- stateRef.update { _ + 1 }
-                                state  <- stateRef.get
-                                result <- snapshotter.save(seqNr, state)
-                                seqNr  <- journaller.append(Nel.of(Nel.of("b"), Nel.of("c", "d")))
-                                seqNr  <- seqNr
-                                _      <- result
-                                _      <- stateRef.update { _ + 1 }
-                                _      <- reply(seqNr)
-                              } yield false
-
-                            case Cmd.Stop =>
-                              for {
-                                _ <- reply("stopping")
-                              } yield true
-                          }
+                          case Cmd.Stop =>
+                            for {
+                              _ <- reply("stopping")
+                            } yield true
                         }
                       }
 

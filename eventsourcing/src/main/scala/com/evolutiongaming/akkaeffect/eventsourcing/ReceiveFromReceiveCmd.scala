@@ -1,12 +1,10 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
-import akka.actor.ActorRef
-import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Concurrent, Resource}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
+import com.evolutiongaming.akkaeffect.Receive
 import com.evolutiongaming.akkaeffect.persistence.{Append, SeqNr}
-import com.evolutiongaming.akkaeffect.{Receive, Reply, Serial, SerialRef}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 // TODO store snapshot in scope of persist queue or expose seqNr
@@ -23,23 +21,13 @@ object ReceiveFromReceiveCmd {
     Engine
       .of(Engine.State(state, seqNr), append)
       .map { engine =>
-        new Receive[F, C, R] {
-
-          def apply(msg: C, reply: Reply[F, R], sender: ActorRef) = {
-
-            val result = for {
-              validate <- receiveCmd(msg)
-              result   <- engine(validate)
-              result   <- result
-            } yield result
-
-            // TODO refactor
-            for {
-              _ <- result.startNow
-            } yield {
-              false // TODO wrong
-            }
-          }
+        Receive[F, C, R] { (msg, _, _) =>
+          val result = for {
+            validate <- receiveCmd(msg)
+            result   <- engine(validate)
+            result   <- result
+          } yield result
+          result.startNow.as(false) // TODO wrong
         }
       }
   }

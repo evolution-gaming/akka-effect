@@ -31,7 +31,12 @@ object Receive {
 
   def stop[F[_]: Applicative, A, B]: Receive[F, A, B] = const(true.pure[F])
 
-  def const[F[_]: Applicative, A, B](stop: F[Stop]): Receive[F, A, B] = (_: A, _: Reply[F, B], _) => stop
+  def const[F[_]: Applicative, A, B](stop: F[Stop]): Receive[F, A, B] = (_, _, _) => stop
+
+
+  def apply[F[_], A, B](f: (A, Reply[F, B], ActorRef) => F[Stop]): Receive[F, A, B] = {
+    (msg, reply, sender) => f(msg, reply, sender)
+  }
 
 
   implicit class ReceiveOps[F[_], A, B](val self: Receive[F, A, B]) extends AnyVal {
@@ -58,7 +63,7 @@ object Receive {
       bf: B => F[B1])(implicit
       F: FlatMap[F],
     ): Receive[F, A1, B1] = {
-      (msg: A1, reply: Reply[F, B1], sender: ActorRef) => {
+      (msg, reply, sender) => {
         for {
           msg  <- af(msg)
           stop <- self(msg, reply.convert(bf), sender)
@@ -68,7 +73,7 @@ object Receive {
 
 
     def convertMsg[A1](f: A1 => F[A])(implicit F: FlatMap[F]): Receive[F, A1, B] = {
-      (msg: A1, reply: Reply[F, B], sender: ActorRef) => {
+      (msg, reply, sender) => {
         for {
           msg  <- f(msg)
           stop <- self(msg, reply, sender)
@@ -78,7 +83,7 @@ object Receive {
 
 
     def widen[A1 >: A, B1 >: B](f: A1 => F[A])(implicit F: FlatMap[F]): Receive[F, A1, B1] = {
-      (msg: A1, reply: Reply[F, B1], sender: ActorRef) => {
+      (msg, reply, sender) => {
         for {
           msg  <- f(msg)
           stop <- self(msg, reply, sender)

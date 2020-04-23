@@ -45,8 +45,7 @@ object Probe {
 
     def receiveOf(listenersRef: Ref[F, Set[Listener]]): ReceiveAnyOf[F] = {
       actorCtx: ActorCtx[F] => {
-        val receive: ReceiveAny[F] = (msg: Any, sender: ActorRef) => {
-
+        val receive = ReceiveAny[F] { (msg, sender) =>
           msg match {
             case Watch(actorRef) =>
               for {
