@@ -60,12 +60,16 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       `stop externally`[IO](actorSystem, shift).run()
     }
 
+    test(s"$prefix setReceiveTimeout") {
+      setReceiveTimeout[IO](actorSystem, shift).run()
+    }
+
     test(s"$prefix watch & unwatch") {
       `watch & unwatch`[IO](actorSystem, shift).run()
     }
   }
 
-  private def all[F[_] : Concurrent : ToFuture : FromFuture](
+  private def all[F[_]: Concurrent: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ): F[Unit] = {
@@ -166,7 +170,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def receive[F[_] : Concurrent : ToFuture : FromFuture](
+  private def receive[F[_]: Concurrent: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ): F[Unit] = {
@@ -238,7 +242,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `stop during start`[F[_] : Concurrent : ToFuture : FromFuture : Timer](
+  private def `stop during start`[F[_]: Concurrent: ToFuture: FromFuture: Timer](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -257,7 +261,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `fail actor`[F[_] : Concurrent : ToFuture : FromFuture](
+  private def `fail actor`[F[_]: Concurrent: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -320,7 +324,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `fail during start`[F[_] : Concurrent : ToFuture : FromFuture](
+  private def `fail during start`[F[_]: Concurrent: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -339,7 +343,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def stop[F[_] : Concurrent : ToFuture : FromFuture](
+  private def stop[F[_]: Concurrent: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -383,7 +387,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `ctx.stop`[F[_] : Concurrent : ToFuture : FromFuture](
+  private def `ctx.stop`[F[_]: Concurrent: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -427,7 +431,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `stop externally`[F[_] : Concurrent : ToFuture : FromFuture](
+  private def `stop externally`[F[_]: Concurrent: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -460,7 +464,47 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `watch & unwatch`[F[_] : Concurrent : ToFuture : FromFuture](
+  private def setReceiveTimeout[F[_]: Concurrent: ToFuture: FromFuture](
+    actorSystem: ActorSystem,
+    shift: F[Unit]
+  ) = {
+
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
+
+    def receiveOf(
+      timedOut: Deferred[F, Unit],
+    ): ReceiveOf[F, Any, Any] = {
+      actorCtx => {
+        val receive = for {
+          _ <- shift
+          _ <- actorCtx.setReceiveTimeout(10.millis)
+        } yield {
+          Receive[F, Any, Any] { (msg, _, _) =>
+            for {
+              _    <- shift
+              stop <- msg match {
+                case ReceiveTimeout => timedOut.complete(()).as(true)
+                case _              => false.pure[F]
+              }
+            } yield stop
+          }
+        }
+        receive
+          .map { _.some}
+          .toResource
+      }
+    }
+
+    for {
+      timedOut  <- Deferred[F, Unit]
+      receiveOf <- receiveOf(timedOut).pure[F]
+      result     = ActorEffect.of(actorRefOf, receiveOf)
+      result    <- result.use { _ => timedOut.get}
+    } yield result
+  }
+
+
+  private def `watch & unwatch`[F[_]: Concurrent: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -485,7 +529,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
             for {
               _ <- shift
             } yield {
-              val receive = Receive[F, Msg, Unit] { (msg, reply, sender) =>
+              val receive = Receive[F, Msg, Unit] { (msg, reply, _) =>
                 for {
                   _    <- shift
                   stop <- msg match {

@@ -28,10 +28,13 @@ object PersistentActorOf {
         val act = Act.adapter(self)
         val eventSourced = {
           val actorCtx = ActorCtx[F](act.value.toSafe, context)
-          await {
-            eventSourcedOf(actorCtx).adaptError { case error =>
-              val path = self.path.toStringWithoutAddress
-              ActorError(s"$path failed to allocate eventSourced: $error", error)
+          act.sync {
+            await {
+              eventSourcedOf(actorCtx)
+                .adaptError { case error =>
+                  val path = self.path.toStringWithoutAddress
+                  ActorError(s"$path failed to allocate eventSourced: $error", error)
+                }
             }
           }
         }
