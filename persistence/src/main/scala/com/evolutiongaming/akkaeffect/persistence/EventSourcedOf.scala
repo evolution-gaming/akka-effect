@@ -19,7 +19,7 @@ trait EventSourcedOf[F[_], S, C, E, R] {
 
 object EventSourcedOf {
 
-  def const[F[_] : Applicative, S, C, E, R](
+  def const[F[_]: Applicative, S, C, E, R](
     eventSourced: EventSourced[F, S, C, E, R]
   ): EventSourcedOf[F, S, C, E, R] = {
     _ => eventSourced.pure[F]
