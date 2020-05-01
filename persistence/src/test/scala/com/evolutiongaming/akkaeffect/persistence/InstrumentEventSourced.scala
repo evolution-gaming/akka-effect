@@ -39,14 +39,16 @@ object InstrumentEventSourced {
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+          
           def start = {
             for {
-              started <- eventSourced.start
-              _       <- resource(Action.Started, Action.Released)
+              recoveryStarted <- eventSourced.start
+              _               <- resource(Action.Started, Action.Released)
             } yield for {
-              started <- started
+              recoveryStarted <- recoveryStarted
             } yield {
-              (seqNr, snapshotOffer) => {
+              RecoveryStarted[F, S, C, E, R] { (seqNr, snapshotOffer) =>
 
                 val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
                   val metadata = snapshotOffer.metadata.copy(timestamp = 0)
@@ -54,7 +56,7 @@ object InstrumentEventSourced {
                 }
 
                 for {
-                  recovering <- started.recoveryStarted(seqNr, snapshotOffer)
+                  recovering <- recoveryStarted(seqNr, snapshotOffer)
                   _          <- resource(Action.RecoveryAllocated(snapshotOffer1), Action.RecoveryReleased)
                 } yield for {
                   recovering <- recovering
@@ -163,17 +165,15 @@ object InstrumentEventSourced {
                       } yield for {
                         receive <- receive
                       } yield {
-                        Receive[F, C, R] { (msg, reply, sender) =>
-                          val reply1 = new Reply[F, R] {
-                            def apply(msg: R) = {
+                        Receive[F, C, R] { (msg, reply) =>
+                          val reply1 = Reply[F, R] { msg =>
                               for {
                                 _ <- record(Action.Replied(msg))
                                 a <- reply(msg)
                               } yield a
-                            }
                           }
                           for {
-                            stop <- receive(msg, reply1, sender)
+                            stop <- receive(msg, reply1)
                             _    <- record(Action.Received(msg, stop))
                           } yield stop
                         }

@@ -21,7 +21,7 @@ object ReceiveFromReceiveCmd {
     Engine
       .of(Engine.State(state, seqNr), append)
       .map { engine =>
-        Receive[F, C, R] { (msg, _, _) =>
+        Receive[F, C, R] { (msg, _) =>
           val result = for {
             validate <- receiveCmd(msg)
             result   <- engine(validate)

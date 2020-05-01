@@ -103,7 +103,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         (child0, childRelease) = ab
         terminated1 <- probe.watch(child0)
         children    <- withCtx { _.children }
-        _            = children.toList shouldEqual List(child0)
+        _            = children shouldEqual List(child0)
         child        = withCtx { _.child("child") }
         child1      <- child
         _            = child1 shouldEqual child0.some
@@ -112,7 +112,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         child1      <- child
         _            = child1 shouldEqual none[ActorRef]
         children    <- withCtx { _.children }
-        _            = children.toList shouldEqual List.empty
+        _            = children shouldEqual List.empty
         identity    <- actorRef.ask(Identify("id"), timeout).flatten
         identity    <- identity.cast[F, ActorIdentity]
         _           <- withCtx { _.setReceiveTimeout(1.millis) }
@@ -127,7 +127,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     def receiveOf(receiveTimeout: F[Unit]): ReceiveOf[F, Any, Any] = {
       (actorCtx: ActorCtx[F]) => {
 
-        val receive = Receive[F, Any, Any] { (a, reply, _) =>
+        val receive = Receive[F, Any, Any] { (a, reply) =>
           a match {
             case a: WithCtx[_, _] =>
               val f = a.asInstanceOf[WithCtx[F, Any]].f
@@ -183,7 +183,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         val receive = for {
           state <- Ref[F].of(0)
         } yield {
-          val receive = Receive[F, Any, Any] { (a, reply, _) =>
+          val receive = Receive[F, Any, Any] { (a, reply) =>
             a match {
               case a: GetAndInc =>
                 for {
@@ -271,7 +271,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     def receiveOf(started: F[Unit]): ReceiveOf[F, Any, Any] = {
       (_: ActorCtx[F]) => {
 
-        val receive = Receive[F, Any, Any] { (a, reply, _) =>
+        val receive = Receive[F, Any, Any] { (a, reply) =>
           a match {
             case "fail" =>
               for {
@@ -330,7 +330,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   ) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
-    val actor = () => ActorOf[F] { _ => (shift *> error.raiseError[F, Option[ReceiveAny[F]]]).toResource }
+    val actor = () => ActorOf[F] { _ => (shift *> error.raiseError[F, Option[ReceiveAny[F, Any]]]).toResource }
     val props = Props(actor())
 
     val result = for {
@@ -354,7 +354,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       (_: ActorCtx[F]) => {
         Resource
           .make {
-            val receive = Receive[F, Any, Any] { (a, reply, _) =>
+            val receive = Receive[F, Any, Any] { (a, reply) =>
               a match {
                 case "stop" => for {
                   _ <- shift
@@ -398,7 +398,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       (ctx: ActorCtx[F]) => {
         Resource
           .make {
-            val receive = Receive[F, Any, Any] { (a, _, _) =>
+            val receive = Receive[F, Any, Any] { (a, _) =>
               a match {
                 case "stop" => for {
                   _ <- shift
@@ -479,7 +479,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
           _ <- shift
           _ <- actorCtx.setReceiveTimeout(10.millis)
         } yield {
-          Receive[F, Any, Any] { (msg, _, _) =>
+          Receive[F, Any, Any] { (msg, _) =>
             for {
               _    <- shift
               stop <- msg match {
@@ -529,7 +529,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
             for {
               _ <- shift
             } yield {
-              val receive = Receive[F, Msg, Unit] { (msg, reply, _) =>
+              val receive = Receive[F, Msg, Unit] { (msg, reply) =>
                 for {
                   _    <- shift
                   stop <- msg match {

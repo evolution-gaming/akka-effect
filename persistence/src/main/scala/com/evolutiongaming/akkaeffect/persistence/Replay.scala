@@ -20,7 +20,6 @@ object Replay {
 
   def empty[F[_] : Applicative, S, E]: Replay[F, S, E] = (_, state, _) => state.pure[F]
 
-
   def apply[F[_], S, E](f: (SeqNr, S, E) => F[S]): Replay[F, S, E] = {
     (seqNr, state, event) => f(seqNr, state, event)
   }

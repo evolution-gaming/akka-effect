@@ -72,18 +72,16 @@ class ReceiveFromReceiveCmdTest extends AsyncFunSuite with Matchers {
           effectGate   <- Gate[F, Either[Throwable, SeqNr]]
           appendGate   <- Gate[F, Unit]
           validate     = receiveGate.pass(()).as {
-            new Validate[F, S, E] {
-              def apply(state: S, seqNr: SeqNr) = {
-                validateGate.pass(state).as {
-                  val effect: Effect[F] = (seqNr: Either[Throwable, SeqNr]) => effectGate.pass(seqNr)
-                  val events = Nel.of(Nel.of(appendGate.pass(())))
-                  val change = Change(idx :: state, events)
-                  Directive(change.some, effect)
-                }
+            Validate[F, S, E] { (state, _) =>
+              validateGate.pass(state).as {
+                val effect = Effect[F] { (seqNr: Either[Throwable, SeqNr]) => effectGate.pass(seqNr) }
+                val events = Nel.of(Nel.of(appendGate.pass(())))
+                val change = Change(idx :: state, events)
+                Directive(change.some, effect)
               }
             }
           }
-          _ <- receive(validate, Reply.empty, ActorRef.noSender/*TODO*/)
+          _ <- receive(validate, Reply.empty)
         } yield new Gates {
 
           def receive = receiveGate

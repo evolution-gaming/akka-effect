@@ -18,4 +18,6 @@ trait Effect[F[_]] {
 object Effect {
 
   def empty[F[_]: Applicative]: Effect[F] = _ => ().pure[F]
+
+  def apply[F[_]](f: Either[Throwable, SeqNr] => F[Unit]): Effect[F] = seqNr => f(seqNr)
 }

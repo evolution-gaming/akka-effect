@@ -13,8 +13,12 @@ trait Validate[F[_], S, E] {
 object Validate {
 
   def const[F[_]: Applicative, S, E](directive: Directive[F, S, E]): Validate[F, S, E] = {
-    (_: S, _: SeqNr) => directive.pure[F]
+    (_, _) => directive.pure[F]
   }
 
   def empty[F[_]: Applicative, S, E]: Validate[F, S, E] = const(Directive.empty[F, S, E])
+
+  def apply[F[_], S, E](f: (S, SeqNr) => F[Directive[F, S, E]]): Validate[F, S, E] = {
+    (state, seqNr) => f(state, seqNr)
+  }
 }

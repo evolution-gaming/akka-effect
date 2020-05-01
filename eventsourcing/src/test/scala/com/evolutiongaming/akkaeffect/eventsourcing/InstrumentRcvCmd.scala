@@ -3,7 +3,6 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.akkaeffect.eventsourcing
 
 object InstrumentRcvCmd {
@@ -47,15 +46,11 @@ object InstrumentRcvCmd {
             _        <- actions.add(Action.Cmd(cmd))
             validate <- receiveCmd(cmd)
           } yield {
-            new Validate[F, S, E] {
-              def apply(state: S, seqNr: SeqNr) = {
-                for {
-                  directive <- validate(state, seqNr)
-                  _         <- actions.add(Action.Directive(directive.change))
-                } yield {
-                  directive
-                }
-              }
+            Validate[F, S, E] { (state, seqNr) =>
+              for {
+                directive <- validate(state, seqNr)
+                _         <- actions.add(Action.Directive(directive.change))
+              } yield directive
             }
           }
         }

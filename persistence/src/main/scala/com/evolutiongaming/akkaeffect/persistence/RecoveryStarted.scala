@@ -13,7 +13,7 @@ import com.evolutiongaming.catshelper.CatsHelper._
   * @tparam E event
   * @tparam R reply
   */
-trait Started[F[_], S, C, E, R] {
+trait RecoveryStarted[F[_], S, C, E, R] {
 
   /**
     * Called upon starting recovery, resource will be released upon actor termination
@@ -21,22 +21,22 @@ trait Started[F[_], S, C, E, R] {
     * @see [[akka.persistence.SnapshotOffer]]
     * @return None to stop actor, Some to continue
     */
-  def recoveryStarted(
+  def apply(
     seqNr: SeqNr,
     snapshotOffer: Option[SnapshotOffer[S]]
   ): Resource[F, Option[Recovering[F, S, C, E, R]]]
 }
 
-object Started {
+object RecoveryStarted {
 
   def apply[F[_], S, C, E, R](
     f: (SeqNr, Option[SnapshotOffer[S]]) => Resource[F, Option[Recovering[F, S, C, E, R]]]
-  ): Started[F, S, C, E, R] = {
+  ): RecoveryStarted[F, S, C, E, R] = {
     (seqNr, snapshotOffer) => f(seqNr, snapshotOffer)
   }
 
 
-  implicit class StartedOps[F[_], S, C, E, R](val self: Started[F, S, C, E, R]) extends AnyVal {
+  implicit class RecoveryStartedOps[F[_], S, C, E, R](val self: RecoveryStarted[F, S, C, E, R]) extends AnyVal {
 
     def convert[S1, C1, E1, R1](
       sf: S => F[S1],
@@ -46,7 +46,7 @@ object Started {
       e1f: E1 => F[E],
       rf: R => F[R1])(implicit
       F: Monad[F],
-    ): Started[F, S1, C1, E1, R1] = {
+    ): RecoveryStarted[F, S1, C1, E1, R1] = {
 
       (seqNr, snapshotOffer) => {
 
@@ -56,7 +56,7 @@ object Started {
 
         for {
           snapshotOffer <- snapshotOffer1.toResource
-          recovering    <- self.recoveryStarted(seqNr, snapshotOffer)
+          recovering    <- self(seqNr, snapshotOffer)
         } yield for {
           recovering <- recovering
         } yield {
@@ -71,7 +71,7 @@ object Started {
       cf: C1 => F[C],
       ef: E1 => F[E])(implicit
       F: Monad[F],
-    ): Started[F, S1, C1, E1, R1] = {
+    ): RecoveryStarted[F, S1, C1, E1, R1] = {
       (seqNr, snapshotOffer) => {
 
         val snapshotOffer1 = snapshotOffer.traverse { snapshotOffer =>
@@ -80,7 +80,7 @@ object Started {
 
         for {
           snapshotOffer <- snapshotOffer1.toResource
-          recovering    <- self.recoveryStarted(seqNr, snapshotOffer)
+          recovering    <- self(seqNr, snapshotOffer)
         } yield for {
           recovering <- recovering
         } yield {
@@ -95,6 +95,6 @@ object Started {
       cf: Any => F[C],
       ef: Any => F[E])(implicit
       F: Monad[F],
-    ): Started[F, Any, Any, Any, Any] = widen[Any, Any, Any, Any](sf, cf, ef)
+    ): RecoveryStarted[F, Any, Any, Any, Any] = widen[Any, Any, Any, Any](sf, cf, ef)
   }
 }

@@ -20,17 +20,15 @@ object Reply {
 
   def empty[F[_]: Applicative, A]: Reply[F, A] = const(().pure[F])
 
+  def const[F[_], A](unit: F[Unit]): Reply[F, A] = _ => unit
 
-  def const[F[_], A](unit: F[Unit]): Reply[F, A] = (_: A) => unit
+  def apply[F[_], A](f: A => F[Unit]): Reply[F, A] = a => f(a)
 
 
   // TODO add the same for other classes
   implicit def contravariantReply[F[_]]: Contravariant[Reply[F, *]] = new Contravariant[Reply[F, *]] {
 
-    def contramap[A, B](fa: Reply[F, A])(f: B => A) = new Reply[F, B] {
-
-      def apply(msg: B) = fa(f(msg))
-    }
+    def contramap[A, B](fa: Reply[F, A])(f: B => A) = msg => fa(f(msg))
   }
 
 

@@ -32,43 +32,40 @@ private[akkaeffect] trait Persistence[F[_], S, C, E, R] {
 private[akkaeffect] object Persistence {
 
   def started[F[_]: Sync: Fail, S, C, E, R](
-    eventSourced: EventSourced[F, S, C, E, R],
+    eventSourced: EventSourcedAny[F, S, C, E, R],
   ): Resource[F, Option[Persistence[F, S, C, E, R]]] = {
     eventSourced
       .start
-      .map { _.map { started => Persistence.started(started) } }
+      .map { _.map { a => Persistence.started(a) } }
   }
 
   def started[F[_]: Sync: Fail, S, C, E, R](
-    started: Started[F, S, C, E, R],
+    recoveryStarted: RecoveryStartedAny[F, S, C, E, R],
   ): Persistence[F, S, C, E, R] = {
 
     new Persistence[F, S, C, E, R] {
 
       def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]) = {
-        started
-          .recoveryStarted(seqNr, snapshotOffer.some)
+        recoveryStarted(seqNr, snapshotOffer.some)
           .flatMap { recovering =>
             recovering.traverse { recovering =>
-              Resource
-                .liftF(recovering.initial)
-                .map { state => Persistence.recovering(state, none, recovering) }
+              Persistence
+                .recovering(none, recovering)
+                .pure[Resource[F, *]]
             }
           }
           .toReleasableOpt
       }
 
       def event(seqNr: SeqNr, event: E) = {
-        started
-          .recoveryStarted(seqNr, none)
+        recoveryStarted(seqNr, none)
           .flatMap { recovering =>
             recovering.traverse { recovering =>
               for {
-                state  <- recovering.initial.toResource
                 replay <- Allocated.of(recovering.replay)
-                state  <- replay.value(seqNr, state, event).toResource
+                _      <- replay.value(seqNr, event).toResource
               } yield {
-                Persistence.recovering(state, replay.some, recovering)
+                Persistence.recovering(replay.some, recovering)
               }
             }
           }
@@ -83,9 +80,8 @@ private[akkaeffect] object Persistence {
       ) = {
 
         val receive = for {
-          recovering <- OptionT(started.recoveryStarted(seqNr, none))
-          state      <- OptionT.liftF(recovering.initial.toResource)
-          receive    <- OptionT(recovering.completed(seqNr, state, journaller, snapshotter))
+          recovering <- OptionT(recoveryStarted(seqNr, none))
+          receive    <- OptionT(recovering.completed(seqNr, journaller, snapshotter))
         } yield {
           Persistence.receive[F, S, C, E, R](replyOf, receive)
         }
@@ -103,9 +99,8 @@ private[akkaeffect] object Persistence {
 
 
   def recovering[F[_]: Sync: Fail, S, C, E, R](
-    state: S,
-    replay: Option[Allocated[F, Replay[F, S, E]]],
-    recovering: Recovering[F, S, C, E, R]
+    replay: Option[Allocated[F, Replay1[F, E]]],
+    recovering: RecoveringAny[F, S, C, E, R]
   ): Persistence[F, S, C, E, R] = {
 
     new Persistence[F, S, C, E, R] {
@@ -118,22 +113,23 @@ private[akkaeffect] object Persistence {
         replay match {
           case Some(replay) =>
             replay
-              .value(seqNr, state, event)
-              .map { state =>
+              .value(seqNr, event)
+              .as {
                 Persistence
-                  .recovering(state, replay.some, recovering)
+                  .recovering(replay.some, recovering)
                   .pure[Releasable[F, *]]
                   .some
               }
 
           case None =>
-            val result = for {
-              replay <- Allocated.of(recovering.replay)
-              state <- replay.value(seqNr, state, event).toResource
-            } yield {
-              Persistence.recovering(state, replay.some, recovering)
-            }
-            result
+            Allocated
+              .of(recovering.replay)
+              .flatMap { replay =>
+                replay
+                  .value(seqNr, event)
+                  .as { Persistence.recovering(replay.some, recovering) }
+                  .toResource
+              }
               .toReleasable
               .map { _.some }
         }
@@ -145,12 +141,15 @@ private[akkaeffect] object Persistence {
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S]
       ) = {
-        Resource
-          .liftF(replay.foldMapM { _.release })
-          .flatMap { _ =>
+        replay
+          .foldMapM { _.release }
+          .toResource
+          .productR {
             recovering
-              .completed(seqNr, state, journaller, snapshotter)
-              .map { _.map { receive => Persistence.receive[F, S, C, E, R](replyOf, receive) } }
+              .completed(seqNr, journaller, snapshotter)
+              .map { receive =>
+                receive.map { receive => Persistence.receive[F, S, C, E, R](replyOf, receive) }
+              }
           }
           .toReleasableOpt
       }
@@ -164,7 +163,7 @@ private[akkaeffect] object Persistence {
 
   def receive[F[_]: Sync: Fail, S, C, E, R](
     replyOf: ReplyOf[F, R],
-    receive: Receive[F, C, R]
+    receive: ReceiveAny[F, C]
   ): Persistence[F, S, C, E, R] = {
 
     new Persistence[F, S, C, E, R] { self =>
@@ -187,8 +186,8 @@ private[akkaeffect] object Persistence {
       }
 
       def command(seqNr: SeqNr, cmd: C, sender: ActorRef) = {
-        val reply = replyOf(sender)
-        receive(cmd, reply, sender).map {
+        val reply = replyOf(sender) // TODO remove reply
+        receive(cmd, sender).map {
           case false => Releasable(self).some
           case true  => none
         }

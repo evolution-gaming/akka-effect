@@ -4,6 +4,7 @@ import cats.effect.Resource
 import cats.Monad
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Receive
+import com.evolutiongaming.akkaeffect.persistence.OptResHelper._
 import com.evolutiongaming.catshelper.CatsHelper._
 
 /**

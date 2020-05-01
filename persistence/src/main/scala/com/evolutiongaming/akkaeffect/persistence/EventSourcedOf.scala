@@ -25,6 +25,12 @@ object EventSourcedOf {
     _ => eventSourced.pure[F]
   }
 
+  def apply[F[_], S, C, E, R](
+    f: ActorCtx[F] => F[EventSourced[F, S, C, E, R]]
+  ): EventSourcedOf[F, S, C, E, R] = {
+    actorCtx => f(actorCtx)
+  }
+
 
   implicit class EventSourcedOfOps[F[_], S, C, E, R](
     val self: EventSourcedOf[F, S, C, E, R]
@@ -36,17 +42,10 @@ object EventSourcedOf {
       c1f: C1 => F[C],
       ef: E => F[E1],
       e1f: E1 => F[E],
-      rf: R => F[R1],
-    )(implicit
+      rf: R => F[R1])(implicit
       F: Monad[F]
     ): EventSourcedOf[F, S1, C1, E1, R1] = {
-      actorCtx: ActorCtx[F] => {
-        for {
-          eventSourced <- self(actorCtx)
-        } yield {
-          eventSourced.convert(sf, s1f, c1f, ef, e1f, rf)
-        }
-      }
+      actorCtx => self(actorCtx).map { _.convert(sf, s1f, c1f, ef, e1f, rf) }
     }
 
 
@@ -56,13 +55,7 @@ object EventSourcedOf {
       ef: Any => F[E])(implicit
       F: Monad[F],
     ): EventSourcedOf[F, S1, C1, E1, R1] = {
-      actorCtx: ActorCtx[F] => {
-        for {
-          eventSourced <- self(actorCtx)
-        } yield {
-          eventSourced.widen(sf, cf, ef)
-        }
-      }
+      actorCtx => self(actorCtx).map { _.widen(sf, cf, ef) }
     }
 
 

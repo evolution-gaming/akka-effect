@@ -9,7 +9,7 @@ import scala.concurrent.Future
 
 private[akkaeffect] trait PersistenceVar[F[_], S, C, E, R] {
 
-  def preStart(eventSourced: EventSourced[F, S, C, E, R]): Unit
+  def preStart(eventSourced: EventSourcedAny[F, S, C, E, R]): Unit
 
   def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]): Unit
 
@@ -42,7 +42,7 @@ private[akkaeffect] object PersistenceVar {
 
     new PersistenceVar[F, S, C, E, R] {
 
-      def preStart(eventSourced: EventSourced[F, S, C, E, R]) = {
+      def preStart(eventSourced: EventSourcedAny[F, S, C, E, R]) = {
         actorVar.preStart {
           Persistence.started(eventSourced)
         }

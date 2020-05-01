@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, ReceiveTimeout}
-import akka.persistence.SnapshotMetadata
+import akka.persistence.{Recovery, SnapshotMetadata}
 import akka.testkit.TestActors
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.{Deferred, Ref}
@@ -92,7 +92,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     }
 
     def eventSourcedOf(receiveTimeout: F[Unit]): EventSourcedOf[F, State, Any, Event, Any] = {
-      actorCtx: ActorCtx[F] => {
+      actorCtx => {
 
         val eventSourced = new EventSourced[F, State, Any, Event, Any] {
 
@@ -100,8 +100,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+
           def start = {
-            val started = Started[F, State, Any, Event, Any] { (_, _) =>
+            val started = RecoveryStarted[F, State, Any, Event, Any] { (_, _) =>
 
                 val recovering: Recovering[F, State, Any, Event, Any] = new Recovering[F, State, Any, Event, Any] {
 
@@ -119,7 +121,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     for {
                       stateRef <- Ref[F].of(state).toResource
                     } yield {
-                      val receive = Receive[F, Cmd, Any] { (msg, reply, _) =>
+                      val receive = Receive[F, Cmd, Any] { (msg, reply) =>
                         msg match {
                           case a: Cmd.WithCtx[_] =>
                             for {
@@ -201,7 +203,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         (child0, childRelease) = a
         terminated1 <- probe.watch(child0)
         children    <- withCtx { _.children }
-        _           <- Sync[F].delay { children.toList should contain(child0) }
+        _           <- Sync[F].delay { children should contain(child0) }
         child        = withCtx { _.child("child") }
         child1      <- child
         _           <- Sync[F].delay { child1 shouldEqual child0.some }
@@ -210,7 +212,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         child1      <- child
         _           <- Sync[F].delay { child1 shouldEqual none[ActorRef] }
         children    <- withCtx { _.children }
-        _           <- Sync[F].delay { children.toList should not contain child0 }
+        _           <- Sync[F].delay { children should not contain child0 }
         identity    <- actorRef.ask(Identify("id"), timeout).flatten
         identity    <- identity.cast[F, ActorIdentity]
         _           <- withCtx { _.setReceiveTimeout(1.millis) }
@@ -262,8 +264,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+
           def start = {
-            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
+            val started = RecoveryStarted[F, S, C, E, R] { (_, snapshotOffer) =>
               val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
                 def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
@@ -276,8 +280,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   journaller: Journaller[F, E],
                   snapshotter: Snapshotter[F, S]
                 ) = {
-                  Resource
-                    .liftF(startedDeferred.complete(()))
+                  startedDeferred
+                    .complete(())
+                    .toResource
                     .as(Receive.empty[F, C, R].some)
                 }
               }
@@ -337,8 +342,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+
           def start = {
-            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
+            val started = RecoveryStarted[F, S, C, E, R] { (_, snapshotOffer) =>
               val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
                 def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
@@ -447,8 +454,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+
           def start = {
-            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
+            val started = RecoveryStarted[F, S, C, E, R] { (_, snapshotOffer) =>
               val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
                 def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
@@ -571,8 +580,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+
           def start = {
-            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
+            val started = RecoveryStarted[F, S, C, E, R] { (_, snapshotOffer) =>
               val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
                 def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
@@ -645,8 +656,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("2"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
         Action.RecoveryAllocated(none),
-        Action.Initial(0),
         Action.ReplayAllocated,
+        Action.Initial(0),
         Action.Replayed(0, 0, 1, 0),
         Action.Replayed(0, 1, 2, 1),
         Action.Replayed(1, 2, 3, 3),
@@ -683,8 +694,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+
           def start = {
-            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
+            val started = RecoveryStarted[F, S, C, E, R] { (_, snapshotOffer) =>
                 val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
                   def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
@@ -769,8 +782,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("7"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
         Action.RecoveryAllocated(none),
-        Action.Initial(0),
         Action.ReplayAllocated,
+        Action.Initial(0),
         Action.Replayed(0, 0, 1, 0),
         Action.Replayed(0, 1, 2, 1),
         Action.ReplayReleased,
@@ -815,8 +828,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+
           def start = {
-            val started = Started[F, S, C, E, R] { (_, snapshotOffer) =>
+            val started = RecoveryStarted[F, S, C, E, R] { (_, snapshotOffer) =>
               val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
                 def initial = snapshotOffer.fold(0) { _.snapshot }.pure[F]
@@ -897,8 +912,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("3", 1), 1).some),
-        Action.Initial(1),
         Action.ReplayAllocated,
+        Action.Initial(1),
         Action.Replayed(1, 1, 2, 2),
         Action.ReplayReleased,
         Action.AppendEvents(Nel.of(Nel.of(0))),
@@ -939,10 +954,12 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+
           def start = {
             Resource
               .make(lock.get) { _ => stopped.complete(()) }
-              .as(none[Started[F, S, C, E, R]])
+              .as(none[RecoveryStarted[F, S, C, E, R]])
           }
         }
         eventSourced.pure[F]
@@ -994,8 +1011,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+
           def start = {
-            val started = Started[F, S, C, E, R] { (_, _) =>
+            val started = RecoveryStarted[F, S, C, E, R] { (_, _) =>
               Resource
                 .make(lock.get) { _ => stopped.complete(()) }
                 .as(none[Recovering[F, S, C, E, R]])
@@ -1054,8 +1073,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+
           def start = {
-            val started = Started[F, S, C, E, R] { (_, _) =>
+            val started = RecoveryStarted[F, S, C, E, R] { (_, _) =>
 
               val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
@@ -1137,8 +1158,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def pluginIds = PluginIds.empty
 
+          def recovery = Recovery()
+
           def start = {
-            val started = Started[F, S, C, E, R] { (_, _) =>
+            val started = RecoveryStarted[F, S, C, E, R] { (_, _) =>
 
               val recovering: Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
 
@@ -1236,8 +1259,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("8"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
         Action.RecoveryAllocated(none),
-        Action.Initial(true),
-        Action.ReplayAllocated) ++
+        Action.ReplayAllocated,
+        Action.Initial(true)) ++
       replayed.toList ++
       List(
         Action.ReplayReleased,
@@ -1269,11 +1292,13 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
             def pluginIds = PluginIds.empty
 
+            def recovery = Recovery()
+
             def start = {
               val started = for {
                 _ <- actorCtx.setReceiveTimeout(10.millis)
               } yield {
-                Started[F, S, C, E, R] { (_, _) =>
+                RecoveryStarted[F, S, C, E, R] { (_, _) =>
                   val recovering = for {
                     _ <- actorCtx.setReceiveTimeout(10.millis)
                   } yield {
@@ -1297,7 +1322,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                         val receive = for {
                           _ <- actorCtx.setReceiveTimeout(10.millis)
                         } yield {
-                          Receive[F, C, R] { (a, _, _) =>
+                          Receive[F, C, R] { (a, _) =>
                             a match {
                               case ReceiveTimeout => timedOut.complete(()).as(true)
                               case _              => false.pure[F]

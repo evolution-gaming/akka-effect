@@ -1,5 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import akka.persistence.Recovery
 import cats.Monad
 import cats.effect.Resource
 
@@ -24,17 +25,16 @@ trait EventSourced[F[_], S, C, E, R] {
     */
   def eventSourcedId: EventSourcedId
 
-//  TODO
-//  /**
-//    * @see [[akka.persistence.PersistentActor.recovery]]
-//    */
-//  def recovery: Recovery = Recovery()
+  /**
+    * @see [[akka.persistence.PersistentActor.recovery]]
+    */
+  def recovery: Recovery
 
   /**
     * @see [[akka.persistence.PersistentActor.journalPluginId]]
     * @see [[akka.persistence.PersistentActor.snapshotPluginId]]
     */
-  def pluginIds: PluginIds // TODO = PluginIds.empty
+  def pluginIds: PluginIds
 
   /**
     * Called just after actor is started, resource will be released upon actor termination
@@ -42,7 +42,7 @@ trait EventSourced[F[_], S, C, E, R] {
     * @see [[akka.persistence.PersistentActor.preStart]]
     * @return None to stop actor, Some to continue
     */
-  def start: Resource[F, Option[Started[F, S, C, E, R]]]
+  def start: Resource[F, Option[RecoveryStarted[F, S, C, E, R]]]
 }
 
 
@@ -66,7 +66,11 @@ object EventSourced {
 
       def pluginIds = self.pluginIds
 
-      val start = self.start.map { _.map { _.convert(sf, s1f, cf, ef, e1f, rf) } }
+      def recovery = self.recovery
+
+      def start = {
+        self.start.map { _.map { _.convert(sf, s1f, cf, ef, e1f, rf) } }
+      }
     }
 
 
@@ -81,7 +85,11 @@ object EventSourced {
 
       def pluginIds = self.pluginIds
 
-      val start = self.start.map { _.map { _.widen(sf, cf, ef) } }
+      def recovery = self.recovery
+
+      def start = {
+        self.start.map { _.map { _.widen(sf, cf, ef) } }
+      }
     }
 
 
@@ -90,6 +98,8 @@ object EventSourced {
       cf: Any => F[C],
       ef: Any => F[E])(implicit
       F: Monad[F],
-    ): EventSourced[F, Any, Any, Any, Any] = widen[Any, Any, Any, Any](sf, cf, ef)
+    ): EventSourced[F, Any, Any, Any, Any] = {
+      widen[Any, Any, Any, Any](sf, cf, ef)
+    }
   }
 }

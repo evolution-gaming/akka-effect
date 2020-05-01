@@ -16,7 +16,7 @@ object ActorOf {
     receiveOf: ReceiveAnyOf[F]
   ): Actor = {
 
-    type State = ReceiveAny[F]
+    type State = ReceiveAny[F, Any]
 
     def onPreStart(actorCtx: ActorCtx[F])(implicit fail: Fail[F]) = {
       receiveOf(actorCtx)
