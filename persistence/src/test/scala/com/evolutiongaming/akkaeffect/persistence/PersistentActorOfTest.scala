@@ -656,8 +656,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("2"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
         Action.RecoveryAllocated(none),
-        Action.ReplayAllocated,
         Action.Initial(0),
+        Action.ReplayAllocated,
         Action.Replayed(0, 0, 1, 0),
         Action.Replayed(0, 1, 2, 1),
         Action.Replayed(1, 2, 3, 3),
@@ -782,8 +782,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("7"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
         Action.RecoveryAllocated(none),
-        Action.ReplayAllocated,
         Action.Initial(0),
+        Action.ReplayAllocated,
         Action.Replayed(0, 0, 1, 0),
         Action.Replayed(0, 1, 2, 1),
         Action.ReplayReleased,
@@ -912,8 +912,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("3", 1), 1).some),
-        Action.ReplayAllocated,
         Action.Initial(1),
+        Action.ReplayAllocated,
         Action.Replayed(1, 1, 2, 2),
         Action.ReplayReleased,
         Action.AppendEvents(Nel.of(Nel.of(0))),
@@ -1259,8 +1259,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("8"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
         Action.RecoveryAllocated(none),
-        Action.ReplayAllocated,
-        Action.Initial(true)) ++
+        Action.Initial(true),
+        Action.ReplayAllocated) ++
       replayed.toList ++
       List(
         Action.ReplayReleased,

@@ -6,7 +6,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 
 /**
-  * Describes "Started" phase
+  * Describes "RecoveryStarted" phase
   *
   * @tparam S snapshot
   * @tparam C command

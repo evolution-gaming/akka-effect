@@ -27,20 +27,10 @@ object EventSourcedInterop {
               .map { recoveryStarted =>
                 RecoveryStartedAny[F, S, C, E, R] { (seqNr, snapshotOffer) =>
                   val result = for {
-                    stateRef   <- OptionT.liftF(Ref[F].of(none[S]).toResource)
                     recovering <- OptionT(recoveryStarted(seqNr, snapshotOffer))
+                    initial    <- OptionT.liftF(recovering.initial.toResource)
+                    stateRef   <- OptionT.liftF(Ref[F].of(initial).toResource)
                   } yield {
-
-                    def state = {
-                      stateRef
-                        .get
-                        .flatMap {
-                          case Some(state) =>
-                            state.pure[F]
-                          case None        =>
-                            recovering.initial.flatTap { state => stateRef.set(state.some) }
-                        }
-                    }
 
                     new RecoveringAny[F, S, C, E, R] {
 
@@ -50,9 +40,9 @@ object EventSourcedInterop {
                           .map { replay =>
                             Replay1[F, E] { (seqNr, event) =>
                               for {
-                                state <- state
+                                state <- stateRef.get
                                 state <- replay(seqNr, state, event)
-                                _     <- stateRef.set(state.some)
+                                _     <- stateRef.set(state)
                               } yield {}
                             }
                           }
@@ -64,7 +54,7 @@ object EventSourcedInterop {
                         snapshotter: Snapshotter[F, S]
                       ) = {
                         val result = for {
-                          state   <- OptionT.liftF(state.toResource)
+                          state   <- OptionT.liftF(stateRef.get.toResource)
                           receive <- OptionT(recovering.completed(seqNr, state, journaller, snapshotter))
                         } yield {
                           ReceiveAny[F, C] { (msg, sender) =>

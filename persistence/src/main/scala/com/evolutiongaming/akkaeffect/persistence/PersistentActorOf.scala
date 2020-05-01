@@ -65,7 +65,7 @@ object PersistentActorOf {
         deleteEventsTo: DeleteEventsTo[F])
 
       lazy val (resources: Resources, release) = {
-        val stopped = Lazy[F].of { Sync[F].delay { actorError("has been stopped", none) } }
+        val stopped = Lazy.sync[F, Throwable] { Sync[F].delay { actorError("has been stopped", none) } }
         val result = for {
           stopped        <- stopped.toResource
           act            <- act.value.toSafe.pure[Resource[F, *]]
