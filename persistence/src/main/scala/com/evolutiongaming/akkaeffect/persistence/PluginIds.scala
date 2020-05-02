@@ -12,7 +12,7 @@ final case class PluginIds(
 
 object PluginIds {
   
-  val empty: PluginIds = PluginIds()
+  val Empty: PluginIds = PluginIds()
 
   def apply(journal: String, snapshot: String): PluginIds = {
     PluginIds(journal = journal.some, snapshot = snapshot.some)

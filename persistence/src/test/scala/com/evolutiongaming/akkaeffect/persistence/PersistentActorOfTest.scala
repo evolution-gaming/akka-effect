@@ -100,7 +100,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("id")
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = Recovery()
 
@@ -263,7 +263,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("0")
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = recovery1
 
@@ -306,7 +306,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _              <- stopped.get
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
-        Action.Created(EventSourcedId("0"), recovery1, PluginIds.empty),
+        Action.Created(EventSourcedId("0"), recovery1, PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(None),
         Action.ReceiveAllocated(0L),
@@ -335,7 +335,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("1")
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = Recovery()
 
@@ -391,7 +391,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       saveSnapshot <- actions
       _ = saveSnapshot shouldEqual List(
-        Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.AppendEvents(Nel.of(Nel.of(0L))),
@@ -406,7 +406,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
-        Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
         Action.AppendEvents(Nel.of(Nel.of(0L))),
@@ -441,7 +441,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("6")
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = Recovery()
 
@@ -499,7 +499,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       saveSnapshot <- actions
       _ = saveSnapshot shouldEqual List(
-        Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.AppendEvents(Nel.of(Nel.of(0L))),
@@ -520,7 +520,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
-        Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
         Action.AppendEvents(Nel.of(Nel.of(0L))),
@@ -561,7 +561,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("2")
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = Recovery()
 
@@ -617,7 +617,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       appendEvents <- actions
       _ = appendEvents shouldEqual List(
-        Action.Created(EventSourcedId("2"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("2"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.AppendEvents(Nel.of(Nel.of(0, 1), Nel.of(2))),
@@ -629,7 +629,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
-        Action.Created(EventSourcedId("2"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("2"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.ReplayAllocated,
@@ -666,7 +666,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("7")
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = Recovery()
 
@@ -725,7 +725,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       appendEvents <- actions
       _ = appendEvents shouldEqual List(
-        Action.Created(EventSourcedId("7"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("7"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.AppendEvents(Nel.of(Nel.of(0))),
@@ -746,7 +746,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
-        Action.Created(EventSourcedId("7"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("7"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.ReplayAllocated,
@@ -791,7 +791,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("3")
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = Recovery()
 
@@ -849,7 +849,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       write <- actions
       _ = write shouldEqual List(
-        Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.AppendEvents(Nel.of(Nel.of(0))),
@@ -867,7 +867,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       recover <- actions
       _ = recover shouldEqual List(
-        Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
         Action.ReplayAllocated,
@@ -908,7 +908,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("10")
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = Recovery()
 
@@ -942,7 +942,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _              <- stopped.get
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
-        Action.Created(EventSourcedId("10"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("10"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.ReceiveAllocated(0),
@@ -971,7 +971,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("4")
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = Recovery()
 
@@ -1005,7 +1005,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _              <- stopped.get
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
-        Action.Created(EventSourcedId("4"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("4"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.ReceiveAllocated(0),
@@ -1034,7 +1034,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("5")
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = Recovery()
 
@@ -1083,7 +1083,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _              <- stopped.get
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
-        Action.Created(EventSourcedId("5"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("5"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.ReceiveAllocated(0),
@@ -1114,7 +1114,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def eventSourcedId = EventSourcedId("8")
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = Recovery()
 
@@ -1202,7 +1202,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     for {
       a <- actions
       _  = a shouldEqual List(
-        Action.Created(EventSourcedId("8"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("8"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none)) ++
       appends.toList ++
@@ -1213,7 +1213,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Released)
       a <- actions
       _  = a shouldEqual List(
-        Action.Created(EventSourcedId("8"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("8"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
         Action.ReplayAllocated) ++
@@ -1245,7 +1245,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
             def eventSourcedId = EventSourcedId("9")
 
-            def pluginIds = PluginIds.empty
+            def pluginIds = PluginIds.Empty
 
             def recovery = Recovery()
 

@@ -39,7 +39,7 @@ object InstrumentEventSourced {
 
           def eventSourcedId = eventSourced.eventSourcedId
 
-          def pluginIds = PluginIds.empty
+          def pluginIds = PluginIds.Empty
 
           def recovery = Recovery()
 
