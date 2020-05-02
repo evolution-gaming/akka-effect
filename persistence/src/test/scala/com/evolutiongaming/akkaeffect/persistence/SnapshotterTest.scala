@@ -1,9 +1,9 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.persistence.{Snapshotter => _, _}
+import akka.persistence.{Snapshotter => _, SnapshotMetadata =>_, _}
 import cats.effect.concurrent.Deferred
-import cats.effect.{Concurrent, IO, Resource, Sync}
+import cats.effect.{Concurrent, IO, Sync}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.{ActorSuite, _}
@@ -57,7 +57,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
       _           <- actorRefOf(props)
       snapshotter <- snapshotter.get.toResource
       result      <- {
-        val metadata = SnapshotMetadata("snapshotterId", 0L)
+        val metadata = akka.persistence.SnapshotMetadata("snapshotterId", 0L)
 
         val criteria = SnapshotSelectionCriteria()
 
