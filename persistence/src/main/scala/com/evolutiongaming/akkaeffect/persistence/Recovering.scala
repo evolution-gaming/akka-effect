@@ -1,10 +1,9 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.effect.Resource
 import cats.Monad
+import cats.effect.Resource
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Receive
-import com.evolutiongaming.akkaeffect.persistence.OptResHelper._
 import com.evolutiongaming.catshelper.CatsHelper._
 
 /**
@@ -22,23 +21,39 @@ trait Recovering[F[_], S, C, E, R] {
   /**
     * Used to replay events during recovery against passed state, resource will be released when recovery is completed
     */
-  def replay: Resource[F, Replay[F, S, E]]
+  def replay: Resource[F, Replay1[F, S, E]]
 
   /**
     * Called when recovery completed, resource will be released upon actor termination
     *
     * @see [[akka.persistence.RecoveryCompleted]]
-    * @return None to stop actor, Some to continue
     */
   def completed(
     seqNr: SeqNr,
     state: S,
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]
-  ): Resource[F, Option[Receive[F, C, R]]]
+  ): Resource[F, Receive[F, C, R]]
 }
 
 object Recovering {
+
+  def empty[F[_]: Monad, S, C, E, R](state: S): Recovering[F, S, C, E, R] = new Recovering[F, S, C, E, R] {
+
+    def initial = state.pure[F]
+
+    def replay = Replay1.empty[F, S, E].pure[Resource[F, *]]
+
+    def completed(
+      seqNr: SeqNr,
+      state: S,
+      journaller: Journaller[F, E],
+      snapshotter: Snapshotter[F, S]
+    ) = {
+      Receive.empty[F, C, R].pure[Resource[F, *]]
+    }
+  }
+
 
   implicit class RecoveringOps[F[_], S, C, E, R](val self: Recovering[F, S, C, E, R]) extends AnyVal {
 
@@ -62,15 +77,11 @@ object Recovering {
         journaller: Journaller[F, E1],
         snapshotter: Snapshotter[F, S1]
       ) = {
-
         val journaller1 = journaller.convert(ef)
         val snapshotter1 = snapshotter.convert(sf)
-
         for {
           state   <- s1f(state).toResource
           receive <- self.completed(seqNr, state, journaller1, snapshotter1)
-        } yield for {
-          receive <- receive
         } yield {
           receive.convert(cf, rf)
         }
@@ -98,8 +109,6 @@ object Recovering {
         for {
           state   <- sf(state).toResource
           receive <- self.completed(seqNr, state, journaller, snapshotter)
-        } yield for {
-          receive <- receive
         } yield {
           receive.widen(cf)
         }

@@ -15,9 +15,8 @@ import cats.effect.Resource
   * @tparam S snapshot
   * @tparam C command
   * @tparam E event
-  * @tparam R reply
   */
-trait EventSourcedAny[F[_], S, C, E, R] {
+trait EventSourcedAny[F[_], S, C, E] {
 
   /**
     * @see [[akka.persistence.PersistentActor.persistenceId]]
@@ -39,9 +38,8 @@ trait EventSourcedAny[F[_], S, C, E, R] {
     * Called just after actor is started, resource will be released upon actor termination
     *
     * @see [[akka.persistence.PersistentActor.preStart]]
-    * @return None to stop actor, Some to continue
     */
-  def start: Resource[F, Option[RecoveryStartedAny[F, S, C, E, R]]]
+  def start: Resource[F, RecoveryStartedAny[F, S, C, E]]
 }
 
 

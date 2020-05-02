@@ -44,8 +44,8 @@ object Probe {
 
 
     def receiveOf(listenersRef: Ref[F, Set[Listener]]): ReceiveAnyOf[F] = {
-      actorCtx: ActorCtx[F] => {
-        val receive = ReceiveAny[F, Any] { (msg, sender) =>
+      actorCtx => {
+        ReceiveAny[F, Any] { (msg, sender) =>
           msg match {
             case Watch(actorRef) =>
               for {
@@ -69,10 +69,7 @@ object Probe {
                 _           <- listenersRef.update { _ -- unsubscribe }
               } yield false
           }
-        }
-        receive
-          .some
-          .pure[Resource[F, *]]
+        }.pure[Resource[F, *]]
       }
     }
 

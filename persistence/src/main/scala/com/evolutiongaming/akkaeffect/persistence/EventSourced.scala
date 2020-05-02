@@ -42,7 +42,7 @@ trait EventSourced[F[_], S, C, E, R] {
     * @see [[akka.persistence.PersistentActor.preStart]]
     * @return None to stop actor, Some to continue
     */
-  def start: Resource[F, Option[RecoveryStarted[F, S, C, E, R]]]
+  def start: Resource[F, RecoveryStarted[F, S, C, E, R]]
 }
 
 
@@ -69,7 +69,7 @@ object EventSourced {
       def recovery = self.recovery
 
       def start = {
-        self.start.map { _.map { _.convert(sf, s1f, cf, ef, e1f, rf) } }
+        self.start.map { _.convert(sf, s1f, cf, ef, e1f, rf) }
       }
     }
 
@@ -88,7 +88,7 @@ object EventSourced {
       def recovery = self.recovery
 
       def start = {
-        self.start.map { _.map { _.widen(sf, cf, ef) } }
+        self.start.map { _.widen(sf, cf, ef) }
       }
     }
 

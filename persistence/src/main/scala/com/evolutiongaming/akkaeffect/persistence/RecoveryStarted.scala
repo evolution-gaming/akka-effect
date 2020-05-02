@@ -19,24 +19,35 @@ trait RecoveryStarted[F[_], S, C, E, R] {
     * Called upon starting recovery, resource will be released upon actor termination
     *
     * @see [[akka.persistence.SnapshotOffer]]
-    * @return None to stop actor, Some to continue
     */
   def apply(
     seqNr: SeqNr,
     snapshotOffer: Option[SnapshotOffer[S]]
-  ): Resource[F, Option[Recovering[F, S, C, E, R]]]
+  ): Resource[F, Recovering[F, S, C, E, R]]
 }
 
 object RecoveryStarted {
 
   def apply[F[_], S, C, E, R](
-    f: (SeqNr, Option[SnapshotOffer[S]]) => Resource[F, Option[Recovering[F, S, C, E, R]]]
+    f: (SeqNr, Option[SnapshotOffer[S]]) => Resource[F, Recovering[F, S, C, E, R]]
   ): RecoveryStarted[F, S, C, E, R] = {
     (seqNr, snapshotOffer) => f(seqNr, snapshotOffer)
   }
 
+  def const[F[_], S, C, E, R](
+    recovering: Resource[F, Recovering[F, S, C, E, R]]
+  ): RecoveryStarted[F, S, C, E, R] = {
+    (_, _) => recovering
+  }
 
-  implicit class RecoveryStartedOps[F[_], S, C, E, R](val self: RecoveryStarted[F, S, C, E, R]) extends AnyVal {
+  def empty[F[_]: Monad, S, C, E, R](state: S): RecoveryStarted[F, S, C, E, R] = {
+    const(Recovering.empty[F, S, C, E, R](state).pure[Resource[F, *]])
+  }
+
+
+  implicit class RecoveryStartedOps[F[_], S, C, E, R](
+    val self: RecoveryStarted[F, S, C, E, R]
+  ) extends AnyVal {
 
     def convert[S1, C1, E1, R1](
       sf: S => F[S1],
@@ -57,8 +68,6 @@ object RecoveryStarted {
         for {
           snapshotOffer <- snapshotOffer1.toResource
           recovering    <- self(seqNr, snapshotOffer)
-        } yield for {
-          recovering <- recovering
         } yield {
           recovering.convert(sf, s1f, cf, ef, e1f, rf)
         }
@@ -81,8 +90,6 @@ object RecoveryStarted {
         for {
           snapshotOffer <- snapshotOffer1.toResource
           recovering    <- self(seqNr, snapshotOffer)
-        } yield for {
-          recovering <- recovering
         } yield {
           recovering.widen(sf, cf, ef)
         }

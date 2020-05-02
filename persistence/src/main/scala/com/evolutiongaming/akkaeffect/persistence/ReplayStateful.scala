@@ -8,7 +8,7 @@ trait ReplayStateful[F[_], S, E] {
 
   def state: F[S]
 
-  def replay: Replay1[F, E]
+  def replay: Replay[F, E]
 }
 
 object ReplayStateful {
@@ -21,7 +21,7 @@ object ReplayStateful {
 
           val state = stateRef.get
 
-          val replay = Replay1[F, E] { (seqNr, event) =>
+          val replay = Replay[F, E] { (seqNr, event) =>
             for {
               s <- stateRef.get
               s <- f(seqNr, s, event)

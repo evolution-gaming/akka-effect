@@ -22,7 +22,7 @@ object PersistentActorOf {
   }
 
   def apply[F[_]: Sync: Timer: ToFuture: FromFuture: ToTry](
-    eventSourcedOf: EventSourcedAnyOf[F, Any, Any, Any, Any],
+    eventSourcedOf: EventSourcedAnyOf[F, Any, Any, Any],
     timeout: FiniteDuration = 1.minute
   ): PersistentActor = {
 
@@ -170,11 +170,7 @@ object PersistentActorOf {
       private def recoveryCompleted(seqNr: SeqNr): Unit = {
         val journaller = Journaller[F, Any](resources.append.value, resources.deleteEventsTo).withFail(fail)
         val snapshotter = Snapshotter[F, Any](actor, timeout).withFail(fail)
-        persistence.recoveryCompleted(
-          seqNr,
-          ReplyOf.fromActorRef(self),
-          journaller,
-          snapshotter)
+        persistence.recoveryCompleted(seqNr, journaller, snapshotter)
       }
 
       private def lastSeqNr() = lastSequenceNr

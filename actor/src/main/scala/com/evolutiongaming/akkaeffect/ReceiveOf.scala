@@ -12,23 +12,17 @@ import cats.{Applicative, Monad, ~>}
   */
 trait ReceiveOf[F[_], A, B] {
 
-  def apply(actorCtx: ActorCtx[F]): Resource[F, Option[Receive[F, A, B]]]
+  def apply(actorCtx: ActorCtx[F]): Resource[F, Receive[F, A, B]]
 }
 
 object ReceiveOf {
 
-  def const[F[_]: Applicative, A, B](receive: Option[Receive[F, A, B]]): ReceiveOf[F, A, B] = {
-    _ => Resource.pure[F, Option[Receive[F, A, B]]](receive)
-  }
+  def const[F[_], A, B](receive: Resource[F, Receive[F, A, B]]): ReceiveOf[F, A, B] = _ => receive
 
+  def empty[F[_]: Monad, A, B]: ReceiveOf[F, A, B] = const(Receive.empty[F, A, B].pure[Resource[F, *]])
 
-  def empty[F[_]: Applicative, A, B]: ReceiveOf[F, A, B] = const(none[Receive[F, A, B]])
-
-
-  def apply[F[_], A, B](
-    f: ActorCtx[F] => Resource[F, Option[Receive[F, A, B]]]
-  ): ReceiveOf[F, A, B] = {
-    a => f(a)
+  def apply[F[_], A, B](f: ActorCtx[F] => Resource[F, Receive[F, A, B]]): ReceiveOf[F, A, B] = {
+    actorCtx => f(actorCtx)
   }
 
 
@@ -39,15 +33,7 @@ object ReceiveOf {
       bf: B => F[B1])(implicit
       F: Monad[F],
     ): ReceiveOf[F, A1, B1] = {
-      actorCtx: ActorCtx[F] => {
-        for {
-          receive <- self(actorCtx)
-        } yield for {
-          receive <- receive
-        } yield {
-          receive.convert(af, bf)
-        }
-      }
+      actorCtx => self(actorCtx).map { _.convert(af, bf) }
     }
 
 
@@ -55,15 +41,7 @@ object ReceiveOf {
       f: A1 => F[A])(implicit
       F: Monad[F]
     ): ReceiveOf[F, A1, B1] = {
-      actorCtx: ActorCtx[F] => {
-        for {
-          receive <- self(actorCtx)
-        } yield for {
-          receive <- receive
-        } yield {
-          receive.widen(f)
-        }
-      }
+      actorCtx => self(actorCtx).map { _.widen(f) }
     }
 
 
@@ -76,15 +54,10 @@ object ReceiveOf {
       F: Sync[F],
       G: Sync[G],
     ): ReceiveOf[G, A, B] = {
-      actorCtx: ActorCtx[G] => {
-        for {
-          receive <- self(actorCtx.mapK(gf)).mapK(fg)
-        } yield for {
-          receive <- receive
-        } yield {
-          receive.mapK(fg, gf)
-        }
-      }
+      actorCtx =>
+        self(actorCtx.mapK(gf))
+          .mapK(fg)
+          .map { _.mapK(fg, gf) }
     }
   }
 

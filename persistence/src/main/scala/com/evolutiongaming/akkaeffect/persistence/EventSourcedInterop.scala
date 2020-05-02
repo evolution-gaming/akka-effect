@@ -1,6 +1,5 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.data.OptionT
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
 import cats.implicits._
@@ -11,10 +10,10 @@ object EventSourcedInterop {
 
   def apply[F[_]: Sync, S, C, E, R](
     eventSourcedOf: EventSourcedOf[F, S, C, E, R]
-  ): EventSourcedAnyOf[F, S, C, E, R] = {
+  ): EventSourcedAnyOf[F, S, C, E] = {
     EventSourcedAnyOf[F, S, C, E, R] { actorCtx =>
       eventSourcedOf(actorCtx).map { eventSourced =>
-        new EventSourcedAny[F, S, C, E, R] {
+        new EventSourcedAny[F, S, C, E] {
 
           def eventSourcedId = eventSourced.eventSourcedId
 
@@ -23,22 +22,22 @@ object EventSourcedInterop {
           def pluginIds = eventSourced.pluginIds
 
           def start = {
-            OptionT(eventSourced.start)
+            eventSourced.start
               .map { recoveryStarted =>
-                RecoveryStartedAny[F, S, C, E, R] { (seqNr, snapshotOffer) =>
-                  val result = for {
-                    recovering <- OptionT(recoveryStarted(seqNr, snapshotOffer))
-                    initial    <- OptionT.liftF(recovering.initial.toResource)
-                    stateRef   <- OptionT.liftF(Ref[F].of(initial).toResource)
+                RecoveryStartedAny[F, S, C, E] { (seqNr, snapshotOffer) =>
+                  for {
+                    recovering <- recoveryStarted(seqNr, snapshotOffer)
+                    initial    <- recovering.initial.toResource
+                    stateRef   <- Ref[F].of(initial).toResource
                   } yield {
 
-                    new RecoveringAny[F, S, C, E, R] {
+                    new RecoveringAny[F, S, C, E] {
 
                       def replay = {
                         recovering
                           .replay
                           .map { replay =>
-                            Replay1[F, E] { (seqNr, event) =>
+                            Replay[F, E] { (seqNr, event) =>
                               for {
                                 state <- stateRef.get
                                 state <- replay(seqNr, state, event)
@@ -53,9 +52,9 @@ object EventSourcedInterop {
                         journaller: Journaller[F, E],
                         snapshotter: Snapshotter[F, S]
                       ) = {
-                        val result = for {
-                          state   <- OptionT.liftF(stateRef.get.toResource)
-                          receive <- OptionT(recovering.completed(seqNr, state, journaller, snapshotter))
+                        for {
+                          state   <- stateRef.get.toResource
+                          receive <- recovering.completed(seqNr, state, journaller, snapshotter)
                         } yield {
                           ReceiveAny[F, C] { (msg, sender) =>
                             val reply = Reply
@@ -64,14 +63,11 @@ object EventSourcedInterop {
                             receive(msg, reply)
                           }
                         }
-                        result.value
                       }
                     }
                   }
-                  result.value
                 }
               }
-              .value
           }
         }
       }

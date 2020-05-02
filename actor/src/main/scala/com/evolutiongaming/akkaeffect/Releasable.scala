@@ -11,14 +11,14 @@ final case class Releasable[F[_], A](value: A, release: Option[F[Unit]] = None)
 
 object Releasable {
 
-  def fromResource[F[_] : BracketThrowable, A](resource: Resource[F, A]): F[Releasable[F, A]] = {
+  def fromResource[F[_]: BracketThrowable, A](resource: Resource[F, A]): F[Releasable[F, A]] = {
     resource
       .allocated
       .map { case (a, release) => Releasable(a, release.some) }
   }
 
 
-  implicit def monadReleasable[F[_] : Applicative]: Monad[Releasable[F, *]] = {
+  implicit def monadReleasable[F[_]: Applicative]: Monad[Releasable[F, *]] = {
 
     def combine(a: Option[F[Unit]], b: Option[F[Unit]]) = {
       a match {

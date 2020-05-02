@@ -45,8 +45,6 @@ object InstrumentEventSourced {
             for {
               recoveryStarted <- eventSourced.start
               _               <- resource(Action.Started, Action.Released)
-            } yield for {
-              recoveryStarted <- recoveryStarted
             } yield {
               RecoveryStarted[F, S, C, E, R] { (seqNr, snapshotOffer) =>
 
@@ -58,8 +56,6 @@ object InstrumentEventSourced {
                 for {
                   recovering <- recoveryStarted(seqNr, snapshotOffer)
                   _          <- resource(Action.RecoveryAllocated(snapshotOffer1), Action.RecoveryReleased)
-                } yield for {
-                  recovering <- recovering
                 } yield {
 
                   new Recovering[F, S, C, E, R] {
@@ -74,7 +70,7 @@ object InstrumentEventSourced {
                         _      <- resource(Action.ReplayAllocated, Action.ReplayReleased)
                         replay <- recovering.replay
                       } yield {
-                        Replay[F, S, E] { (seqNr, state, event) =>
+                        Replay1[F, S, E] { (seqNr, state, event) =>
                           for {
                             after <- replay(seqNr, state, event)
                             _     <- record(Action.Replayed(state, event, seqNr, after))
@@ -162,8 +158,6 @@ object InstrumentEventSourced {
                       for {
                         receive <- recovering.completed(seqNr, state, journaller1, snapshotter1)
                         _       <- resource(Action.ReceiveAllocated(state, seqNr), Action.ReceiveReleased)
-                      } yield for {
-                        receive <- receive
                       } yield {
                         Receive[F, C, R] { (msg, reply) =>
                           val reply1 = Reply[F, R] { msg =>

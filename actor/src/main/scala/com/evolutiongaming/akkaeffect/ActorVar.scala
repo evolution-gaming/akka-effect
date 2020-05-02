@@ -14,12 +14,12 @@ import scala.util.{Failure, Success, Try}
 
 trait ActorVar[F[_], A] {
 
-  def preStart(a: Resource[F, Option[A]]): Unit
+  def preStart(a: Resource[F, A]): Unit
 
   /**
     * @param f takes current state and returns tuple from next state and optional release callback
     */
-  def receive(f: A => F[Option[Releasable[F, A]]]): Unit
+  def receive(f: A => F[Option[Releasable[F, A]]]): Unit // TODO simplify F[Option[Releasable
 
   def postStop(): F[Unit]
 }
@@ -86,15 +86,12 @@ object ActorVar {
 
     new ActorVar[F, A] {
 
-      def preStart(a: Resource[F, Option[A]]) = {
+      def preStart(a: Resource[F, A]) = {
         run {
           a
             .allocated
             .flatMap { case (a, release) =>
-              a match {
-                case Some(a) => State(a, release).some.pure[F]
-                case None    => release.as(none[State])
-              }
+              State(a, release).some.pure[F]
             }
         }
       }

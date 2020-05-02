@@ -1,9 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.Monad
 import cats.effect.Resource
-import cats.implicits._
-import com.evolutiongaming.catshelper.CatsHelper._
 
 /**
   * Describes "Started" phase
@@ -11,27 +8,25 @@ import com.evolutiongaming.catshelper.CatsHelper._
   * @tparam S snapshot
   * @tparam C command
   * @tparam E event
-  * @tparam R reply
   */
-trait RecoveryStartedAny[F[_], S, C, E, R] {
+trait RecoveryStartedAny[F[_], S, C, E] {
 
   /**
     * Called upon starting recovery, resource will be released upon actor termination
     *
     * @see [[akka.persistence.SnapshotOffer]]
-    * @return None to stop actor, Some to continue
     */
   def apply(
     seqNr: SeqNr,
     snapshotOffer: Option[SnapshotOffer[S]]
-  ): Resource[F, Option[RecoveringAny[F, S, C, E, R]]]
+  ): Resource[F, RecoveringAny[F, S, C, E]]
 }
 
 object RecoveryStartedAny {
 
-  def apply[F[_], S, C, E, R](
-    f: (SeqNr, Option[SnapshotOffer[S]]) => Resource[F, Option[RecoveringAny[F, S, C, E, R]]]
-  ): RecoveryStartedAny[F, S, C, E, R] = {
+  def apply[F[_], S, C, E](
+    f: (SeqNr, Option[SnapshotOffer[S]]) => Resource[F, RecoveringAny[F, S, C, E]]
+  ): RecoveryStartedAny[F, S, C, E] = {
     (seqNr, snapshotOffer) => f(seqNr, snapshotOffer)
   }
 }

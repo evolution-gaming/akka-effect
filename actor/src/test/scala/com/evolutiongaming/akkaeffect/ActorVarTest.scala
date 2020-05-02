@@ -69,9 +69,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
         for {
           _ <- deferred.get
           _ <- actions.add(Action.Allocated)
-        } yield {
-          0.some
-        }
+        } yield 0
       } { _ =>
         actions.add(Action.Released)
       }
