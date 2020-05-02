@@ -11,9 +11,12 @@ Covered:
 * [Actors](https://doc.akka.io/docs/akka/current/actors.html)
 * [Persistence](https://doc.akka.io/docs/akka/current/persistence.html)
 
-## Building blocks 
+## Building blocks
 
-### [Tell.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Tell.scala)
+
+### `akka-effect-actor` module 
+
+#### [Tell.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Tell.scala)
 
 Represents `ActorRef.tell`
 
@@ -25,19 +28,19 @@ trait Tell[F[_], -A] {
 ```
 
 
-### [Ask.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Ask.scala)
+#### [Ask.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Ask.scala)
 
 Represents `ActorRef.ask` pattern
 
 ```scala
 trait Ask[F[_], -A, B] {
 
-  def apply(msg: A, timeout: FiniteDuration, sender: Option[ActorRef] = None): F[B]
+  def apply(msg: A, timeout: FiniteDuration, sender: Option[ActorRef]): F[B]
 }
 ```
 
 
-### [Reply.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Reply.scala)
+#### [Reply.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Reply.scala)
 
 Represents reply pattern: `sender() ! reply`
 
@@ -49,7 +52,7 @@ trait Reply[F[_], -A] {
 ```
 
 
-### [Receive.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Receive.scala)
+#### [Receive.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/Receive.scala)
 
 This is what you need to implement instead of familiar `new Actor { ... }`  
 
@@ -63,105 +66,148 @@ trait Receive[F[_], -A, B] {
 ```
 
 
-### [ActorOf.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/ActorOf.scala)
+#### [ActorOf.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/ActorOf.scala)
 
-Constructs `Actor.scala` out of `receive: ActorCtx[F, Any, Any] => Resource[F, Option[Receive[F, Any, Any]]]`
+Constructs `Actor.scala` out of `receive: ActorCtx[F] => Resource[F, Receive[F, Any]]`
 
 
-### [ActorCtx.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/ActorCtx.scala)
+#### [ActorCtx.scala](actor/src/main/scala/com/evolutiongaming/akkaeffect/ActorCtx.scala)
 
 Wraps `ActorContext`
 
 ```scala
-trait ActorCtx[F[_], -A, B] {
+trait ActorCtx[F[_]] {
 
-  def self: ActorEffect[F, A, B]
+  def self: ActorRef
 
-  def dispatcher: ExecutionContextExecutor
+  def parent: ActorRef
+
+  def executor: ExecutionContextExecutor
 
   def setReceiveTimeout(timeout: Duration): F[Unit]
 
   def child(name: String): F[Option[ActorRef]]
 
-  def children: F[Iterable[ActorRef]]
+  def children: F[List[ActorRef]]
 
-  def actorRefOf: ActorRefOf[F]
+  def actorRefFactory: ActorRefFactory
 
-  def watch(actorRef: ActorRef, msg: A): F[Unit]
+  def watch[A](actorRef: ActorRef, msg: A): F[Unit]
 
   def unwatch(actorRef: ActorRef): F[Unit]
+
+  def stop: F[Unit]
 }
 ```
 
 
-### [PersistentActorOf.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/PersistentActorOf.scala)
+### `akka-effect-persistence` module
 
-Constructs `PersistentActor.scala` out of `eventSourcedOf: ActorCtx[F, C, R] => Resource[F, EventSourced[F, S, C, E, R]`
+#### [PersistentActorOf.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/PersistentActorOf.scala)
+
+Constructs `PersistentActor.scala` out of `eventSourcedOf: ActorCtx[F] => F[EventSourcedAny[F, S, C, E]]`
 
 
-### [EventSourced.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/EventSourced.scala)
+#### [EventSourced.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/EventSourced.scala)
 
-Describes lifecycle of entity with regards to event sourcing, phases are: Started, Recovering, Receiving and Termination
+Describes a lifecycle of entity with regard to event sourcing, phases are: Started, Recovering, Receiving and Termination
 
 ```scala
-trait EventSourced[F[_], S, C, E, R] {
+trait EventSourced[F[_], S, C, E] {
 
-  def id: String
+  def eventSourcedId: EventSourcedId
 
-  def recovery: Recovery = Recovery()
+  def recovery: Recovery
 
-  def pluginIds: PluginIds = PluginIds.default
+  def pluginIds: PluginIds
 
-  def start: Resource[F, Option[Started[F, S, C, E, R]]]
+  def start: Resource[F, RecoveryStarted[F, S, C, E]]
+}
+```
+
+#### [RecoveryStarted.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/RecoveryStarted.scala)
+
+Describes start of recovery phase
+ 
+```scala
+trait RecoveryStarted[F[_], S, C, E] {
+
+  def apply(
+    seqNr: SeqNr,
+    snapshotOffer: Option[SnapshotOffer[S]]
+  ): Resource[F, Recovering[F, S, C, E]]
 }
 ```
 
 
-### [Recovering.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/Recovering.scala)
+#### [Recovering.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/Recovering.scala)
 
 Describes recovery phase
  
 ```scala
-trait Recovering[F[_], S, C, E, R] {
+trait Recovering[F[_], S, C, E] {
 
-  def initial: F[S]
+  def replay: Resource[F, Replay[F, E]]
 
-  def replay: Resource[F, Replay[F, S, E]]
-
-  def recoveryCompleted(
-    state: S,
+  def completed(
     seqNr: SeqNr,
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]
-  ): Resource[F, Option[Receive[F, C, R]]]
+  ): Resource[F, Receive[F, C]]
 }
 ```
 
 
-### [Journaller.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/Journaller.scala)
+#### [Replay.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/Replay.scala)
+
+Used during recovery to replay events
+ 
+```scala
+trait Replay[F[_], A] {
+
+  def apply(seqNr: SeqNr, event: A): F[Unit]
+}
+```
+
+
+#### [Journaller.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/Journaller.scala)
+
+Describes communication with underlying journal
 
 ```scala
 trait Journaller[F[_], -A] {
 
   def append: Append[F, A]
 
-  def deleteTo(seqNr: SeqNr): F[F[Unit]]
+  def deleteTo: DeleteEventsTo[F]
 }
 ```
 
 
-### [Snapshotter.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/Snapshotter.scala)
+#### [Snapshotter.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/Snapshotter.scala)
+
+Describes communication with underlying snapshot storage
 
 ```scala
+/**
+  * Describes communication with underlying snapshot storage
+  *
+  * @tparam A - snapshot
+  */
 trait Snapshotter[F[_], -A] {
 
-  def save(snapshot: A): F[Result[F]]
+  def save(seqNr: SeqNr, snapshot: A): F[F[Instant]]
 
   def delete(seqNr: SeqNr): F[F[Unit]]
 
   def delete(criteria: SnapshotSelectionCriteria): F[F[Unit]]
 }
 ```
+
+
+### `akka-effect-eventsourced` module
+
+TODO
 
 
 ## Setup
