@@ -243,9 +243,17 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     shift: F[Unit]
   ) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
-
-    val receiveOf = ReceiveOf.const[F, Any, Any] {
-      Resource.make { shift as Receive.empty[F, Any, Any] } { _ => shift }
+    val receiveOf = ReceiveOf[F, Any, Any] { actorCtx =>
+      Resource.make {
+        for {
+          _ <- shift
+          _ <- actorCtx.stop
+        } yield {
+          Receive.empty[F, Any, Any]
+        }
+      } {
+        _ => shift
+      }
     }
     def actor = ActorOf[F](receiveOf.toReceiveAnyOf)
     val props = Props(actor)

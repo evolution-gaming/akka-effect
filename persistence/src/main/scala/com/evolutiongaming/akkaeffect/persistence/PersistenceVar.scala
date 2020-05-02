@@ -29,7 +29,7 @@ private[akkaeffect] trait PersistenceVar[F[_], S, C, E] {
 
 private[akkaeffect] object PersistenceVar {
 
-  def apply[F[_] : Sync : ToFuture : FromFuture : Fail, S, C, E, R](
+  def apply[F[_] : Sync : ToFuture : FromFuture : Fail, S, C, E](
     act: Act[Future],
     context: ActorContext
   ): PersistenceVar[F, S, C, E] = {

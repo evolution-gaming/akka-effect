@@ -1,5 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import akka.actor.ActorRef
 import akka.persistence.{Recovery, SnapshotSelectionCriteria}
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.Ref
@@ -9,14 +10,14 @@ import com.evolutiongaming.akkaeffect._
 
 object InstrumentEventSourced {
 
-  def apply[F[_] : Sync, S, C, E, R](
-    actions: Ref[F, List[Action[S, C, E, R]]],
-    eventSourcedOf: EventSourcedOf[F, S, C, E, R]
-  ): EventSourcedOf[F, S, C, E, R] = {
+  def apply[F[_] : Sync, S, C, E](
+    actions: Ref[F, List[Action[S, C, E]]],
+    eventSourcedOf: EventSourcedAnyOf[F, S, C, E]
+  ): EventSourcedAnyOf[F, S, C, E] = {
 
-    def record(action: Action[S, C, E, R]) = actions.update { action :: _ }
+    def record(action: Action[S, C, E]) = actions.update { action :: _ }
 
-    def resource[A](allocate: Action[S, C, E, R], release: Action[S, C, E, R]) = {
+    def resource[A](allocate: Action[S, C, E], release: Action[S, C, E]) = {
       Resource.make {
         record(allocate)
       } { _ =>
@@ -29,24 +30,23 @@ object InstrumentEventSourced {
         eventSourced <- eventSourcedOf(actorCtx)
         _            <- record(Action.Created(
           eventSourced.eventSourcedId,
-          Recovery(),
-//          eventSourced.recovery, // TODO
+          eventSourced.recovery,
           eventSourced.pluginIds))
       } yield {
-        new EventSourced[F, S, C, E, R] {
+        new EventSourcedAny[F, S, C, E] {
 
           def eventSourcedId = eventSourced.eventSourcedId
 
           def pluginIds = PluginIds.empty
 
           def recovery = Recovery()
-          
+
           def start = {
             for {
               recoveryStarted <- eventSourced.start
               _               <- resource(Action.Started, Action.Released)
             } yield {
-              RecoveryStarted[F, S, C, E, R] { (seqNr, snapshotOffer) =>
+              RecoveryStartedAny[F, S, C, E] { (seqNr, snapshotOffer) =>
 
                 val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
                   val metadata = snapshotOffer.metadata.copy(timestamp = 0)
@@ -58,30 +58,24 @@ object InstrumentEventSourced {
                   _          <- resource(Action.RecoveryAllocated(snapshotOffer1), Action.RecoveryReleased)
                 } yield {
 
-                  new Recovering[F, S, C, E, R] {
-
-                    def initial = for {
-                      state <- recovering.initial
-                      _     <- record(Action.Initial(state))
-                    } yield state
+                  new RecoveringAny[F, S, C, E] {
 
                     def replay = {
                       for {
                         _      <- resource(Action.ReplayAllocated, Action.ReplayReleased)
                         replay <- recovering.replay
                       } yield {
-                        Replay1[F, S, E] { (seqNr, state, event) =>
+                        Replay[F, E] { (seqNr, event) =>
                           for {
-                            after <- replay(seqNr, state, event)
-                            _     <- record(Action.Replayed(state, event, seqNr, after))
-                          } yield after
+                            _ <- replay(seqNr, event)
+                            _ <- record(Action.Replayed(event, seqNr))
+                          } yield {}
                         }
                       }
                     }
 
                     def completed(
                       seqNr: SeqNr,
-                      state: S,
                       journaller: Journaller[F, E],
                       snapshotter: Snapshotter[F, S]
                     ) = {
@@ -156,19 +150,13 @@ object InstrumentEventSourced {
                       }
 
                       for {
-                        receive <- recovering.completed(seqNr, state, journaller1, snapshotter1)
-                        _       <- resource(Action.ReceiveAllocated(state, seqNr), Action.ReceiveReleased)
+                        receive <- recovering.completed(seqNr, journaller1, snapshotter1)
+                        _       <- resource(Action.ReceiveAllocated(seqNr), Action.ReceiveReleased)
                       } yield {
-                        Receive[F, C, R] { (msg, reply) =>
-                          val reply1 = Reply[F, R] { msg =>
-                              for {
-                                _ <- record(Action.Replied(msg))
-                                a <- reply(msg)
-                              } yield a
-                          }
+                        ReceiveAny[F, C] { (msg, sender) =>
                           for {
-                            stop <- receive(msg, reply1)
-                            _    <- record(Action.Received(msg, stop))
+                            stop <- receive(msg, sender)
+                            _    <- record(Action.Received(msg, sender, stop))
                           } yield stop
                         }
                       }
@@ -184,7 +172,7 @@ object InstrumentEventSourced {
   }
 
 
-  sealed trait Action[+S, +C, +E, +R]
+  sealed trait Action[+S, +C, +E]
 
   object Action {
 
@@ -192,73 +180,71 @@ object InstrumentEventSourced {
       eventSourcedId: EventSourcedId,
       recovery: Recovery,
       pluginIds: PluginIds
-    ) extends Action[Nothing, Nothing, Nothing, Nothing]
+    ) extends Action[Nothing, Nothing, Nothing]
 
 
-    final case object Started extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case object Started extends Action[Nothing, Nothing, Nothing]
 
-    final case object Released extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case object Released extends Action[Nothing, Nothing, Nothing]
 
 
     final case class RecoveryAllocated[S](
       snapshotOffer: Option[SnapshotOffer[S]],
-    ) extends Action[S, Nothing, Nothing, Nothing]
+    ) extends Action[S, Nothing, Nothing]
 
-    final case object RecoveryReleased extends Action[Nothing, Nothing, Nothing, Nothing]
-
-
-    final case class Initial[S, E](state: S) extends Action[S, Nothing, Nothing, Nothing]
+    final case object RecoveryReleased extends Action[Nothing, Nothing, Nothing]
 
 
-    final case object ReplayAllocated extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case object ReplayAllocated extends Action[Nothing, Nothing, Nothing]
 
-    final case object ReplayReleased extends Action[Nothing, Nothing, Nothing, Nothing]
-
-
-    final case class Replayed[S, E](before: S, event: E, seqNr: SeqNr, after: S) extends Action[S, Nothing, E, Nothing]
+    final case object ReplayReleased extends Action[Nothing, Nothing, Nothing]
 
 
-    final case class AppendEvents[E](events: Nel[Nel[E]]) extends Action[Nothing, Nothing, E, Nothing]
-
-    final case object AppendEventsOuter extends Action[Nothing, Nothing, Nothing, Nothing]
-
-    final case class AppendEventsInner(seqNr: SeqNr) extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case class Replayed[S, E](event: E, seqNr: SeqNr) extends Action[S, Nothing, E]
 
 
-    final case class DeleteEventsTo(seqNr: SeqNr) extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case class AppendEvents[E](events: Nel[Nel[E]]) extends Action[Nothing, Nothing, E]
 
-    final case object DeleteEventsToOuter extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case object AppendEventsOuter extends Action[Nothing, Nothing, Nothing]
 
-    final case object DeleteEventsToInner extends Action[Nothing, Nothing, Nothing, Nothing]
-
-
-    final case class SaveSnapshot[S](seqNr: SeqNr, snapshot: S) extends Action[S, Nothing, Nothing, Nothing]
-
-    final case object SaveSnapshotOuter extends Action[Nothing, Nothing, Nothing, Nothing]
-
-    final case object SaveSnapshotInner extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case class AppendEventsInner(seqNr: SeqNr) extends Action[Nothing, Nothing, Nothing]
 
 
-    final case class DeleteSnapshot(seqNr: SeqNr) extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case class DeleteEventsTo(seqNr: SeqNr) extends Action[Nothing, Nothing, Nothing]
 
-    final case object DeleteSnapshotOuter extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case object DeleteEventsToOuter extends Action[Nothing, Nothing, Nothing]
 
-    final case object DeleteSnapshotInner extends Action[Nothing, Nothing, Nothing, Nothing]
-
-
-    final case class DeleteSnapshots(criteria: SnapshotSelectionCriteria) extends Action[Nothing, Nothing, Nothing, Nothing]
-
-    final case object DeleteSnapshotsOuter extends Action[Nothing, Nothing, Nothing, Nothing]
-
-    final case object DeleteSnapshotsInner extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case object DeleteEventsToInner extends Action[Nothing, Nothing, Nothing]
 
 
-    final case class ReceiveAllocated[S](state: S, seqNr: SeqNr) extends Action[S, Nothing, Nothing, Nothing]
+    final case class SaveSnapshot[S](seqNr: SeqNr, snapshot: S) extends Action[S, Nothing, Nothing]
 
-    final case object ReceiveReleased extends Action[Nothing, Nothing, Nothing, Nothing]
+    final case object SaveSnapshotOuter extends Action[Nothing, Nothing, Nothing]
 
-    final case class Received[C](cmd: C, stop: Receive.Stop) extends Action[Nothing, C, Nothing, Nothing]
+    final case object SaveSnapshotInner extends Action[Nothing, Nothing, Nothing]
 
-    final case class Replied[R](reply: R) extends Action[Nothing, Nothing, Nothing, R]
+
+    final case class DeleteSnapshot(seqNr: SeqNr) extends Action[Nothing, Nothing, Nothing]
+
+    final case object DeleteSnapshotOuter extends Action[Nothing, Nothing, Nothing]
+
+    final case object DeleteSnapshotInner extends Action[Nothing, Nothing, Nothing]
+
+
+    final case class DeleteSnapshots(criteria: SnapshotSelectionCriteria) extends Action[Nothing, Nothing, Nothing]
+
+    final case object DeleteSnapshotsOuter extends Action[Nothing, Nothing, Nothing]
+
+    final case object DeleteSnapshotsInner extends Action[Nothing, Nothing, Nothing]
+
+    final case class ReceiveAllocated[S](seqNr: SeqNr) extends Action[S, Nothing, Nothing]
+
+    final case object ReceiveReleased extends Action[Nothing, Nothing, Nothing]
+
+    final case class Received[C](
+      cmd: C,
+      sender: ActorRef,
+      stop: Receive.Stop
+    ) extends Action[Nothing, C, Nothing]
   }
 }

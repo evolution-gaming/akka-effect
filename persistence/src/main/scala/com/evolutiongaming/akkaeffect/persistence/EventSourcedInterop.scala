@@ -11,7 +11,7 @@ object EventSourcedInterop {
   def apply[F[_]: Sync, S, C, E, R](
     eventSourcedOf: EventSourcedOf[F, S, C, E, R]
   ): EventSourcedAnyOf[F, S, C, E] = {
-    EventSourcedAnyOf[F, S, C, E, R] { actorCtx =>
+    EventSourcedAnyOf[F, S, C, E] { actorCtx =>
       eventSourcedOf(actorCtx).map { eventSourced =>
         new EventSourcedAny[F, S, C, E] {
 

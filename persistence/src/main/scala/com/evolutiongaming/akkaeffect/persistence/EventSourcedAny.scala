@@ -1,6 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.Recovery
+import cats.Monad
 import cats.effect.Resource
 
 /**
@@ -45,4 +46,57 @@ trait EventSourcedAny[F[_], S, C, E] {
 
 object EventSourcedAny {
 
+  implicit class EventSourcedOps[F[_], S, C, E](
+    val self: EventSourcedAny[F, S, C, E]
+  ) extends AnyVal {
+
+    def convert[S1, C1, E1](
+      sf: S => F[S1],
+      s1f: S1 => F[S],
+      cf: C1 => F[C],
+      ef: E => F[E1],
+      e1f: E1 => F[E])(implicit
+      F: Monad[F],
+    ): EventSourcedAny[F, S1, C1, E1] = new EventSourcedAny[F, S1, C1, E1] {
+
+      def eventSourcedId = self.eventSourcedId
+
+      def pluginIds = self.pluginIds
+
+      def recovery = self.recovery
+
+      def start = {
+        self.start.map { _.convert(sf, s1f, cf, ef, e1f) }
+      }
+    }
+
+
+    def widen[S1 >: S, C1 >: C, E1 >: E](
+      sf: S1 => F[S],
+      cf: C1 => F[C],
+      ef: E1 => F[E])(implicit
+      F: Monad[F],
+    ): EventSourcedAny[F, S1, C1, E1] = new EventSourcedAny[F, S1, C1, E1] {
+
+      def eventSourcedId = self.eventSourcedId
+
+      def pluginIds = self.pluginIds
+
+      def recovery = self.recovery
+
+      def start = {
+        self.start.map { _.widen(sf, cf, ef) }
+      }
+    }
+
+
+    def typeless(
+      sf: Any => F[S],
+      cf: Any => F[C],
+      ef: Any => F[E])(implicit
+      F: Monad[F],
+    ): EventSourcedAny[F, Any, Any, Any] = {
+      widen[Any, Any, Any](sf, cf, ef)
+    }
+  }
 }

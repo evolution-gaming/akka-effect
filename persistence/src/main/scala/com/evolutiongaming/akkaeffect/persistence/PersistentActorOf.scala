@@ -80,7 +80,7 @@ object PersistentActorOf {
         }
       }
 
-      val persistence = PersistenceVar[F, Any, Any, Any, Any](act.value, context)
+      val persistence = PersistenceVar[F, Any, Any, Any](act.value, context)
 
       override def preStart(): Unit = {
         super.preStart()

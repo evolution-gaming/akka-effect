@@ -31,6 +31,12 @@ object Reply {
     def contramap[A, B](fa: Reply[F, A])(f: B => A) = msg => fa(f(msg))
   }
 
+  def fromActorRef[F[_]: Sync](
+    to: ActorRef,
+    from: ActorRef,
+  ): Reply[F, Any] = {
+    fromActorRef(to = to, from = from.some)
+  }
 
   def fromActorRef[F[_]: Sync](
     to: ActorRef,

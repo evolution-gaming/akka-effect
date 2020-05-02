@@ -8,10 +8,25 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
 object PersistentActorEffect {
 
-  def of[F[_] : Concurrent : Timer : ToFuture : FromFuture : ToTry](
+  def of[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+    actorRefOf: ActorRefOf[F],
+    eventSourcedOf: EventSourcedAnyOf[F, Any, Any, Any],
+    name: Option[String] = None
+  ): Resource[F, ActorEffect[F, Any, Any]] = {
+
+    def actor = PersistentActorOf[F](eventSourcedOf)
+
+    val props = Props(actor)
+
+    actorRefOf(props, name)
+      .map { actorRef => ActorEffect.fromActor(actorRef) }
+  }
+
+  // TODO remove
+  def of[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
     actorRefOf: ActorRefOf[F],
     eventSourcedOf: EventSourcedOf[F, Any, Any, Any, Any],
-    name: Option[String] = None
+    name: Option[String]
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 
     def actor = PersistentActorOf[F](eventSourcedOf)

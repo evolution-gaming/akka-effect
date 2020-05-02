@@ -22,11 +22,10 @@ class ReplyTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
   private def `toString`[F[_] : Concurrent](actorSystem: ActorSystem) = {
-
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     val actorRef = actorRefOf(TestActors.blackholeProps)
     (actorRef, actorRef).tupled.use { case (to, from) =>
-      val reply = Reply.fromActorRef[F](to, from.some)
+      val reply = Reply.fromActorRef[F](to = to, from = from)
       Sync[F].delay {
         reply.toString shouldEqual s"Reply(${ to.path }, ${ from.path })"
       }
@@ -43,7 +42,7 @@ class ReplyTest extends AsyncFunSuite with ActorSuite with Matchers {
     }
 
     resources.use { case (probe, from) =>
-      val reply = Reply.fromActorRef[F](probe.actorEffect.toUnsafe, from.some).mapK(FunctionK.id)
+      val reply = Reply.fromActorRef[F](to = probe.actorEffect.toUnsafe, from = from).mapK(FunctionK.id)
       for {
         a <- probe.expect
         _ <- reply("msg")
