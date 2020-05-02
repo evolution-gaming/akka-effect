@@ -1,5 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import java.time.Instant
+
 import akka.actor.ActorRef
 import akka.persistence.{Recovery, SnapshotSelectionCriteria}
 import cats.data.{NonEmptyList => Nel}
@@ -49,7 +51,7 @@ object InstrumentEventSourced {
               RecoveryStarted[F, S, C, E] { (seqNr, snapshotOffer) =>
 
                 val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
-                  val metadata = snapshotOffer.metadata.copy(timestamp = 0)
+                  val metadata = snapshotOffer.metadata.copy(timestamp = Instant.ofEpochMilli(0))
                   snapshotOffer.copy(metadata = metadata)
                 }
 

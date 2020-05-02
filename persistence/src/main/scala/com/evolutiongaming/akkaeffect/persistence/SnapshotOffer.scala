@@ -1,6 +1,5 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import akka.persistence.SnapshotMetadata
 import cats.Functor
 
 /**

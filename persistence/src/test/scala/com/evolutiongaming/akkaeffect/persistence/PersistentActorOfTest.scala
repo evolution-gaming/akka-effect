@@ -1,7 +1,9 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import java.time.Instant
+
 import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, ReceiveTimeout}
-import akka.persistence.{Recovery, SnapshotMetadata}
+import akka.persistence.Recovery
 import akka.testkit.TestActors
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.{Deferred, Ref}
@@ -406,7 +408,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _ = recover shouldEqual List(
         Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
-        Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("1", 1), 1).some),
+        Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
         Action.AppendEvents(Nel.of(Nel.of(0L))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(2),
@@ -520,7 +522,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _ = recover shouldEqual List(
         Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
-        Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("6", 1), 1).some),
+        Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
         Action.AppendEvents(Nel.of(Nel.of(0L))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(3),
@@ -867,7 +869,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       _ = recover shouldEqual List(
         Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
-        Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata("3", 1), 1).some),
+        Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
         Action.ReplayAllocated,
         Action.Replayed(1, 2),
         Action.ReplayReleased,

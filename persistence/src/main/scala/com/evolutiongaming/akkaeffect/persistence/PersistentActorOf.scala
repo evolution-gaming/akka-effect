@@ -117,7 +117,7 @@ object PersistentActorOf {
       }
 
       def receiveRecover: Receive = act.receive {
-        case ap.SnapshotOffer(m, s) => persistence.snapshotOffer(lastSeqNr(), SnapshotOffer(m, s))
+        case ap.SnapshotOffer(m, s) => persistence.snapshotOffer(lastSeqNr(), SnapshotOffer(SnapshotMetadata(m), s))
         case RecoveryCompleted      => recoveryCompleted(lastSeqNr())
         case event                  => persistence.event(lastSeqNr(), event)
       }
