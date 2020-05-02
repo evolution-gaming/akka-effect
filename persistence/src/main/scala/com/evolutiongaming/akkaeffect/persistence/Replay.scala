@@ -4,7 +4,7 @@ import cats.implicits._
 import cats.{Applicative, FlatMap}
 
 /**
-  * Used during recovery to replay events against passed state
+  * Used during recovery to replay events
   *
   * @tparam A event
   */

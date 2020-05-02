@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 import cats.Monad
 import cats.effect.Resource
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.persistence.{Replay1, SeqNr, Snapshotter}
+import com.evolutiongaming.akkaeffect.persistence.{SeqNr, Snapshotter}
 import com.evolutiongaming.catshelper.CatsHelper._
 
 /**
@@ -21,7 +21,7 @@ trait Recovering[F[_], S, C, E, R] {
   /**
     * Used to replay events during recovery against passed state, resource will be released when recovery is completed
     */
-  def replay: Resource[F, Replay1[F, S, E]]
+  def replay: Resource[F, Replay[F, S, E]]
 
   /**
     * Called when recovery completed, resource will be released upon actor termination

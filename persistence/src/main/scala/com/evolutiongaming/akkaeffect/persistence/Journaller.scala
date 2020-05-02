@@ -5,7 +5,13 @@ import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.MonadThrowable
 
 
+/**
+  * Describes communication with underlying journal
+  *
+  * @tparam A event
+  */
 trait Journaller[F[_], -A] {
+
   /**
     * @see [[akka.persistence.PersistentActor.persistAllAsync]]
     */

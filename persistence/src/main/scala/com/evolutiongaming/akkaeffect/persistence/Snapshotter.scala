@@ -13,6 +13,11 @@ import scala.concurrent.duration.FiniteDuration
 
 
 // TODO add useful methods and cats interop
+/**
+  * Describes communication with underlying snapshot storage
+  *
+  * @tparam A - snapshot
+  */
 trait Snapshotter[F[_], -A] {
 
   /**

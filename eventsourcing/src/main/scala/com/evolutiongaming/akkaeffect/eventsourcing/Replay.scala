@@ -1,7 +1,8 @@
-package com.evolutiongaming.akkaeffect.persistence
+package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.implicits._
 import cats.{Applicative, FlatMap}
+import com.evolutiongaming.akkaeffect.persistence.SeqNr
 
 /**
   * Used during recovery to replay events against passed state
@@ -9,30 +10,30 @@ import cats.{Applicative, FlatMap}
   * @tparam S state
   * @tparam E event
   */
-trait Replay1[F[_], S, E] {
+trait Replay[F[_], S, E] {
 
   def apply(seqNr: SeqNr, state: S, event: E): F[S]
 }
 
-object Replay1 {
+object Replay {
 
-  def const[F[_], S, E](state: F[S]): Replay1[F, S, E] = (_, _, _) => state
+  def const[F[_], S, E](state: F[S]): Replay[F, S, E] = (_, _, _) => state
 
-  def empty[F[_] : Applicative, S, E]: Replay1[F, S, E] = (_, state, _) => state.pure[F]
+  def empty[F[_] : Applicative, S, E]: Replay[F, S, E] = (_, state, _) => state.pure[F]
 
-  def apply[F[_], S, E](f: (SeqNr, S, E) => F[S]): Replay1[F, S, E] = {
+  def apply[F[_], S, E](f: (SeqNr, S, E) => F[S]): Replay[F, S, E] = {
     (seqNr, state, event) => f(seqNr, state, event)
   }
 
 
-  implicit class ReplayOps[F[_], S, E](val self: Replay1[F, S, E]) extends AnyVal {
+  implicit class ReplayOps[F[_], S, E](val self: Replay[F, S, E]) extends AnyVal {
 
     def convert[S1, E1](
       sf: S => F[S1],
       s1f: S1 => F[S],
       ef: E1 => F[E])(implicit
       F: FlatMap[F]
-    ): Replay1[F, S1, E1] = {
+    ): Replay[F, S1, E1] = {
       (seqNr, state, event) => {
         for {
           s <- s1f(state)
@@ -44,7 +45,7 @@ object Replay1 {
     }
 
 
-    def widen[S1 >: S, E1 >: E](sf: S1 => F[S], ef: E1 => F[E])(implicit F: FlatMap[F]): Replay1[F, S1, E1] = {
+    def widen[S1 >: S, E1 >: E](sf: S1 => F[S], ef: E1 => F[E])(implicit F: FlatMap[F]): Replay[F, S1, E1] = {
       (seqNr, state, event) =>
         for {
           s <- sf(state)
@@ -54,6 +55,6 @@ object Replay1 {
     }
 
 
-    def typeless(sf: Any => F[S], ef: Any => F[E])(implicit F: FlatMap[F]): Replay1[F, Any, Any] = widen(sf, ef)
+    def typeless(sf: Any => F[S], ef: Any => F[E])(implicit F: FlatMap[F]): Replay[F, Any, Any] = widen(sf, ef)
   }
 }
