@@ -898,13 +898,13 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     type E = Any
 
     def eventSourcedOf(
-      lock: Deferred[F, Unit],
+      delay: F[Unit],
       stopped: Deferred[F, Unit]
     ): EventSourcedOf[F, S, C, E] = {
       actorCtx => {
         val eventSourced: EventSourced[F, S, C, E] = new EventSourced[F, S, C, E] {
 
-          def eventSourcedId = EventSourcedId("id")
+          def eventSourcedId = EventSourcedId("10")
 
           def pluginIds = PluginIds.empty
 
@@ -912,7 +912,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
           def start = {
             Resource
-              .make(lock.get productR actorCtx.stop) { _ => stopped.complete(()) }
+              .make(delay productR actorCtx.stop) { _ => stopped.complete(()) }
               .as(RecoveryStarted.empty[F, S, C, E])
           }
         }
@@ -921,24 +921,31 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     }
 
     for {
-      lock           <- Deferred[F, Unit]
+      d0             <- Deferred[F, Unit]
+      d1             <- Deferred[F, Unit]
+      delay           = d0.complete(()) *> d1.get
       stopped        <- Deferred[F, Unit]
       actions        <- Ref[F].of(List.empty[Action[S, C, E]])
-      eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(lock, stopped)).pure[F]
+      eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(delay, stopped)).pure[F]
       actorEffect     = PersistentActorEffect.of(actorRefOf, eventSourcedOf)
       actorEffect    <- actorEffect.allocated.map { case (actorEffect, _) => actorEffect }
       _              <- Probe.of(actorRefOf).use { probe =>
         for {
+          _          <- d0.get
           terminated <- probe.watch(actorEffect.toUnsafe)
-          _          <- lock.complete(())
+          _          <- d1.complete(())
           _          <- terminated
         } yield {}
       }
       _              <- stopped.get
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
-        Action.Created(EventSourcedId("id"), akka.persistence.Recovery(), PluginIds.empty),
+        Action.Created(EventSourcedId("10"), akka.persistence.Recovery(), PluginIds.empty),
         Action.Started,
+        Action.RecoveryAllocated(none),
+        Action.ReceiveAllocated(0),
+        Action.ReceiveReleased,
+        Action.RecoveryReleased,
         Action.Released)
     } yield {}
   }
