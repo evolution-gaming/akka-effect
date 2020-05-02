@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import cats.effect.Resource
 
 /**
-  * Describes "Started" phase
+  * Describes "RecoveryStarted" phase
   *
   * @tparam S snapshot
   * @tparam C command

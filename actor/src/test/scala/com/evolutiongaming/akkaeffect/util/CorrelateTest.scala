@@ -1,7 +1,8 @@
-package com.evolutiongaming.akkaeffect
+package com.evolutiongaming.akkaeffect.util
 
 import cats.effect.IO
 import cats.implicits._
+import com.evolutiongaming.akkaeffect.Correlate
 import com.evolutiongaming.akkaeffect.IOSuite._
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers

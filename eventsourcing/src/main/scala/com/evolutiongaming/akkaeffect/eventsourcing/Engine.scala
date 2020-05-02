@@ -4,7 +4,8 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Concurrent, Resource}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.persistence.{Append, SeqNr}
-import com.evolutiongaming.akkaeffect.{Serial, SerialRef}
+import com.evolutiongaming.akkaeffect.util.SerialRef
+import com.evolutiongaming.akkaeffect.util.Serial
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 

@@ -6,7 +6,8 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Act, Fail, PromiseEffect}
+import com.evolutiongaming.akkaeffect.util.PromiseEffect
+import com.evolutiongaming.akkaeffect.{Act, Fail}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, MonadThrowable, ToTry}
 

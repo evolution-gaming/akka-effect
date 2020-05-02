@@ -1,4 +1,4 @@
-package com.evolutiongaming.akkaeffect
+package com.evolutiongaming.akkaeffect.util
 
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, IO}

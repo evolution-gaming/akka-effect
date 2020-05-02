@@ -1,5 +1,4 @@
-package com.evolutiongaming.akkaeffect.persistence
-
+package com.evolutiongaming.akkaeffect.util
 
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._

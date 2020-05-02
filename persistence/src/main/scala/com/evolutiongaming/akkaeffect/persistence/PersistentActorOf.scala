@@ -5,6 +5,7 @@ import akka.{persistence => ap}
 import cats.effect.{Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect._
+import com.evolutiongaming.akkaeffect.util.Lazy
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
