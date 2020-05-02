@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import cats.{Applicative, Monad, ~>}
+import cats.{Applicative, Defer, Monad, ~>}
 
 /**
   * Factory method for [[Receive1]]
@@ -51,8 +51,8 @@ object Receive1Of {
     def mapK[G[_]](
       fg: F ~> G,
       gf: G ~> F)(implicit
-      F: Sync[F],
-      G: Sync[G],
+      D: Defer[G],
+      G: Applicative[G]
     ): Receive1Of[G, A, B] = {
       actorCtx =>
         self(actorCtx.mapK(gf))
@@ -64,6 +64,6 @@ object Receive1Of {
 
   implicit class ReceiveAnyOfOps[F[_]](val self: Receive1Of[F, Any, Any]) extends AnyVal {
 
-    def toReceiveAnyOf(implicit F: Sync[F]): ReceiveOf[F] = ReceiveOf.fromReceiveOf(self)
+    def toReceiveOf(implicit F: Sync[F]): ReceiveOf[F] = ReceiveOf.fromReceiveOf(self)
   }
 }

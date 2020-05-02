@@ -255,7 +255,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         _ => shift
       }
     }
-    def actor = ActorOf[F](receiveOf.toReceiveAnyOf)
+    def actor = ActorOf[F](receiveOf.toReceiveOf)
     val props = Props(actor)
     val probe = Probe.of[F](actorRefOf)
     val actorRef = actorRefOf(props)
@@ -306,7 +306,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       receiveOf <- receiveOf(ref.get.flatMap(_.complete(())))
         .convert[Any, Any](_.pure[F], _.pure[F])
         .pure[F]
-      actor      = () => ActorOf[F](receiveOf.toReceiveAnyOf)
+      actor      = () => ActorOf[F](receiveOf.toReceiveOf)
       props      = Props(actor())
       result    <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
@@ -375,7 +375,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       stopped <- Deferred[F, Unit]
       receive  = receiveOf(stopped.complete(()))
-      actor    = () => ActorOf[F](receive.toReceiveAnyOf)
+      actor    = () => ActorOf[F](receive.toReceiveOf)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
@@ -419,7 +419,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       stopped <- Deferred[F, Unit]
       receive  = receiveOf(stopped.complete(()))
-      actor    = () => ActorOf[F](receive.toReceiveAnyOf)
+      actor    = () => ActorOf[F](receive.toReceiveOf)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
@@ -452,7 +452,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       stopped <- Deferred[F, Unit]
       receive  = receiveOf(stopped.complete(()))
-      actor    = () => ActorOf[F](receive.toReceiveAnyOf)
+      actor    = () => ActorOf[F](receive.toReceiveOf)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
         val tell = Tell.fromActorRef[F](actorRef)
