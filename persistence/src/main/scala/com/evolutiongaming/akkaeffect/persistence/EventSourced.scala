@@ -17,7 +17,7 @@ import cats.effect.Resource
   * @tparam C command
   * @tparam E event
   */
-trait EventSourcedAny[F[_], S, C, E] {
+trait EventSourced[F[_], S, C, E] {
 
   /**
     * @see [[akka.persistence.PersistentActor.persistenceId]]
@@ -40,14 +40,14 @@ trait EventSourcedAny[F[_], S, C, E] {
     *
     * @see [[akka.persistence.PersistentActor.preStart]]
     */
-  def start: Resource[F, RecoveryStartedAny[F, S, C, E]]
+  def start: Resource[F, RecoveryStarted[F, S, C, E]]
 }
 
 
-object EventSourcedAny {
+object EventSourced {
 
   implicit class EventSourcedOps[F[_], S, C, E](
-    val self: EventSourcedAny[F, S, C, E]
+    val self: EventSourced[F, S, C, E]
   ) extends AnyVal {
 
     def convert[S1, C1, E1](
@@ -57,7 +57,7 @@ object EventSourcedAny {
       ef: E => F[E1],
       e1f: E1 => F[E])(implicit
       F: Monad[F],
-    ): EventSourcedAny[F, S1, C1, E1] = new EventSourcedAny[F, S1, C1, E1] {
+    ): EventSourced[F, S1, C1, E1] = new EventSourced[F, S1, C1, E1] {
 
       def eventSourcedId = self.eventSourcedId
 
@@ -76,7 +76,7 @@ object EventSourcedAny {
       cf: C1 => F[C],
       ef: E1 => F[E])(implicit
       F: Monad[F],
-    ): EventSourcedAny[F, S1, C1, E1] = new EventSourcedAny[F, S1, C1, E1] {
+    ): EventSourced[F, S1, C1, E1] = new EventSourced[F, S1, C1, E1] {
 
       def eventSourcedId = self.eventSourcedId
 
@@ -95,7 +95,7 @@ object EventSourcedAny {
       cf: Any => F[C],
       ef: Any => F[E])(implicit
       F: Monad[F],
-    ): EventSourcedAny[F, Any, Any, Any] = {
+    ): EventSourced[F, Any, Any, Any] = {
       widen[Any, Any, Any](sf, cf, ef)
     }
   }

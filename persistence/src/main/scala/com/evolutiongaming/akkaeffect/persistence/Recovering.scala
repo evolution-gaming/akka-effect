@@ -12,7 +12,7 @@ import com.evolutiongaming.akkaeffect.ReceiveAny
   * @tparam C command
   * @tparam E event
   */
-trait RecoveringAny[F[_], S, C, E] {
+trait Recovering[F[_], S, C, E] {
   /**
     * Used to replay events during recovery against passed state,
     * resource will be released when recovery is completed
@@ -31,9 +31,9 @@ trait RecoveringAny[F[_], S, C, E] {
   ): Resource[F, ReceiveAny[F, C]]
 }
 
-object RecoveringAny {
+object Recovering {
 
-  def empty[F[_]: Monad, S, C, E]: RecoveringAny[F, S, C, E] = new RecoveringAny[F, S, C, E] {
+  def empty[F[_]: Monad, S, C, E]: Recovering[F, S, C, E] = new Recovering[F, S, C, E] {
 
     def replay = Replay.empty[F, E].pure[Resource[F, *]]
 
@@ -43,7 +43,7 @@ object RecoveringAny {
   }
 
 
-  implicit class RecoveringOps[F[_], S, C, E](val self: RecoveringAny[F, S, C, E]) extends AnyVal {
+  implicit class RecoveringOps[F[_], S, C, E](val self: Recovering[F, S, C, E]) extends AnyVal {
 
     def convert[S1, C1, E1](
       sf: S => F[S1],
@@ -51,7 +51,7 @@ object RecoveringAny {
       ef: E => F[E1],
       e1f: E1 => F[E])(implicit
       F: Monad[F],
-    ): RecoveringAny[F, S1, C1, E1] = new RecoveringAny[F, S1, C1, E1] {
+    ): Recovering[F, S1, C1, E1] = new Recovering[F, S1, C1, E1] {
 
       def replay = self.replay.map { _.convert(e1f) }
 
@@ -73,7 +73,7 @@ object RecoveringAny {
       cf: C1 => F[C],
       ef: E1 => F[E])(implicit
       F: Monad[F]
-    ): RecoveringAny[F, S1, C1, E1] = new RecoveringAny[F, S1, C1, E1] {
+    ): Recovering[F, S1, C1, E1] = new Recovering[F, S1, C1, E1] {
 
       def replay = self.replay.map { _.convert(ef) }
 
@@ -93,6 +93,6 @@ object RecoveringAny {
       cf: Any => F[C],
       ef: Any => F[E])(implicit
       F: Monad[F]
-    ): RecoveringAny[F, Any, Any, Any] = widen(cf, ef)
+    ): Recovering[F, Any, Any, Any] = widen(cf, ef)
   }
 }

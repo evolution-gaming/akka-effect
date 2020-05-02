@@ -105,7 +105,7 @@ trait ActorCtx[F[_]] {
 
 #### [PersistentActorOf.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/PersistentActorOf.scala)
 
-Constructs `PersistentActor.scala` out of `eventSourcedOf: ActorCtx[F] => F[EventSourcedAny[F, S, C, E]]`
+Constructs `PersistentActor.scala` out of `eventSourcedOf: ActorCtx[F] => F[EventSourced[F, S, C, E]]`
 
 
 #### [EventSourced.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/EventSourced.scala)

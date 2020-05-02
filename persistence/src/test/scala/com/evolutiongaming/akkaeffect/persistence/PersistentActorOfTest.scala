@@ -91,10 +91,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       final case class WithCtx[A](f: ActorCtx[F] => F[A]) extends Cmd
     }
 
-    def eventSourcedOf(receiveTimeout: F[Unit]): EventSourcedAnyOf[F, State, Any, Event] = {
+    def eventSourcedOf(receiveTimeout: F[Unit]): EventSourcedOf[F, State, Any, Event] = {
       actorCtx => {
 
-        val eventSourced = new EventSourcedAny[F, State, Any, Event] {
+        val eventSourced = new EventSourced[F, State, Any, Event] {
 
           def eventSourcedId = EventSourcedId("id")
 
@@ -103,9 +103,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def recovery = Recovery()
 
           def start = {
-            val started = RecoveryStartedAny[F, State, Any, Event] { (_, _) =>
+            val started = RecoveryStarted[F, State, Any, Event] { (_, _) =>
 
-                val recovering: RecoveringAny[F, State, Any, Event] = new RecoveringAny[F, State, Any, Event] {
+                val recovering: Recovering[F, State, Any, Event] = new Recovering[F, State, Any, Event] {
 
                   val replay = Replay.empty[F, Event].pure[Resource[F, *]]
 
@@ -256,8 +256,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       startedDeferred: Deferred[F, Unit],
       stoppedDeferred: Deferred[F, Unit]
     ) =
-      EventSourcedAnyOf.const[F, S, C, E] {
-        val eventSourced: EventSourcedAny[F, S, C, E] = new EventSourcedAny[F, S, C, E] {
+      EventSourcedOf.const[F, S, C, E] {
+        val eventSourced: EventSourced[F, S, C, E] = new EventSourced[F, S, C, E] {
 
           def eventSourcedId = EventSourcedId("0")
 
@@ -266,8 +266,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def recovery = recovery1
 
           def start = {
-            val started = RecoveryStartedAny[F, S, C, E] { (_, _) =>
-              val recovering: RecoveringAny[F, S, C, E] = new RecoveringAny[F, S, C, E] {
+            val started = RecoveryStarted[F, S, C, E] { (_, _) =>
+              val recovering: Recovering[F, S, C, E] = new Recovering[F, S, C, E] {
 
                 def replay = Replay.empty[F, E].pure[Resource[F, *]]
 
@@ -327,9 +327,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     def eventSourcedOf(
       startedDeferred: Deferred[F, Unit],
       stoppedDeferred: Deferred[F, Unit]
-    ): EventSourcedAnyOf[F, S, C, E] = {
-      EventSourcedAnyOf.const[F, S, C, E] {
-        val eventSourced: EventSourcedAny[F, S, C, E] = new EventSourcedAny[F, S, C, E] {
+    ): EventSourcedOf[F, S, C, E] = {
+      EventSourcedOf.const[F, S, C, E] {
+        val eventSourced: EventSourced[F, S, C, E] = new EventSourced[F, S, C, E] {
 
           def eventSourcedId = EventSourcedId("1")
 
@@ -338,8 +338,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def recovery = Recovery()
 
           def start = {
-            val started = RecoveryStartedAny.const[F, S, C, E] {
-              val recovering: RecoveringAny[F, S, C, E] = new RecoveringAny[F, S, C, E] {
+            val started = RecoveryStarted.const[F, S, C, E] {
+              val recovering: Recovering[F, S, C, E] = new Recovering[F, S, C, E] {
 
                 def replay = Replay.empty[F, E].pure[Resource[F, *]]
 
@@ -433,9 +433,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     def eventSourcedOf(
       startedDeferred: Deferred[F, Unit],
       stoppedDeferred: Deferred[F, Unit]
-    ): EventSourcedAnyOf[F, S, C, E] = {
+    ): EventSourcedOf[F, S, C, E] = {
       _: ActorCtx[F] => {
-        val eventSourced: EventSourcedAny[F, S, C, E] = new EventSourcedAny[F, S, C, E] {
+        val eventSourced: EventSourced[F, S, C, E] = new EventSourced[F, S, C, E] {
 
           def eventSourcedId = EventSourcedId("6")
 
@@ -444,8 +444,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def recovery = Recovery()
 
           def start = {
-            val started = RecoveryStartedAny.const[F, S, C, E] {
-              val recovering: RecoveringAny[F, S, C, E] = new RecoveringAny[F, S, C, E] {
+            val started = RecoveryStarted.const[F, S, C, E] {
+              val recovering: Recovering[F, S, C, E] = new Recovering[F, S, C, E] {
 
                 def replay = Replay.empty[F, E].pure[Resource[F, *]]
 
@@ -553,9 +553,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     def eventSourcedOf(
       startedDeferred: Deferred[F, Unit],
       stoppedDeferred: Deferred[F, Unit]
-    ): EventSourcedAnyOf[F, S, C, E] = {
+    ): EventSourcedOf[F, S, C, E] = {
       _: ActorCtx[F] => {
-        val eventSourced: EventSourcedAny[F, S, C, E] = new EventSourcedAny[F, S, C, E] {
+        val eventSourced: EventSourced[F, S, C, E] = new EventSourced[F, S, C, E] {
 
           def eventSourcedId = EventSourcedId("2")
 
@@ -564,8 +564,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def recovery = Recovery()
 
           def start = {
-            val started = RecoveryStartedAny.const[F, S, C, E] {
-              val recovering: RecoveringAny[F, S, C, E] = new RecoveringAny[F, S, C, E] {
+            val started = RecoveryStarted.const[F, S, C, E] {
+              val recovering: Recovering[F, S, C, E] = new Recovering[F, S, C, E] {
 
                 def replay = Replay.empty[F, E].pure[Resource[F, *]]
 
@@ -658,9 +658,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     def eventSourcedOf(
       startedDeferred: Deferred[F, Unit],
       stoppedDeferred: Deferred[F, Unit]
-    ): EventSourcedAnyOf[F, S, C, E] = {
+    ): EventSourcedOf[F, S, C, E] = {
       _: ActorCtx[F] => {
-        val eventSourced: EventSourcedAny[F, S, C, E] = new EventSourcedAny[F, S, C, E] {
+        val eventSourced: EventSourced[F, S, C, E] = new EventSourced[F, S, C, E] {
 
           def eventSourcedId = EventSourcedId("7")
 
@@ -669,8 +669,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def recovery = Recovery()
 
           def start = {
-            val started = RecoveryStartedAny.const[F, S, C, E] {
-              val recovering: RecoveringAny[F, S, C, E] = new RecoveringAny[F, S, C, E] {
+            val started = RecoveryStarted.const[F, S, C, E] {
+              val recovering: Recovering[F, S, C, E] = new Recovering[F, S, C, E] {
 
                 def replay = Replay.empty[F, E].pure[Resource[F, *]]
 
@@ -783,9 +783,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     def eventSourcedOf(
       startedDeferred: Deferred[F, Unit],
       stoppedDeferred: Deferred[F, Unit]
-    ): EventSourcedAnyOf[F, S, C, E] = {
+    ): EventSourcedOf[F, S, C, E] = {
       _: ActorCtx[F] => {
-        val eventSourced: EventSourcedAny[F, S, C, E] = new EventSourcedAny[F, S, C, E] {
+        val eventSourced: EventSourced[F, S, C, E] = new EventSourced[F, S, C, E] {
 
           def eventSourcedId = EventSourcedId("3")
 
@@ -794,8 +794,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def recovery = Recovery()
 
           def start = {
-            val started = RecoveryStartedAny.const[F, S, C, E] {
-              val recovering: RecoveringAny[F, S, C, E] = new RecoveringAny[F, S, C, E] {
+            val started = RecoveryStarted.const[F, S, C, E] {
+              val recovering: Recovering[F, S, C, E] = new Recovering[F, S, C, E] {
 
                 def replay = Replay.empty[F, E].pure[Resource[F, *]]
 
@@ -900,9 +900,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     def eventSourcedOf(
       lock: Deferred[F, Unit],
       stopped: Deferred[F, Unit]
-    ): EventSourcedAnyOf[F, S, C, E] = {
+    ): EventSourcedOf[F, S, C, E] = {
       actorCtx => {
-        val eventSourced: EventSourcedAny[F, S, C, E] = new EventSourcedAny[F, S, C, E] {
+        val eventSourced: EventSourced[F, S, C, E] = new EventSourced[F, S, C, E] {
 
           def eventSourcedId = EventSourcedId("id")
 
@@ -913,7 +913,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def start = {
             Resource
               .make(lock.get productR actorCtx.stop) { _ => stopped.complete(()) }
-              .as(RecoveryStartedAny.empty[F, S, C, E])
+              .as(RecoveryStarted.empty[F, S, C, E])
           }
         }
         eventSourced.pure[F]
@@ -956,9 +956,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     def eventSourcedOf(
       lock: Deferred[F, Unit],
       stopped: Deferred[F, Unit]
-    ): EventSourcedAnyOf[F, S, C, E] = {
+    ): EventSourcedOf[F, S, C, E] = {
       actorCtx => {
-        val eventSourced: EventSourcedAny[F, S, C, E] = new EventSourcedAny[F, S, C, E] {
+        val eventSourced: EventSourced[F, S, C, E] = new EventSourced[F, S, C, E] {
 
           def eventSourcedId = EventSourcedId("4")
 
@@ -967,10 +967,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def recovery = Recovery()
 
           def start = {
-            val started = RecoveryStartedAny[F, S, C, E] { (_, _) =>
+            val started = RecoveryStarted[F, S, C, E] { (_, _) =>
               Resource
                 .make(lock.get productR actorCtx.stop) { _ => stopped.complete(()) }
-                .as(RecoveringAny.empty[F, S, C, E])
+                .as(Recovering.empty[F, S, C, E])
             }
             started.pure[Resource[F, *]]
           }
@@ -1019,9 +1019,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     def eventSourcedOf(
       lock: Deferred[F, Unit],
       stopped: Deferred[F, Unit]
-    ): EventSourcedAnyOf[F, S, C, E] = {
+    ): EventSourcedOf[F, S, C, E] = {
       actorCtx => {
-        val eventSourced: EventSourcedAny[F, S, C, E] = new EventSourcedAny[F, S, C, E] {
+        val eventSourced: EventSourced[F, S, C, E] = new EventSourced[F, S, C, E] {
 
           def eventSourcedId = EventSourcedId("5")
 
@@ -1030,9 +1030,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def recovery = Recovery()
 
           def start = {
-            val started = RecoveryStartedAny[F, S, C, E] { (_, _) =>
+            val started = RecoveryStarted[F, S, C, E] { (_, _) =>
 
-              val recovering: RecoveringAny[F, S, C, E] = new RecoveringAny[F, S, C, E] {
+              val recovering: Recovering[F, S, C, E] = new Recovering[F, S, C, E] {
 
                 def replay = Replay.empty[F, E].pure[Resource[F, *]]
 
@@ -1099,9 +1099,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     def eventSourcedOf(
       startedDeferred: Deferred[F, Unit],
       stoppedDeferred: Deferred[F, Unit]
-    ): EventSourcedAnyOf[F, S, C, E] = {
+    ): EventSourcedOf[F, S, C, E] = {
       _: ActorCtx[F] => {
-        val eventSourced: EventSourcedAny[F, S, C, E] = new EventSourcedAny[F, S, C, E] {
+        val eventSourced: EventSourced[F, S, C, E] = new EventSourced[F, S, C, E] {
 
           def eventSourcedId = EventSourcedId("8")
 
@@ -1110,12 +1110,12 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           def recovery = Recovery()
 
           def start = {
-            val started = RecoveryStartedAny[F, S, C, E] { (_, _) =>
+            val started = RecoveryStarted[F, S, C, E] { (_, _) =>
 
               for {
                 stateRef <- Ref[F].of(true).toResource
               } yield {
-                new RecoveringAny[F, S, C, E] {
+                new Recovering[F, S, C, E] {
 
                   val replay = Replay.const[F, E](stateRef.set(false)).pure[Resource[F, *]]
 
@@ -1227,12 +1227,12 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     type C = Any
     type E = SeqNr
 
-    def eventSourcedOf(timedOut: Deferred[F, Unit]): EventSourcedAnyOf[F, S, C, E] = {
+    def eventSourcedOf(timedOut: Deferred[F, Unit]): EventSourcedOf[F, S, C, E] = {
       actorCtx => {
         for {
           _ <- actorCtx.setReceiveTimeout(10.millis)
         } yield {
-          new EventSourcedAny[F, S, C, E] {
+          new EventSourced[F, S, C, E] {
 
             def eventSourcedId = EventSourcedId("9")
 
@@ -1244,11 +1244,11 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
               for {
                 _ <- actorCtx.setReceiveTimeout(10.millis).toResource
               } yield {
-                RecoveryStartedAny[F, S, C, E] { (_, _) =>
+                RecoveryStarted[F, S, C, E] { (_, _) =>
                   for {
                     _ <- actorCtx.setReceiveTimeout(10.millis).toResource
                   } yield {
-                    new RecoveringAny[F, S, C, E] {
+                    new Recovering[F, S, C, E] {
 
                       val replay = {
                         Replay

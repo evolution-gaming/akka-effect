@@ -12,8 +12,8 @@ object InstrumentEventSourced {
 
   def apply[F[_] : Sync, S, C, E](
     actions: Ref[F, List[Action[S, C, E]]],
-    eventSourcedOf: EventSourcedAnyOf[F, S, C, E]
-  ): EventSourcedAnyOf[F, S, C, E] = {
+    eventSourcedOf: EventSourcedOf[F, S, C, E]
+  ): EventSourcedOf[F, S, C, E] = {
 
     def record(action: Action[S, C, E]) = actions.update { action :: _ }
 
@@ -33,7 +33,7 @@ object InstrumentEventSourced {
           eventSourced.recovery,
           eventSourced.pluginIds))
       } yield {
-        new EventSourcedAny[F, S, C, E] {
+        new EventSourced[F, S, C, E] {
 
           def eventSourcedId = eventSourced.eventSourcedId
 
@@ -46,7 +46,7 @@ object InstrumentEventSourced {
               recoveryStarted <- eventSourced.start
               _               <- resource(Action.Started, Action.Released)
             } yield {
-              RecoveryStartedAny[F, S, C, E] { (seqNr, snapshotOffer) =>
+              RecoveryStarted[F, S, C, E] { (seqNr, snapshotOffer) =>
 
                 val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
                   val metadata = snapshotOffer.metadata.copy(timestamp = 0)
@@ -58,7 +58,7 @@ object InstrumentEventSourced {
                   _          <- resource(Action.RecoveryAllocated(snapshotOffer1), Action.RecoveryReleased)
                 } yield {
 
-                  new RecoveringAny[F, S, C, E] {
+                  new Recovering[F, S, C, E] {
 
                     def replay = {
                       for {

@@ -11,28 +11,28 @@ import com.evolutiongaming.akkaeffect.ActorCtx
   * @tparam C command
   * @tparam E event
   */
-trait EventSourcedAnyOf[F[_], S, C, E] {
+trait EventSourcedOf[F[_], S, C, E] {
 
-  def apply(actorCtx: ActorCtx[F]): F[EventSourcedAny[F, S, C, E]]
+  def apply(actorCtx: ActorCtx[F]): F[EventSourced[F, S, C, E]]
 }
 
-object EventSourcedAnyOf {
+object EventSourcedOf {
 
   def const[F[_], S, C, E](
-    eventSourced: F[EventSourcedAny[F, S, C, E]]
-  ): EventSourcedAnyOf[F, S, C, E] = {
+    eventSourced: F[EventSourced[F, S, C, E]]
+  ): EventSourcedOf[F, S, C, E] = {
     _ => eventSourced
   }
 
   def apply[F[_], S, C, E](
-    f: ActorCtx[F] => F[EventSourcedAny[F, S, C, E]]
-  ): EventSourcedAnyOf[F, S, C, E] = {
+    f: ActorCtx[F] => F[EventSourced[F, S, C, E]]
+  ): EventSourcedOf[F, S, C, E] = {
     actorCtx => f(actorCtx)
   }
 
 
   implicit class EventSourcedOfOps[F[_], S, C, E](
-    val self: EventSourcedAnyOf[F, S, C, E]
+    val self: EventSourcedOf[F, S, C, E]
   ) extends AnyVal {
 
     def convert[S1, C1, E1](
@@ -42,7 +42,7 @@ object EventSourcedAnyOf {
       ef: E => F[E1],
       e1f: E1 => F[E])(implicit
       F: Monad[F]
-    ): EventSourcedAnyOf[F, S1, C1, E1] = {
+    ): EventSourcedOf[F, S1, C1, E1] = {
       actorCtx => self(actorCtx).map { _.convert(sf, s1f, c1f, ef, e1f) }
     }
 
@@ -52,7 +52,7 @@ object EventSourcedAnyOf {
       cf: Any => F[C],
       ef: Any => F[E])(implicit
       F: Monad[F],
-    ): EventSourcedAnyOf[F, S1, C1, E1] = {
+    ): EventSourcedOf[F, S1, C1, E1] = {
       actorCtx => self(actorCtx).map { _.widen(sf, cf, ef) }
     }
 
@@ -62,6 +62,6 @@ object EventSourcedAnyOf {
       cf: Any => F[C],
       ef: Any => F[E])(implicit
       F: Monad[F],
-    ): EventSourcedAnyOf[F, Any, Any, Any] = widen(sf, cf, ef)
+    ): EventSourcedOf[F, Any, Any, Any] = widen(sf, cf, ef)
   }
 }

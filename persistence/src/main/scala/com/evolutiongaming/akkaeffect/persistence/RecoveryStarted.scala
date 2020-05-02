@@ -12,7 +12,7 @@ import com.evolutiongaming.catshelper.CatsHelper._
   * @tparam C command
   * @tparam E event
   */
-trait RecoveryStartedAny[F[_], S, C, E] {
+trait RecoveryStarted[F[_], S, C, E] {
 
   /**
     * Called upon starting recovery, resource will be released upon actor termination
@@ -22,30 +22,30 @@ trait RecoveryStartedAny[F[_], S, C, E] {
   def apply(
     seqNr: SeqNr,
     snapshotOffer: Option[SnapshotOffer[S]]
-  ): Resource[F, RecoveringAny[F, S, C, E]]
+  ): Resource[F, Recovering[F, S, C, E]]
 }
 
-object RecoveryStartedAny {
+object RecoveryStarted {
 
   def apply[F[_], S, C, E](
-    f: (SeqNr, Option[SnapshotOffer[S]]) => Resource[F, RecoveringAny[F, S, C, E]]
-  ): RecoveryStartedAny[F, S, C, E] = {
+    f: (SeqNr, Option[SnapshotOffer[S]]) => Resource[F, Recovering[F, S, C, E]]
+  ): RecoveryStarted[F, S, C, E] = {
     (seqNr, snapshotOffer) => f(seqNr, snapshotOffer)
   }
 
   def const[F[_], S, C, E](
-    recovering: Resource[F, RecoveringAny[F, S, C, E]]
-  ): RecoveryStartedAny[F, S, C, E] = {
+    recovering: Resource[F, Recovering[F, S, C, E]]
+  ): RecoveryStarted[F, S, C, E] = {
     (_, _) => recovering
   }
 
-  def empty[F[_]: Monad, S, C, E]: RecoveryStartedAny[F, S, C, E] = {
-    const(RecoveringAny.empty[F, S, C, E].pure[Resource[F, *]])
+  def empty[F[_]: Monad, S, C, E]: RecoveryStarted[F, S, C, E] = {
+    const(Recovering.empty[F, S, C, E].pure[Resource[F, *]])
   }
 
 
   implicit class RecoveryStartedOps[F[_], S, C, E](
-    val self: RecoveryStartedAny[F, S, C, E]
+    val self: RecoveryStarted[F, S, C, E]
   ) extends AnyVal {
 
     def convert[S1, C1, E1](
@@ -55,7 +55,7 @@ object RecoveryStartedAny {
       ef: E => F[E1],
       e1f: E1 => F[E])(implicit
       F: Monad[F],
-    ): RecoveryStartedAny[F, S1, C1, E1] = {
+    ): RecoveryStarted[F, S1, C1, E1] = {
 
       (seqNr, snapshotOffer) => {
 
@@ -78,7 +78,7 @@ object RecoveryStartedAny {
       cf: C1 => F[C],
       ef: E1 => F[E])(implicit
       F: Monad[F],
-    ): RecoveryStartedAny[F, S1, C1, E1] = {
+    ): RecoveryStarted[F, S1, C1, E1] = {
       (seqNr, snapshotOffer) => {
 
         val snapshotOffer1 = snapshotOffer.traverse { snapshotOffer =>
@@ -100,6 +100,6 @@ object RecoveryStartedAny {
       cf: Any => F[C],
       ef: Any => F[E])(implicit
       F: Monad[F],
-    ): RecoveryStartedAny[F, Any, Any, Any] = widen[Any, Any, Any](sf, cf, ef)
+    ): RecoveryStarted[F, Any, Any, Any] = widen[Any, Any, Any](sf, cf, ef)
   }
 }

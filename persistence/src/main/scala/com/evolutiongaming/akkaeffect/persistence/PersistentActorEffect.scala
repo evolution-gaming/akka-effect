@@ -10,7 +10,7 @@ object PersistentActorEffect {
 
   def of[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
     actorRefOf: ActorRefOf[F],
-    eventSourcedOf: EventSourcedAnyOf[F, Any, Any, Any],
+    eventSourcedOf: EventSourcedOf[F, Any, Any, Any],
     name: Option[String] = None
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 
