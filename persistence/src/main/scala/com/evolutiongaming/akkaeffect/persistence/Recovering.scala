@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import cats.Monad
 import cats.effect.Resource
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.ReceiveAny
+import com.evolutiongaming.akkaeffect.Receive
 
 /**
   * Describes "Recovery" phase
@@ -28,7 +28,7 @@ trait Recovering[F[_], S, C, E] {
     seqNr: SeqNr,
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]
-  ): Resource[F, ReceiveAny[F, C]]
+  ): Resource[F, Receive[F, C]]
 }
 
 object Recovering {
@@ -38,7 +38,7 @@ object Recovering {
     def replay = Replay.empty[F, E].pure[Resource[F, *]]
 
     def completed(seqNr: SeqNr, journaller: Journaller[F, E], snapshotter: Snapshotter[F, S]) = {
-      ReceiveAny.empty[F, C].pure[Resource[F, *]]
+      Receive.empty[F, C].pure[Resource[F, *]]
     }
   }
 

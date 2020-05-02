@@ -1,104 +1,74 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorRef
-import cats.effect.{Resource, Sync}
+import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
+import com.evolutiongaming.akkaeffect.Receive1.Stop
 
 /**
-  * Typesafe api for Actor.receive
+  * Api for Actor.receive
   *
   * @see [[akka.actor.Actor.receive]]
   * @tparam A message
-  * @tparam B reply
   */
-trait Receive[F[_], -A, B] {
-  import Receive._
+trait Receive[F[_], A] {
 
   /**
     * Called strictly sequentially, next message will be processed only after we've done with the previous one
     * This basically preserves the semantic of Actors
     */
-  def apply(msg: A, reply: Reply[F, B]): F[Stop]
+  def apply(msg: A, sender: ActorRef): F[Stop]
 }
 
 object Receive {
 
-  type Stop = Boolean
+  def empty[F[_]: Applicative, A]: Receive[F, A] = const(false.pure[F])
 
+  def stop[F[_]: Applicative, A]: Receive[F, A] = const(true.pure[F])
 
-  def empty[F[_]: Applicative, A, B]: Receive[F, A, B] = const(false.pure[F])
+  def const[F[_]: Applicative, A](stop: F[Stop]): Receive[F, A] = (_, _) => stop
 
-  def stop[F[_]: Applicative, A, B]: Receive[F, A, B] = const(true.pure[F])
+  def apply[F[_], A](f: (A, ActorRef) => F[Stop]): Receive[F, A] = {
+    (msg, sender) => f(msg, sender)
+  }
 
-  def const[F[_]: Applicative, A, B](stop: F[Stop]): Receive[F, A, B] = (_, _) => stop
-
-  def apply[F[_], A, B](f: (A, Reply[F, B]) => F[Stop]): Receive[F, A, B] = {
-    (msg, reply) => f(msg, reply)
+  def fromReceive[F[_]: Sync](
+    receive: Receive1[F, Any, Any],
+    self: ActorRef
+  ): Receive[F, Any] = {
+    (msg, sender) => {
+      val reply = Reply.fromActorRef(to = sender, from = self.some)
+      receive(msg, reply)
+    }
   }
 
 
-  implicit class ReceiveOps[F[_], A, B](val self: Receive[F, A, B]) extends AnyVal {
+  implicit class ReceiveOps[F[_], A](val self: Receive[F, A]) extends AnyVal {
 
-    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Receive[G, A, B] = {
-      (msg: A, reply: Reply[G, B]) => {
-        fg(self(msg, reply.mapK(gf)))
-      }
-    }
+    def mapK[G[_]](f: F ~> G): Receive[G, A] = (msg, sender) => f(self(msg, sender))
 
 
-    def collect[AA](f: AA => F[Option[A]])(implicit F: Monad[F]): Receive[F, AA, B] = {
-      (msg, reply) => {
+    def collect[B](f: B => F[Option[A]])(implicit F: Monad[F]): Receive[F, B] = {
+      (msg, sender) => {
         for {
           msg  <- f(msg)
-          stop <- msg.fold(false.pure[F]) { msg => self(msg, reply) }
+          stop <- msg.fold(false.pure[F]) { msg => self(msg, sender) }
         } yield stop
       }
     }
 
 
-    def convert[A1, B1](
-      af: A1 => F[A],
-      bf: B => F[B1])(implicit
-      F: FlatMap[F],
-    ): Receive[F, A1, B1] = {
-      (msg, reply) => {
-        for {
-          msg  <- af(msg)
-          stop <- self(msg, reply.convert(bf))
-        } yield stop
-      }
-    }
-
-
-    def convertMsg[A1](f: A1 => F[A])(implicit F: FlatMap[F]): Receive[F, A1, B] = {
-      (msg, reply) => {
+    def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Receive[F, B] = {
+      (msg, sender) => {
         for {
           msg  <- f(msg)
-          stop <- self(msg, reply)
+          stop <- self(msg, sender)
         } yield stop
       }
     }
 
 
-    def widen[A1 >: A, B1 >: B](f: A1 => F[A])(implicit F: FlatMap[F]): Receive[F, A1, B1] = {
-      (msg, reply) => {
-        for {
-          msg  <- f(msg)
-          stop <- self(msg, reply)
-        } yield stop
-      }
-    }
-
-
-    def typeless(f: Any => F[A])(implicit F: FlatMap[F]): Receive[F, Any, Any] = widen(f)
-  }
-
-
-  implicit class ReceiveAnyOps[F[_]](val self: Receive[F, Any, Any]) extends AnyVal {
-
-    def toReceiveAny(actorRef: ActorRef)(implicit F: Sync[F]): ReceiveAny[F, Any] = {
-      ReceiveAny.fromReceive(self, actorRef)
-    }
+    def typeless(f: Any => F[A])(implicit F: FlatMap[F]): Receive[F, Any] = convert(f)
   }
 }

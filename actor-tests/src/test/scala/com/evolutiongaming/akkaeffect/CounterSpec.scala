@@ -43,7 +43,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
     Ref[F]
       .of(0)
       .map { ref =>
-        Receive[F, Msg, Any] { (msg, reply) =>
+        Receive1[F, Msg, Any] { (msg, reply) =>
           msg match {
             case Msg.Inc =>
               for {

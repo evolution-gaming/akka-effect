@@ -7,7 +7,7 @@ import cats.effect.{Concurrent, IO, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.{Append, SeqNr}
-import com.evolutiongaming.akkaeffect.{Receive, Reply}
+import com.evolutiongaming.akkaeffect.{Receive1, Reply}
 import com.evolutiongaming.catshelper.ToFuture
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -65,7 +65,7 @@ class ReceiveFromReceiveCmdTest extends AsyncFunSuite with Matchers {
 
     object Gates {
 
-      def apply(idx: Idx, receive: Receive[F, C, R]): F[Gates] = {
+      def apply(idx: Idx, receive: Receive1[F, C, R]): F[Gates] = {
         for {
           receiveGate  <- Gate[F, Unit]
           validateGate <- Gate[F, S]

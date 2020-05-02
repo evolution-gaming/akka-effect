@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 import cats.effect.{Concurrent, Resource}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
-import com.evolutiongaming.akkaeffect.Receive
+import com.evolutiongaming.akkaeffect.Receive1
 import com.evolutiongaming.akkaeffect.persistence.{Append, SeqNr}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
@@ -16,12 +16,12 @@ object ReceiveFromReceiveCmd {
     seqNr: SeqNr,
     append: Append[F, E],
     receiveCmd: ReceiveCmd[F, S, C, E]
-  ): Resource[F, Receive[F, C, R]] = {
+  ): Resource[F, Receive1[F, C, R]] = {
 
     Engine
       .of(Engine.State(state, seqNr), append)
       .map { engine =>
-        Receive[F, C, R] { (msg, _) =>
+        Receive1[F, C, R] { (msg, _) =>
           val result = for {
             validate <- receiveCmd(msg)
             result   <- engine(validate)

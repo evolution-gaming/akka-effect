@@ -120,7 +120,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     for {
                       stateRef <- Ref[F].of(0).toResource
                     } yield {
-                      val receive = ReceiveAny[F, Cmd] { (msg, sender) =>
+                      val receive = Receive[F, Cmd] { (msg, sender) =>
 
                         val reply = Reply.fromActorRef[F](to = sender, from = actorCtx.self)
 
@@ -281,7 +281,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   startedDeferred
                     .complete(())
                     .toResource
-                    .as(ReceiveAny.empty[F, C])
+                    .as(Receive.empty[F, C])
                 }
               }
               recovering.pure[Resource[F, *]]
@@ -355,7 +355,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     _     <- snapshotter.save(seqNr, 1).flatten
                     _     <- startedDeferred.complete(())
                   } yield {
-                    ReceiveAny.empty[F, C]
+                    Receive.empty[F, C]
                   }
                   receive.toResource
                 }
@@ -463,7 +463,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     _     <- journaller.deleteTo(seqNr).flatten
                     _     <- startedDeferred.complete(())
                   } yield {
-                    ReceiveAny.empty[F, C]
+                    Receive.empty[F, C]
                   }
                   receive.toResource
                 }
@@ -580,7 +580,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     _ <- journaller.append(Nel.of(Nel.of(0, 1), Nel.of(2))).flatten
                     _ <- startedDeferred.complete(())
                   } yield {
-                    ReceiveAny.empty[F, C]
+                    Receive.empty[F, C]
                   }
                   receive.toResource
                 }
@@ -688,7 +688,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     _     <- snapshotter.delete(seqNr).flatten
                     _     <- startedDeferred.complete(())
                   } yield {
-                    ReceiveAny.empty[F, C]
+                    Receive.empty[F, C]
                   }
                   receive.toResource
                 }
@@ -812,7 +812,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     _     <- journaller.append(Nel.of(Nel.of(1))).flatten
                     _     <- startedDeferred.complete(())
                   } yield {
-                    ReceiveAny.empty[F, C]
+                    Receive.empty[F, C]
                   }
 
                   receive.toResource
@@ -1052,7 +1052,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                 ) = {
                   Resource
                     .make(lock.get productR actorCtx.stop) { _ => stopped.complete(()) }
-                    .as(ReceiveAny.empty[F, C])
+                    .as(Receive.empty[F, C])
                 }
               }
               recovering.pure[Resource[F, *]]
@@ -1151,7 +1151,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                       _ <- append
                       _ <- startedDeferred.complete(())
                     } yield {
-                      ReceiveAny.empty[F, C]
+                      Receive.empty[F, C]
                     }
                     receive.toResource
                   }
@@ -1273,7 +1273,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                         for {
                           _ <- actorCtx.setReceiveTimeout(10.millis).toResource
                         } yield {
-                          ReceiveAny[F, C] { (a, _) =>
+                          Receive[F, C] { (a, _) =>
                             a match {
                               case ReceiveTimeout => timedOut.complete(()).as(true)
                               case _              => false.pure[F]

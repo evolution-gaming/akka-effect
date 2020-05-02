@@ -43,9 +43,9 @@ object Probe {
     type Listener = Envelop => F[Unsubscribe]
 
 
-    def receiveOf(listenersRef: Ref[F, Set[Listener]]): ReceiveAnyOf[F] = {
+    def receiveOf(listenersRef: Ref[F, Set[Listener]]): ReceiveOf[F] = {
       actorCtx => {
-        ReceiveAny[F, Any] { (msg, sender) =>
+        Receive[F, Any] { (msg, sender) =>
           msg match {
             case Watch(actorRef) =>
               for {

@@ -140,7 +140,7 @@ private[akkaeffect] object Persistence {
 
 
   def receive[F[_]: Sync: Fail, S, C, E](
-    receive: ReceiveAny[F, C]
+    receive: Receive[F, C]
   ): Persistence[F, S, C, E] = {
 
     new Persistence[F, S, C, E] { self =>

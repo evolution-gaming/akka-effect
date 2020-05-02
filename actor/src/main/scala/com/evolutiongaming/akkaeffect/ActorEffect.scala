@@ -39,7 +39,7 @@ object ActorEffect {
 
   def of[F[_]: Sync: ToFuture: FromFuture](
     actorRefOf: ActorRefOf[F],
-    receiveOf: ReceiveOf[F, Any, Any],
+    receiveOf: Receive1Of[F, Any, Any],
     name: Option[String] = None
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 

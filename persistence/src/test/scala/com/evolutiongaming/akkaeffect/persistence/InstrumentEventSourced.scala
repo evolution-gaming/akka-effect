@@ -155,7 +155,7 @@ object InstrumentEventSourced {
                         receive <- recovering.completed(seqNr, journaller1, snapshotter1)
                         _       <- resource(Action.ReceiveAllocated(seqNr), Action.ReceiveReleased)
                       } yield {
-                        ReceiveAny[F, C] { (msg, sender) =>
+                        Receive[F, C] { (msg, sender) =>
                           for {
                             stop <- receive(msg, sender)
                             _    <- record(Action.Received(msg, sender, stop))
@@ -246,7 +246,7 @@ object InstrumentEventSourced {
     final case class Received[C](
       cmd: C,
       sender: ActorRef,
-      stop: Receive.Stop
+      stop: Receive1.Stop
     ) extends Action[Nothing, C, Nothing]
   }
 }
