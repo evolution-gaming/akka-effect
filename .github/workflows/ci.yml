@@ -10,8 +10,8 @@ jobs:
     strategy:
       matrix:
         scala:
-          - 2.13.1
-          - 2.12.10
+          - 2.13.2
+          - 2.12.11
 
     steps:
       - uses: actions/checkout@v1
