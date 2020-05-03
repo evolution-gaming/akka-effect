@@ -70,8 +70,8 @@ lazy val persistence = (project in file("persistence")
   settings (name := "akka-effect-persistence")
   settings commonSettings
   dependsOn(
-    actor % "test->test;compile->compile",
-    testkit % "test->test;test->compile",
+    actor         % "test->test;compile->compile",
+    testkit       % "test->test;test->compile",
     `actor-tests` % "test->test")
   settings (libraryDependencies ++= Seq(
     Akka.actor,
@@ -93,6 +93,8 @@ lazy val eventsourcing = (project in file("eventsourcing")
   settings commonSettings
   dependsOn persistence % "test->test;compile->compile"
   settings (libraryDependencies ++= Seq(
+    Akka.stream,
+    retry,
     compilerPlugin(`kind-projector` cross CrossVersion.full))))
 
 lazy val `akka-effect-safe-persistence-async` = (project in file("modules/safe-persistence-async")

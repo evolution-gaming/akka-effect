@@ -1,24 +1,51 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
-import cats.Applicative
 import cats.implicits._
+import cats.{Applicative, FlatMap}
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 
-trait Validate[F[_], S, E] {
+/**
+  * Describes "Validation" phase against actual state
+  *
+  * @tparam S state
+  * @tparam E event
+  */
+trait Validate[F[_], S, E, A] {
 
-  // TODO return directives including one for snapshots
-  def apply(state: S, seqNr: SeqNr): F[Directive[F, S, E]]
+  def apply(state: S, seqNr: SeqNr): F[Directive[F, S, E, A]]
 }
 
 object Validate {
 
-  def const[F[_]: Applicative, S, E](directive: Directive[F, S, E]): Validate[F, S, E] = {
-    (_, _) => directive.pure[F]
+  def const[F[_], S, E, A](directive: F[Directive[F, S, E, A]]): Validate[F, S, E, A] = (_, _) => directive
+
+
+  def empty[F[_]: Applicative, S, E]: Validate[F, S, E, Unit] = const(Directive.empty[F, S, E].pure[F])
+
+
+  def apply[F[_], S, E, A](f: (S, SeqNr) => F[Directive[F, S, E, A]]): Validate[F, S, E, A] = {
+    (state, seqNr) => f(state, seqNr)
   }
 
-  def empty[F[_]: Applicative, S, E]: Validate[F, S, E] = const(Directive.empty[F, S, E])
 
-  def apply[F[_], S, E](f: (S, SeqNr) => F[Directive[F, S, E]]): Validate[F, S, E] = {
-    (state, seqNr) => f(state, seqNr)
+  def effect[F[_]: Applicative, S, E, R](f: Either[Throwable, SeqNr] => F[R]): Validate[F, S, E, R] = {
+    const(Directive.effect[F, S, E, R](f).pure[F])
+  }
+
+
+  implicit class ValidateOps[F[_], S, E, A](val self: Validate[F, S, E, A]) extends AnyVal {
+
+    def convertDirective[E1, B](
+      f: Directive[F, S, E, A] => F[Directive[F, S, E1, B]])(implicit
+      F: FlatMap[F]
+    ): Validate[F, S, E1, B] = {
+
+      (state, seqNr) => {
+        for {
+          a <- self(state, seqNr)
+          a <- f(a)
+        } yield a
+      }
+    }
   }
 }
