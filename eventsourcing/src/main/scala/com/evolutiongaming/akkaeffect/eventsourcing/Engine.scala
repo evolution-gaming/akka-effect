@@ -11,7 +11,7 @@ import cats.implicits._
 import cats.{FlatMap, Monad}
 import com.evolutiongaming.akkaeffect
 import com.evolutiongaming.akkaeffect.eventsourcing.util.ResourceFromQueue
-import com.evolutiongaming.akkaeffect.persistence.SeqNr
+import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
 import com.evolutiongaming.akkaeffect.util.CloseOnError
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, Runtime, ToFuture}
@@ -99,7 +99,7 @@ object Engine {
 
     trait Append {
 
-      def apply(events: Nel[Nel[E]]): F[SeqNr]
+      def apply(events: Events[E]): F[SeqNr]
 
       def error: F[Option[Throwable]]
     }
@@ -112,7 +112,7 @@ object Engine {
           .map { closeOnError =>
             new Append {
 
-              def apply(events: Nel[Nel[E]]) = closeOnError { append(events) }
+              def apply(events: Events[E]) = closeOnError { append(events) }
 
               def error = closeOnError.error
             }
@@ -149,12 +149,12 @@ object Engine {
                   case Some(change: Change[S, E]) =>
                     val state1 = State(
                       Engine.State(
-                        change.state,
-                        change.events.foldLeft(state.value.seqNr) { _ + _.size }),
+                        value = change.state,
+                        seqNr = state.value.seqNr + change.events.size),
                       stopped = directive.stop)
                     stateRef
                       .set(state1)
-                      .as(EventsAndEffect(change.events.toList, effect(state1.value)))
+                      .as(EventsAndEffect(change.events.values.toList, effect(state1.value)))
 
                   case None =>
                     val state1 = state.copy(stopped = directive.stop)
@@ -179,7 +179,7 @@ object Engine {
             .fold {
               append.error
             } { events =>
-              append(events).redeem(_.some, _ => none)
+              append(Events(events)).redeem(_.some, _ => none)
             }
             .map { error => eventsAndEffects.foldMapM { _.effect(error) } }
             .toFuture
@@ -300,7 +300,7 @@ object Engine {
 
   trait Append[F[_], -A] {
 
-    def apply(events: Nel[Nel[A]]): F[SeqNr]
+    def apply(events: Events[A]): F[SeqNr]
   }
 
   object Append {
@@ -320,7 +320,7 @@ object Engine {
         .of(initial)
         .map { seqNrRef =>
           events => {
-            val size = events.foldLeft(0L) { _ + _.size }
+            val size = events.size
             seqNrRef.modify { seqNr =>
               val seqNr1 = seqNr + size
               (seqNr1, seqNr1)

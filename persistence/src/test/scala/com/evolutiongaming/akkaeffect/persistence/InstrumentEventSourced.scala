@@ -84,7 +84,7 @@ object InstrumentEventSourced {
 
                       val journaller1 = new Journaller[F, E] {
 
-                        def append = (events: Nel[Nel[E]]) => {
+                        def append = events => {
                           for {
                             _     <- record(Action.AppendEvents(events))
                             seqNr <- journaller.append(events)
@@ -205,7 +205,7 @@ object InstrumentEventSourced {
     final case class Replayed[S, E](event: E, seqNr: SeqNr) extends Action[S, Nothing, E]
 
 
-    final case class AppendEvents[E](events: Nel[Nel[E]]) extends Action[Nothing, Nothing, E]
+    final case class AppendEvents[E](events: Events[E]) extends Action[Nothing, Nothing, E]
 
     final case object AppendEventsOuter extends Action[Nothing, Nothing, Nothing]
 

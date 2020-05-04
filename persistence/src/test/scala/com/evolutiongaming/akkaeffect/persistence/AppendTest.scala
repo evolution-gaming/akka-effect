@@ -71,8 +71,8 @@ class AppendTest extends AsyncFunSuite with Matchers {
           }
 
           for {
-            seqNr0 <- append.value(Nel.of(Nel.of(0, 1), Nel.of(2)))
-            seqNr1 <- append.value(Nel.of(Nel.of(3)))
+            seqNr0 <- append.value(Events.batched(Nel.of(0, 1), Nel.of(2)))
+            seqNr1 <- append.value(Events.of(3))
             queue  <- ref.get
             _       = queue.size shouldEqual 3
             _      <- dequeue
@@ -85,8 +85,8 @@ class AppendTest extends AsyncFunSuite with Matchers {
             seqNr  <- seqNr1
             _       = seqNr shouldEqual 4L
             _      <- dequeue
-            seqNr0 <- append.value(Nel.of(Nel.of(3)))
-            seqNr1 <- append.value(Nel.of(Nel.of(4)))
+            seqNr0 <- append.value(Events.of(4))
+            seqNr1 <- append.value(Events.of(5))
             queue  <- ref.get
             _       = queue.size shouldEqual 2
             _      <- Sync[F].delay { append.onError(error, 2, 2L) }
@@ -94,7 +94,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
             _       = seqNr shouldEqual error.asLeft
             seqNr  <- seqNr1.attempt
             _       = seqNr shouldEqual error.asLeft
-            result <- append.value(Nel.of(Nel.of(4)))
+            result <- append.value(Events.of(6))
           } yield result
         }
       result   <- result.attempt

@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
-import cats.data.{NonEmptyList => Nel}
+import com.evolutiongaming.akkaeffect.persistence.Events
 
 /**
   * Used to provide new state to be captured and events to be stored
@@ -10,6 +10,8 @@ import cats.data.{NonEmptyList => Nel}
   * @tparam S state
   * @tparam E event
   */
-final case class Change[+S, +E](
-  state: S,
-  events: Nel[Nel[E]])
+final case class Change[+S, +E](state: S, events: Events[E])
+
+object Change {
+
+}

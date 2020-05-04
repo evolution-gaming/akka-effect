@@ -139,11 +139,11 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
                           case Cmd.Inc =>
                             for {
-                              seqNr  <- journaller.append(Nel.of(Nel.of("a"))).flatten
+                              seqNr  <- journaller.append(Events.of("a")).flatten
                               _      <- stateRef.update { _ + 1 }
                               state  <- stateRef.get
                               result <- snapshotter.save(seqNr, state)
-                              seqNr  <- journaller.append(Nel.of(Nel.of("b"), Nel.of("c", "d")))
+                              seqNr  <- journaller.append(Events.batched(Nel.of("b"), Nel.of("c", "d")))
                               seqNr  <- seqNr
                               _      <- result
                               _      <- stateRef.update { _ + 1 }
@@ -351,7 +351,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   snapshotter: Snapshotter[F, S]
                 ) = {
                   val receive = for {
-                    seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
+                    seqNr <- journaller.append(Events.of(0)).flatten
                     _     <- snapshotter.save(seqNr, 1).flatten
                     _     <- startedDeferred.complete(())
                   } yield {
@@ -394,7 +394,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
-        Action.AppendEvents(Nel.of(Nel.of(0L))),
+        Action.AppendEvents(Events.of(0L)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(1),
         Action.SaveSnapshot(1, 1),
@@ -409,7 +409,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
-        Action.AppendEvents(Nel.of(Nel.of(0L))),
+        Action.AppendEvents(Events.of(0L)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(2),
         Action.SaveSnapshot(2, 1),
@@ -457,9 +457,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   snapshotter: Snapshotter[F, S]
                 ) = {
                   val receive = for {
-                    seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
+                    seqNr <- journaller.append(Events.of(0)).flatten
                     _     <- snapshotter.save(seqNr, 1).flatten
-                    seqNr <- journaller.append(Nel.of(Nel.of(1))).flatten
+                    seqNr <- journaller.append(Events.of(1)).flatten
                     _     <- journaller.deleteTo(seqNr).flatten
                     _     <- startedDeferred.complete(())
                   } yield {
@@ -502,13 +502,13 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
-        Action.AppendEvents(Nel.of(Nel.of(0L))),
+        Action.AppendEvents(Events.of(0L)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(1),
         Action.SaveSnapshot(1, 1),
         Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
-        Action.AppendEvents(Nel.of(Nel.of(1L))),
+        Action.AppendEvents(Events.of(1L)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(2),
         Action.DeleteEventsTo(2),
@@ -523,13 +523,13 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
-        Action.AppendEvents(Nel.of(Nel.of(0L))),
+        Action.AppendEvents(Events.of(0L)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(3),
         Action.SaveSnapshot(3, 1),
         Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
-        Action.AppendEvents(Nel.of(Nel.of(1L))),
+        Action.AppendEvents(Events.of(1L)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(4),
         Action.DeleteEventsTo(4),
@@ -577,7 +577,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   snapshotter: Snapshotter[F, S]
                 ) = {
                   val receive = for {
-                    _ <- journaller.append(Nel.of(Nel.of(0, 1), Nel.of(2))).flatten
+                    _ <- journaller.append(Events.batched(Nel.of(0, 1), Nel.of(2))).flatten
                     _ <- startedDeferred.complete(())
                   } yield {
                     Receive.empty[F, C]
@@ -620,7 +620,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("2"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
-        Action.AppendEvents(Nel.of(Nel.of(0, 1), Nel.of(2))),
+        Action.AppendEvents(Events.batched(Nel.of(0, 1), Nel.of(2))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(3),
         Action.ReceiveAllocated(0L),
@@ -637,7 +637,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Replayed(1, 2),
         Action.Replayed(2, 3),
         Action.ReplayReleased,
-        Action.AppendEvents(Nel.of(Nel.of(0, 1), Nel.of(2))),
+        Action.AppendEvents(Events.batched(Nel.of(0, 1), Nel.of(2))),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(6),
         Action.ReceiveAllocated(3L),
@@ -682,9 +682,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   snapshotter: Snapshotter[F, S]
                 ) = {
                   val receive = for {
-                    seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
+                    seqNr <- journaller.append(Events.of(0)).flatten
                     _     <- snapshotter.save(seqNr, 1).flatten
-                    _     <- journaller.append(Nel.of(Nel.of(1))).flatten
+                    _     <- journaller.append(Events.of(1)).flatten
                     _     <- snapshotter.delete(seqNr).flatten
                     _     <- startedDeferred.complete(())
                   } yield {
@@ -728,13 +728,13 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("7"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
-        Action.AppendEvents(Nel.of(Nel.of(0))),
+        Action.AppendEvents(Events.of(0)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(1),
         Action.SaveSnapshot(1, 1),
         Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
-        Action.AppendEvents(Nel.of(Nel.of(1))),
+        Action.AppendEvents(Events.of(1)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(2),
         Action.DeleteSnapshot(1),
@@ -753,13 +753,13 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Replayed(0, 1),
         Action.Replayed(1, 2),
         Action.ReplayReleased,
-        Action.AppendEvents(Nel.of(Nel.of(0))),
+        Action.AppendEvents(Events.of(0)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(3),
         Action.SaveSnapshot(3, 1),
         Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
-        Action.AppendEvents(Nel.of(Nel.of(1))),
+        Action.AppendEvents(Events.of(1)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(4),
         Action.DeleteSnapshot(3),
@@ -807,9 +807,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   snapshotter: Snapshotter[F, S]
                 ) = {
                   val receive = for {
-                    seqNr <- journaller.append(Nel.of(Nel.of(0))).flatten
+                    seqNr <- journaller.append(Events.of(0)).flatten
                     _     <- snapshotter.save(seqNr, 1).flatten
-                    _     <- journaller.append(Nel.of(Nel.of(1))).flatten
+                    _     <- journaller.append(Events.of(1)).flatten
                     _     <- startedDeferred.complete(())
                   } yield {
                     Receive.empty[F, C]
@@ -852,13 +852,13 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(none),
-        Action.AppendEvents(Nel.of(Nel.of(0))),
+        Action.AppendEvents(Events.of(0)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(1),
         Action.SaveSnapshot(1, 1),
         Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
-        Action.AppendEvents(Nel.of(Nel.of(1))),
+        Action.AppendEvents(Events.of(1)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(2),
         Action.ReceiveAllocated(0L),
@@ -873,13 +873,13 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         Action.ReplayAllocated,
         Action.Replayed(1, 2),
         Action.ReplayReleased,
-        Action.AppendEvents(Nel.of(Nel.of(0))),
+        Action.AppendEvents(Events.of(0)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(3),
         Action.SaveSnapshot(3, 1),
         Action.SaveSnapshotOuter,
         Action.SaveSnapshotInner,
-        Action.AppendEvents(Nel.of(Nel.of(1))),
+        Action.AppendEvents(Events.of(1)),
         Action.AppendEventsOuter,
         Action.AppendEventsInner(4),
         Action.ReceiveAllocated(2L),
@@ -1139,7 +1139,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                         state  <- stateRef.get
                         result <- if (state) {
                           events
-                            .traverse { event => journaller.append(Nel.of(Nel.of(event))) }
+                            .traverse { event => journaller.append(Events.of(event)) }
                             .flatMap { _.foldMapM { _.void } }
                         } else {
                           ().pure[F]
@@ -1185,7 +1185,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     def appends: Nel[Action[S, C, E]] = {
       val appendEvents: Nel[Action[S, C, E]] = events.flatMap { event =>
         Nel.of(
-          Action.AppendEvents(Nel.of(Nel.of(event))),
+          Action.AppendEvents(Events.of(event)),
           Action.AppendEventsOuter)
       }
       val appendEventsInner: Nel[Action[S, C, E]] = events.map { event =>

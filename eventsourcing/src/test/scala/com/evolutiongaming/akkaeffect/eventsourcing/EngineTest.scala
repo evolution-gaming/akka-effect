@@ -8,7 +8,7 @@ import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.ActorSuite
 import com.evolutiongaming.akkaeffect.IOSuite._
-import com.evolutiongaming.akkaeffect.persistence.SeqNr
+import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import com.evolutiongaming.retry.{Retry, Strategy}
@@ -54,7 +54,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
     object Action {
       final case class Load(name: String) extends Action
       final case class Validate(name: String, seqNr: SeqNr) extends Action
-      final case class Append(events: Nel[Nel[E]]) extends Action
+      final case class Append(events: Events[E]) extends Action
       final case class Effect(name: String, seqNr: Either[Throwable, SeqNr]) extends Action
     }
 
@@ -120,7 +120,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
                     _ <- actions.add(Action.Effect(name, seqNr))
                   } yield {}
                 }
-                val change = Change(state1, Nel.of(Nel.of(seqNr)))
+                val change = Change(state1, Events.of(seqNr))
                 Directive(change, effect)
               }
             }
@@ -168,7 +168,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           _    <- Retry[F, Throwable](Strategy.fibonacci(10.millis).limit(500.millis)).apply {
             for {
               as   <- actions.get
-              _    <- Sync[F].delay { as.lastOption shouldEqual Action.Append(Nel.of(Nel.of(2L))).some }
+              _    <- Sync[F].delay { as.lastOption shouldEqual Action.Append(Events.of(2L)).some }
             } yield {}
           }
 
@@ -182,12 +182,12 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
             Action.Load("b"),
             Action.Load("a"),
             Action.Validate("a", 0L),
-            Action.Append(Nel.of(Nel.of(0L))),
+            Action.Append(Events.of(0L)),
             Action.Validate("b", 1L),
-            Action.Append(Nel.of(Nel.of(1L))),
+            Action.Append(Events.of(1L)),
             Action.Effect("a", 1L.asRight),
             Action.Validate("c", 2L),
-            Action.Append(Nel.of(Nel.of(2L))),
+            Action.Append(Events.of(2L)),
             Action.Effect("b", 2L.asRight),
             Action.Effect("c", 3L.asRight))
         } yield {}
@@ -211,8 +211,8 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
       initial       = Engine.State((), 0L)
       seqNrRef     <- Ref[F].of(0L).toResource
       append        = new Engine.Append[F, E] {
-        def apply(events: Nel[Nel[E]]) = {
-          val size = events.foldLeft(0L) { _ + _.size }
+        def apply(events: Events[E]) = {
+          val size = events.size
           for {
             seqNr <- seqNrRef.modify { seqNr =>
               val seqNr1 = seqNr + size
@@ -228,7 +228,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           Validate
             .const[F, S, E, Either[Throwable, SeqNr]] {
               val effect = Effect { _.pure[F] }
-              val change = Change((), Nel.of(Nel.of(())))
+              val change = Change((), Events.of(()))
               Directive(change, effect).pure[F]
             }
             .pure[F]
@@ -303,7 +303,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           _         = result shouldEqual 3
 
           effect    = Effect[F, Either[Throwable, SeqNr]] { _.pure[F]}
-          append    = Validate.const(Directive(Change((), Nel.of(Nel.of(()))), effect).pure[F])
+          append    = Validate.const(Directive(Change((), Events.of(())), effect).pure[F])
           result   <- engine(append.pure[F]).flatten
           _         = result shouldEqual error.asLeft
 
