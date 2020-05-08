@@ -91,4 +91,10 @@ object Events {
     * @return detached batches of single event
     */
   def detached[A](a: A, as: A*): Events[A] = Events(Nel(a, as.toList).map { a => Nel.of(a) })
+
+
+  implicit class EventsOps[A](val self: Events[A]) extends AnyVal {
+
+    def ::(a: A): Events[A] = Events(Nel.of(a) :: self.values)
+  }
 }

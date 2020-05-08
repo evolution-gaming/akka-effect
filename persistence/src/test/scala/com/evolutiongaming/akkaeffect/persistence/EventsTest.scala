@@ -18,4 +18,8 @@ class EventsTest extends AnyFunSuite with Matchers {
     Events.detached(1, 2).toString shouldEqual "Events([1],[2])"
     Events.batched(Nel.of(1, 2), Nel.of(3, 4)).toString shouldEqual "Events([1,2],[3,4])"
   }
+
+  test("::") {
+    1 :: Events.of(2) shouldEqual Events.detached(1, 2)
+  }
 }
