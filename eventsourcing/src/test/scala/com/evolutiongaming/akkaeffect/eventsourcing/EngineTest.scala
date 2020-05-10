@@ -2,7 +2,6 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 import akka.actor.ActorSystem
 import akka.stream.SystemMaterializer
-import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
 import cats.implicits._
@@ -127,6 +126,8 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           }
         }
 
+        val retry = Retry[F, Throwable](Strategy.fibonacci(10.millis).limit(500.millis))
+
         for {
           dr0  <- Deferred[F, Unit]
           dv0  <- Deferred[F, Unit]
@@ -165,7 +166,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
 
           _    <- de1a.get
           _    <- dv2.complete(())
-          _    <- Retry[F, Throwable](Strategy.fibonacci(10.millis).limit(500.millis)).apply {
+          _    <- retry {
             for {
               as   <- actions.get
               _    <- Sync[F].delay { as.lastOption shouldEqual Action.Append(Events.of(2L)).some }
@@ -177,19 +178,22 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           _    <- a2
 
           as   <- actions.get
-          _     = as shouldEqual List(
+          (appends, rest) = as.partition(_.isInstanceOf[Action.Append])
+          _     = rest shouldEqual List(
             Action.Load("c"),
             Action.Load("b"),
             Action.Load("a"),
             Action.Validate("a", 0L),
-            Action.Append(Events.of(0L)),
             Action.Validate("b", 1L),
-            Action.Append(Events.of(1L)),
             Action.Effect("a", 1L.asRight),
             Action.Validate("c", 2L),
-            Action.Append(Events.of(2L)),
             Action.Effect("b", 2L.asRight),
             Action.Effect("c", 3L.asRight))
+
+          _     = appends shouldEqual List(
+            Action.Append(Events.of(0L)),
+            Action.Append(Events.of(1L)),
+            Action.Append(Events.of(2L)))
         } yield {}
       }
       _ <- result.toResource
