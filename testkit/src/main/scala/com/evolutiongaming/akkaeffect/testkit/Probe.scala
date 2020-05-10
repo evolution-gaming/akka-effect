@@ -4,7 +4,6 @@ import akka.actor.{ActorRef, Props}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
@@ -93,7 +92,7 @@ object Probe {
 
       val ask = Ask
         .fromActorRef(actorRef)
-        .narrow[Watch, Unit](_.cast[F, Unit])
+        .narrow[Watch, Unit](_.castM[F, Unit])
 
       val timeout = 1.second
 

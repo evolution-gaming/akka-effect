@@ -6,7 +6,6 @@ import cats.arrow.FunctionK
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync, Timer}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -86,7 +85,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         for {
           a <- actorRef.ask(WithCtx(f), timeout)
           a <- a
-          a <- a.cast[F, A]
+          a <- a.castM[F, A]
         } yield a
       }
 
@@ -114,7 +113,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         children    <- withCtx { _.children }
         _            = children shouldEqual List.empty
         identity    <- actorRef.ask(Identify("id"), timeout).flatten
-        identity    <- identity.cast[F, ActorIdentity]
+        identity    <- identity.castM[F, ActorIdentity]
         _           <- withCtx { _.setReceiveTimeout(1.millis) }
         _           <- receiveTimeout
         _            = identity shouldEqual ActorIdentity("id", actorRef.toUnsafe.some)
@@ -554,7 +553,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       stopped    <- Deferred[F, Unit]
       terminated <- Deferred[F, ActorRef]
       receiveOf  <- receiveOf(terminated, stopped.complete(()))
-        .typeless(_.cast[F, Msg])
+        .typeless(_.castM[F, Msg])
         .mapK(FunctionK.id, FunctionK.id)
         .pure[F]
       result  = for {

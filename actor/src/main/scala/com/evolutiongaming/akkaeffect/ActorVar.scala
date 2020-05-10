@@ -4,6 +4,7 @@ import akka.actor.ActorContext
 import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._
+import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, FromFuture, ToFuture}
 
@@ -67,7 +68,7 @@ object ActorVar {
       future.value match {
         case Some(result) =>
           val (state, func) = stateAndFunc(result)
-          stateVar = state.map { state => Future.successful(state) }
+          stateVar = state.map { _.asFuture }
           func()
 
         case None =>

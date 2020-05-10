@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorRef}
 import cats.effect.Sync
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.util.Serial
+import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
@@ -66,7 +67,7 @@ private[akkaeffect] object Act {
       val value = new Act[Future] {
         def apply[A](f: => A) = {
           if (actorThread.get()) {
-            Future.successful(f)
+            f.asFuture
           } else {
             val promise = Promise[A]
             val f1 = () => {
