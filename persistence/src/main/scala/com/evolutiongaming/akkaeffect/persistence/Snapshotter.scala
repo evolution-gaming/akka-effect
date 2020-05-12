@@ -3,9 +3,9 @@ package com.evolutiongaming.akkaeffect.persistence
 import java.time.Instant
 
 import akka.persistence.{SnapshotSelectionCriteria, Snapshotter => _, _}
-import cats.FlatMap
 import cats.effect.Sync
 import cats.implicits._
+import cats.{Applicative, FlatMap}
 import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.{FromFuture, MonadThrowable}
 
@@ -40,6 +40,20 @@ trait Snapshotter[F[_], -A] {
 }
 
 object Snapshotter {
+
+  def const[F[_], A](instant: F[F[Instant]], unit: F[F[Unit]]): Snapshotter[F, A] = new Snapshotter[F, A] {
+
+    def save(seqNr: SeqNr, snapshot: A) = instant
+
+    def delete(seqNr: SeqNr) = unit
+
+    def delete(criteria: SnapshotSelectionCriteria) = unit
+  }
+
+  def empty[F[_]: Applicative, A]: Snapshotter[F, A] = {
+    const(Instant.ofEpochMilli(0L).pure[F].pure[F], ().pure[F].pure[F])
+  }
+
 
   private[akkaeffect] def apply[F[_] : Sync : FromFuture, A](
     snapshotter: akka.persistence.Snapshotter,

@@ -28,7 +28,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
 
     def eventsourced(act: Act[F], ref: Ref[F, Queue[F[Unit]]]): F[Append.Eventsourced] = {
       Ref[F]
-        .of(0L)
+        .of(SeqNr.Min)
         .map { seqNr =>
           new Append.Eventsourced {
 

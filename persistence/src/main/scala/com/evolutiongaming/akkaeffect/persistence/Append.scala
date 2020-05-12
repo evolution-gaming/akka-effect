@@ -1,10 +1,10 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence._
-import cats.Monad
 import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.implicits._
+import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.util.PromiseEffect
 import com.evolutiongaming.akkaeffect.{Act, Fail}
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -26,6 +26,11 @@ trait Append[F[_], -A] {
 }
 
 object Append {
+
+  def const[F[_], A](seqNr: F[F[SeqNr]]): Append[F, A] = _ => seqNr
+
+  def empty[F[_]: Applicative, A]: Append[F, A] = const(SeqNr.Min.pure[F].pure[F])
+
 
   private[akkaeffect] def adapter[F[_] : Sync : FromFuture : ToTry, A](
     act: Act[F],

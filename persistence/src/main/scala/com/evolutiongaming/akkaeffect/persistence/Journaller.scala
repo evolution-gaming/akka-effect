@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.Monad
+import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.MonadThrowable
 
@@ -26,6 +26,11 @@ trait Journaller[F[_], -A] {
 
 
 object Journaller {
+
+  def empty[F[_]: Applicative, A]: Journaller[F, A] = {
+    Journaller(Append.empty[F, A], DeleteEventsTo.empty[F])
+  }
+  
 
   def apply[F[_], A](
     append: Append[F, A],

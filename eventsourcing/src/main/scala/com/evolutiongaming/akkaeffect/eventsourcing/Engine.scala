@@ -8,7 +8,7 @@ import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
 import cats.effect.{Concurrent, Fiber, Resource, Sync}
 import cats.implicits._
-import cats.{FlatMap, Monad}
+import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.akkaeffect
 import com.evolutiongaming.akkaeffect.eventsourcing.util.ResourceFromQueue
 import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
@@ -306,6 +306,8 @@ object Engine {
   object Append {
 
     def const[F[_], A](seqNr: F[SeqNr]): Append[F, A] = _ => seqNr
+
+    def empty[F[_]: Applicative, A]: Append[F, A] = const(SeqNr.Min.pure[F])
 
 
     def apply[F[_]: FlatMap, A](

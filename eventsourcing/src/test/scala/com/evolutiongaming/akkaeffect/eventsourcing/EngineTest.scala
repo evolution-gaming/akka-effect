@@ -83,7 +83,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
 
     def appendOf(actions: Actions): F[Engine.Append[F, E]] = {
       Engine.Append
-        .of[F, E](0L)
+        .of[F, E](SeqNr.Min)
         .map { append =>
           events => {
             for {
@@ -212,8 +212,8 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
 
     val result = for {
       materializer <- Sync[F].delay { SystemMaterializer(actorSystem).materializer }.toResource
-      initial       = Engine.State((), 0L)
-      seqNrRef     <- Ref[F].of(0L).toResource
+      initial       = Engine.State((), SeqNr.Min)
+      seqNrRef     <- Ref[F].of(SeqNr.Min).toResource
       append        = new Engine.Append[F, E] {
         def apply(events: Events[E]) = {
           val size = events.size
@@ -268,7 +268,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
 
     val result = for {
       materializer <- Sync[F].delay { SystemMaterializer(actorSystem).materializer }.toResource
-      initial       = Engine.State((), 0L)
+      initial       = Engine.State((), SeqNr.Min)
       append       <- Engine.Append.const[F, E](error.raiseError[F, SeqNr]).pure[Resource[F, *]]
       engine       <- Engine.of[F, S, E](initial, materializer, append)
       result        = {
@@ -331,7 +331,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
 
     val result = for {
       materializer <- Sync[F].delay { SystemMaterializer(actorSystem).materializer }.toResource
-      initial       = Engine.State((), 0L)
+      initial       = Engine.State((), SeqNr.Min)
       append       <- Engine.Append.of[F, E](initial.seqNr).toResource
       engine       <- Engine.of[F, S, E](initial, materializer, append)
       result        = {
@@ -383,7 +383,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
 
     for {
       materializer <- Sync[F].delay { SystemMaterializer(actorSystem).materializer }
-      initial       = Engine.State((), 0L)
+      initial       = Engine.State((), SeqNr.Min)
       append       <- Engine.Append.of[F, E](initial.seqNr)
       ab           <- Engine.of[F, S, E](initial, materializer, append).allocated
       (engine, release) = ab
