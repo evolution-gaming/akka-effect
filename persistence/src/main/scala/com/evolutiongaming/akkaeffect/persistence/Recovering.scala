@@ -12,6 +12,9 @@ import com.evolutiongaming.akkaeffect.Receive
   * @tparam C command
   * @tparam E event
   */
+
+// TODO replace C with Receive[F, C]
+
 trait Recovering[F[_], S, C, E] {
   /**
     * Used to replay events during recovery against passed state,

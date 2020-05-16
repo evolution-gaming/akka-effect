@@ -26,10 +26,17 @@ trait Ask[F[_], -A, B] {
 
 object Ask {
 
+  def const[F[_], A, B](reply: F[F[B]]): Ask[F, A, B] = (_, _, _) => reply
+
+  def apply[F[_], A, B](f: (A, FiniteDuration, Option[ActorRef]) => F[F[B]]): Ask[F, A, B] = {
+    (msg, timeout, sender) => f(msg, timeout, sender)
+  }
+
+
   implicit def contravariantAsk[F[_], B]: Contravariant[Ask[F, *, B]] = new Contravariant[Ask[F, *, B]] {
 
     def contramap[A, A1](fa: Ask[F, A, B])(f: A1 => A) = {
-      (a: A1, timeout: FiniteDuration, sender: Option[ActorRef]) => fa(f(a), timeout, sender)
+      (msg, timeout, sender) => fa(f(msg), timeout, sender)
     }
   }
 
@@ -37,12 +44,9 @@ object Ask {
   implicit def functorAsk[F[_]: Functor, A]: Functor[Ask[F, A, *]] = new Functor[Ask[F, A, *]] {
 
     def map[B, B1](fa: Ask[F, A, B])(f: B => B1): Ask[F, A, B1] = {
-      (a: A, timeout: FiniteDuration, sender: Option[ActorRef]) => fa(a, timeout, sender).map { _.map(f) }
+      (msg, timeout, sender) => fa(msg, timeout, sender).map { _.map(f) }
     }
   }
-
-
-  def const[F[_], A, B](reply: F[F[B]]): Ask[F, A, B] = (_: A, _: FiniteDuration, _: Option[ActorRef]) => reply
 
 
   def fromActorRef[F[_]: Sync: FromFuture](actorRef: ActorRef): Ask[F, Any, Any] = {
@@ -101,7 +105,7 @@ object Ask {
       bf: B => F[B1])(implicit
       F: FlatMap[F],
     ): Ask[F, A1, B1] = {
-      (msg: A1, timeout: FiniteDuration, sender: Option[ActorRef]) => {
+      (msg, timeout, sender) => {
         for {
           a <- af(msg)
           b <- self(a, timeout, sender)
@@ -114,7 +118,7 @@ object Ask {
 
 
     def narrow[A1 <: A, B1](f: B => F[B1])(implicit F: FlatMap[F]): Ask[F, A1, B1] = {
-      (msg: A1, timeout: FiniteDuration, sender: Option[ActorRef]) => {
+      (msg, timeout, sender) => {
         for {
           b <- self(msg, timeout, sender)
         } yield for {
