@@ -40,15 +40,14 @@ object Extract {
 
 
   def either[F[_]: Monad, L, R](implicit l: Extract[F, L], r: Extract[F, R]): Extract[F, Either[L, R]] = {
+    case Right(a) => r(a).map { _.asRight[L] }
+    case Left(a)  => l(a).map { _.asLeft[R] }
+    case _        => OptionT.none
+  }
 
-    def right(a: Any) = r(a).map { _.asRight[L] }
 
-    def left(a: Any) = l(a).map { _.asLeft[R] }
+  implicit class ExtractOps[F[_], A](val self: Extract[F, A]) extends AnyVal {
 
-    {
-      case Right(a) => right(a)
-      case Left(a)  => left(a)
-      case a        => right(a) orElse left(a)
-    }
+    def orElse(extract: Extract[F, A])(implicit F: Monad[F]): Extract[F, A] = a => self(a) orElse extract(a)
   }
 }

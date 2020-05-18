@@ -10,10 +10,10 @@ import scala.util.Try
 class ExtractTest extends AnyFunSuite with Matchers {
 
   List(
-    ("s"         , "s".asLeft[Long].some),
+    ("s"         , none[Either[String, Long]]),
     ("s".asLeft  , "s".asLeft[Long].some),
     ("s".asRight , none[Either[String, Long]]),
-    (0L          , 0L.asRight[String].some),
+    (0L          , none[Either[String, Long]]),
     (0L.asRight  , 0L.asRight[String].some),
     (0L.asLeft   , none[Either[String, Long]]),
     (1           , none[Either[String, Long]]),
@@ -27,5 +27,11 @@ class ExtractTest extends AnyFunSuite with Matchers {
       val extractToJsonAble = Extract.either[Try, String, Long]
       extractToJsonAble(a) shouldEqual expected.toOptionT[Try]
     }
+  }
+
+  test("orElse") {
+    val extract = Extract.fromClassTag[Try, String] orElse Extract.fromClassTag[Try, Int].map(_.toString)
+    extract(1) shouldEqual "1".some.toOptionT[Try]
+    extract("1") shouldEqual "1".some.toOptionT[Try]
   }
 }
