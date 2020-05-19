@@ -8,9 +8,9 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 import scala.concurrent.Future
 
-private[akkaeffect] trait PersistenceVar[F[_], S, C, E] {
+private[akkaeffect] trait PersistenceVar[F[_], S, E, C] {
 
-  def preStart(eventSourced: EventSourced[F, S, C, E]): Unit
+  def preStart(eventSourced: EventSourced[F, S, E, C]): Unit
 
   def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]): Unit
 
@@ -29,20 +29,20 @@ private[akkaeffect] trait PersistenceVar[F[_], S, C, E] {
 
 private[akkaeffect] object PersistenceVar {
 
-  def apply[F[_] : Sync : ToFuture : FromFuture : Fail, S, C, E](
+  def apply[F[_] : Sync : ToFuture : FromFuture : Fail, S, E, C](
     act: Act[Future],
     context: ActorContext
-  ): PersistenceVar[F, S, C, E] = {
-    apply(ActorVar[F, Persistence[F, S, C, E]](act, context))
+  ): PersistenceVar[F, S, E, C] = {
+    apply(ActorVar[F, Persistence[F, S, E, C]](act, context))
   }
 
-  def apply[F[_] : Sync : Fail, S, C, E](
-    actorVar: ActorVar[F, Persistence[F, S, C, E]]
-  ): PersistenceVar[F, S, C, E] = {
+  def apply[F[_] : Sync : Fail, S, E, C](
+    actorVar: ActorVar[F, Persistence[F, S, E, C]]
+  ): PersistenceVar[F, S, E, C] = {
 
-    new PersistenceVar[F, S, C, E] {
+    new PersistenceVar[F, S, E, C] {
 
-      def preStart(eventSourced: EventSourced[F, S, C, E]) = {
+      def preStart(eventSourced: EventSourced[F, S, E, C]) = {
         actorVar.preStart {
           Persistence.started(eventSourced)
         }

@@ -10,9 +10,9 @@ import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
 
 
-private[akkaeffect] trait Persistence[F[_], S, C, E] {
+private[akkaeffect] trait Persistence[F[_], S, E, C] {
 
-  type Result = Releasable[F, Persistence[F, S, C, E]]
+  type Result = Releasable[F, Persistence[F, S, E, C]]
 
   def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]): F[Result]
 
@@ -29,19 +29,19 @@ private[akkaeffect] trait Persistence[F[_], S, C, E] {
 
 private[akkaeffect] object Persistence {
 
-  def started[F[_]: Sync: Fail, S, C, E](
-    eventSourced: EventSourced[F, S, C, E],
-  ): Resource[F, Persistence[F, S, C, E]] = {
+  def started[F[_]: Sync: Fail, S, E, C](
+    eventSourced: EventSourced[F, S, E, C],
+  ): Resource[F, Persistence[F, S, E, C]] = {
     eventSourced
       .start
       .map { a => Persistence.started(a) }
   }
 
-  def started[F[_]: Sync: Fail, S, C, E](
-    recoveryStarted: RecoveryStarted[F, S, C, E],
-  ): Persistence[F, S, C, E] = {
+  def started[F[_]: Sync: Fail, S, E, C](
+    recoveryStarted: RecoveryStarted[F, S, E, C],
+  ): Persistence[F, S, E, C] = {
 
-    new Persistence[F, S, C, E] {
+    new Persistence[F, S, E, C] {
 
       def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]) = {
         recoveryStarted(seqNr, snapshotOffer.some)
@@ -69,7 +69,7 @@ private[akkaeffect] object Persistence {
           recovering <- recoveryStarted(seqNr, none)
           receive    <- recovering.completed(seqNr, journaller, snapshotter)
         } yield {
-          Persistence.receive[F, S, C, E](receive)
+          Persistence.receive[F, S, E, C](receive)
         }
         receive.toReleasable
       }
@@ -81,12 +81,12 @@ private[akkaeffect] object Persistence {
   }
 
 
-  def recovering[F[_]: Sync: Fail, S, C, E, R](
+  def recovering[F[_]: Sync: Fail, S, E, C, R](
     replay: Option[Allocated[F, Replay[F, E]]],
-    recovering: Recovering[F, S, C, E]
-  ): Persistence[F, S, C, E] = {
+    recovering: Recovering[F, S, E, C]
+  ): Persistence[F, S, E, C] = {
 
-    new Persistence[F, S, C, E] {
+    new Persistence[F, S, E, C] {
 
       def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]) = {
         unexpected[F, Result](name = s"snapshotOffer $snapshotOffer", state = "receive")
@@ -127,7 +127,7 @@ private[akkaeffect] object Persistence {
           .productR {
             recovering
               .completed(seqNr, journaller, snapshotter)
-              .map { receive => Persistence.receive[F, S, C, E](receive) }
+              .map { receive => Persistence.receive[F, S, E, C](receive) }
           }
           .toReleasable
       }
@@ -139,11 +139,11 @@ private[akkaeffect] object Persistence {
   }
 
 
-  def receive[F[_]: Sync: Fail, S, C, E](
+  def receive[F[_]: Sync: Fail, S, E, C](
     receive: Receive[F, C]
-  ): Persistence[F, S, C, E] = {
+  ): Persistence[F, S, E, C] = {
 
-    new Persistence[F, S, C, E] { self =>
+    new Persistence[F, S, E, C] { self =>
 
       def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]) = {
         unexpected[F, Result](name = s"snapshotOffer $snapshotOffer", state = "receive")

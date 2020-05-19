@@ -12,10 +12,10 @@ import com.evolutiongaming.akkaeffect._
 
 object InstrumentEventSourced {
 
-  def apply[F[_] : Sync, S, C, E](
+  def apply[F[_] : Sync, S, E, C](
     actions: Ref[F, List[Action[S, C, E]]],
-    eventSourcedOf: EventSourcedOf[F, S, C, E]
-  ): EventSourcedOf[F, S, C, E] = {
+    eventSourcedOf: EventSourcedOf[F, S, E, C]
+  ): EventSourcedOf[F, S, E, C] = {
 
     def record(action: Action[S, C, E]) = actions.update { action :: _ }
 
@@ -35,7 +35,7 @@ object InstrumentEventSourced {
           eventSourced.recovery,
           eventSourced.pluginIds))
       } yield {
-        new EventSourced[F, S, C, E] {
+        new EventSourced[F, S, E, C] {
 
           def eventSourcedId = eventSourced.eventSourcedId
 
@@ -48,7 +48,7 @@ object InstrumentEventSourced {
               recoveryStarted <- eventSourced.start
               _               <- resource(Action.Started, Action.Released)
             } yield {
-              RecoveryStarted[F, S, C, E] { (seqNr, snapshotOffer) =>
+              RecoveryStarted[F, S, E, C] { (seqNr, snapshotOffer) =>
 
                 val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
                   val metadata = snapshotOffer.metadata.copy(timestamp = Instant.ofEpochMilli(0))
@@ -60,7 +60,7 @@ object InstrumentEventSourced {
                   _          <- resource(Action.RecoveryAllocated(snapshotOffer1), Action.RecoveryReleased)
                 } yield {
 
-                  new Recovering[F, S, C, E] {
+                  new Recovering[F, S, E, C] {
 
                     def replay = {
                       for {

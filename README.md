@@ -103,7 +103,7 @@ trait ActorCtx[F[_]] {
 
 #### [PersistentActorOf.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/PersistentActorOf.scala)
 
-Constructs `PersistentActor.scala` out of `eventSourcedOf: ActorCtx[F] => F[EventSourced[F, S, C, E]]`
+Constructs `PersistentActor.scala` out of `eventSourcedOf: ActorCtx[F] => F[EventSourced[F, S, E, C]]`
 
 
 #### [EventSourced.scala](persistence/src/main/scala/com/evolutiongaming/akkaeffect/persistence/EventSourced.scala)
@@ -111,7 +111,7 @@ Constructs `PersistentActor.scala` out of `eventSourcedOf: ActorCtx[F] => F[Even
 Describes a lifecycle of entity with regard to event sourcing, phases are: Started, Recovering, Receiving and Termination
 
 ```scala
-trait EventSourced[F[_], S, C, E] {
+trait EventSourced[F[_], S, E, C] {
 
   def eventSourcedId: EventSourcedId
 
@@ -119,7 +119,7 @@ trait EventSourced[F[_], S, C, E] {
 
   def pluginIds: PluginIds
 
-  def start: Resource[F, RecoveryStarted[F, S, C, E]]
+  def start: Resource[F, RecoveryStarted[F, S, E, C]]
 }
 ```
 
@@ -128,12 +128,12 @@ trait EventSourced[F[_], S, C, E] {
 Describes start of recovery phase
  
 ```scala
-trait RecoveryStarted[F[_], S, C, E] {
+trait RecoveryStarted[F[_], S, E, C] {
 
   def apply(
     seqNr: SeqNr,
     snapshotOffer: Option[SnapshotOffer[S]]
-  ): Resource[F, Recovering[F, S, C, E]]
+  ): Resource[F, Recovering[F, S, E, C]]
 }
 ```
 
@@ -143,7 +143,7 @@ trait RecoveryStarted[F[_], S, C, E] {
 Describes recovery phase
  
 ```scala
-trait Recovering[F[_], S, C, E] {
+trait Recovering[F[_], S, E, C] {
 
   def replay: Resource[F, Replay[F, E]]
 

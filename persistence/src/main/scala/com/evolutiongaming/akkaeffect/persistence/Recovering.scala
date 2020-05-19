@@ -9,13 +9,10 @@ import com.evolutiongaming.akkaeffect.Receive
   * Describes "Recovery" phase
   *
   * @tparam S snapshot
-  * @tparam C command
   * @tparam E event
+  * @tparam C command
   */
-
-// TODO replace C with Receive[F, C]
-
-trait Recovering[F[_], S, C, E] {
+trait Recovering[F[_], S, E, C] {
   /**
     * Used to replay events during recovery against passed state,
     * resource will be released when recovery is completed
@@ -36,7 +33,7 @@ trait Recovering[F[_], S, C, E] {
 
 object Recovering {
 
-  def empty[F[_]: Monad, S, C, E]: Recovering[F, S, C, E] = new Recovering[F, S, C, E] {
+  def empty[F[_]: Monad, S, E, C]: Recovering[F, S, E, C] = new Recovering[F, S, E, C] {
 
     def replay = Replay.empty[F, E].pure[Resource[F, *]]
 
@@ -46,15 +43,15 @@ object Recovering {
   }
 
 
-  implicit class RecoveringOps[F[_], S, C, E](val self: Recovering[F, S, C, E]) extends AnyVal {
+  implicit class RecoveringOps[F[_], S, E, C](val self: Recovering[F, S, E, C]) extends AnyVal {
 
-    def convert[S1, C1, E1](
+    def convert[S1, E1, C1](
       sf: S => F[S1],
-      cf: C1 => F[C],
       ef: E => F[E1],
-      e1f: E1 => F[E])(implicit
+      e1f: E1 => F[E],
+      cf: C1 => F[C])(implicit
       F: Monad[F],
-    ): Recovering[F, S1, C1, E1] = new Recovering[F, S1, C1, E1] {
+    ): Recovering[F, S1, E1, C1] = new Recovering[F, S1, E1, C1] {
 
       def replay = self.replay.map { _.convert(e1f) }
 
@@ -73,10 +70,10 @@ object Recovering {
 
 
     def widen[S1 >: S, C1 >: C, E1 >: E](
-      cf: C1 => F[C],
-      ef: E1 => F[E])(implicit
+      ef: E1 => F[E],
+      cf: C1 => F[C])(implicit
       F: Monad[F]
-    ): Recovering[F, S1, C1, E1] = new Recovering[F, S1, C1, E1] {
+    ): Recovering[F, S1, E1, C1] = new Recovering[F, S1, E1, C1] {
 
       def replay = self.replay.map { _.convert(ef) }
 
@@ -93,9 +90,9 @@ object Recovering {
 
 
     def typeless(
-      cf: Any => F[C],
-      ef: Any => F[E])(implicit
+      ef: Any => F[E],
+      cf: Any => F[C])(implicit
       F: Monad[F]
-    ): Recovering[F, Any, Any, Any] = widen(cf, ef)
+    ): Recovering[F, Any, Any, Any] = widen(ef, cf)
   }
 }
