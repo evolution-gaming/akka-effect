@@ -7,7 +7,8 @@ import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, FlatMap}
 import com.evolutiongaming.akkaeffect.Fail
-import com.evolutiongaming.catshelper.{FromFuture, MonadThrowable}
+import com.evolutiongaming.catshelper.{FromFuture, Log, MonadThrowable}
+import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -72,6 +73,47 @@ object Snapshotter {
       def delete(seqNr: SeqNr) = self.delete(seqNr)
 
       def delete(criteria: SnapshotSelectionCriteria) = self.delete(criteria)
+    }
+
+
+    def withLogging(
+      log: Log[F])(implicit
+      F: FlatMap[F],
+      measureDuration: MeasureDuration[F]
+    ): Snapshotter[F, A] = new Snapshotter[F, A] {
+
+      def save(seqNr: SeqNr, snapshot: A) = {
+        for {
+          d <- MeasureDuration[F].start
+          r <- self.save(seqNr, snapshot)
+        } yield for {
+          r <- r
+          d <- d
+          _ <- log.info(s"save snapshot at $seqNr in ${ d.toMillis }ms")
+        } yield r
+      }
+
+      def delete(seqNr: SeqNr) = {
+        for {
+          d <- MeasureDuration[F].start
+          r <- self.delete(seqNr)
+        } yield for {
+          r <- r
+          d <- d
+          _ <- log.info(s"delete snapshot at $seqNr in ${ d.toMillis }ms")
+        } yield r
+      }
+
+      def delete(criteria: SnapshotSelectionCriteria) = {
+        for {
+          d <- MeasureDuration[F].start
+          r <- self.delete(criteria)
+        } yield for {
+          r <- r
+          d <- d
+          _ <- log.info(s"delete snapshots for $criteria in ${ d.toMillis }ms")
+        } yield r
+      }
     }
 
 

@@ -1,8 +1,9 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.{Applicative, Monad}
+import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.akkaeffect.Fail
-import com.evolutiongaming.catshelper.MonadThrowable
+import com.evolutiongaming.catshelper.{Log, MonadThrowable}
+import com.evolutiongaming.smetrics.MeasureDuration
 
 
 /**
@@ -63,6 +64,17 @@ object Journaller {
       val append = self.append.narrow[B]
 
       def deleteTo = self.deleteTo
+    }
+
+
+    def withLogging(
+      log: Log[F])(implicit
+      F: FlatMap[F],
+      measureDuration: MeasureDuration[F]
+    ): Journaller[F, A] = {
+      Journaller(
+        self.append.withLogging(log),
+        self.deleteTo.withLogging(log))
     }
 
 

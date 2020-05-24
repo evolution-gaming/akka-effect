@@ -4,11 +4,12 @@ import akka.persistence._
 import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import cats.{Applicative, Monad}
+import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.akkaeffect.util.PromiseEffect
 import com.evolutiongaming.akkaeffect.{Act, Fail}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, MonadThrowable, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, Log, MonadThrowable, ToTry}
+import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.collection.immutable.Queue
 
@@ -142,6 +143,22 @@ object Append {
 
 
     def narrow[B <: A]: Append[F, B] = events => self(events)
+
+
+    def withLogging(
+      log: Log[F])(implicit
+      F : FlatMap[F],
+      measureDuration: MeasureDuration[F]
+    ): Append[F, A] = events => {
+      for {
+        d <- MeasureDuration[F].start
+        r <- self(events)
+      } yield for {
+        r <- r
+        d <- d
+        _ <- log.debug(s"append ${ events.size } events in ${ d.toMillis }ms")
+      } yield r
+    }
 
 
     def withFail(fail: Fail[F])(implicit F: MonadThrowable[F]): Append[F, A] = {

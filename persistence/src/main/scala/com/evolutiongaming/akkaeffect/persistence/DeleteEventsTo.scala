@@ -1,11 +1,12 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.DeleteEventsToInterop
-import cats.Applicative
-import cats.implicits._
 import cats.effect.{Resource, Sync}
+import cats.implicits._
+import cats.{Applicative, FlatMap}
 import com.evolutiongaming.akkaeffect.Fail
-import com.evolutiongaming.catshelper.{FromFuture, MonadThrowable}
+import com.evolutiongaming.catshelper.{FromFuture, Log, MonadThrowable}
+import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -37,12 +38,28 @@ object DeleteEventsTo {
 
   implicit class DeleteEventsToOps[F[_]](val self: DeleteEventsTo[F]) extends AnyVal {
 
+    def withLogging(
+      log: Log[F])(implicit
+      F: FlatMap[F],
+      measureDuration: MeasureDuration[F]
+    ): DeleteEventsTo[F] = {
+      seqNr => {
+        for {
+          d <- MeasureDuration[F].start
+          r <- self(seqNr)
+        } yield for {
+          r <- r
+          d <- d
+          _ <- log.info(s"delete events to $seqNr in ${ d.toMillis }ms")
+        } yield r
+      }
+    }
+
     def withFail(
       fail: Fail[F])(implicit
       F: MonadThrowable[F]
-    ): DeleteEventsTo[F] = new DeleteEventsTo[F] {
-
-      def apply(seqNr: SeqNr) = {
+    ): DeleteEventsTo[F] = {
+      seqNr => {
         fail.adapt(s"failed to delete events to $seqNr") {
           self(seqNr)
         }
