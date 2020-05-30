@@ -178,19 +178,22 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           _    <- a2
 
           as   <- actions.get
-          (appends, rest) = as.partition(_.isInstanceOf[Action.Append])
-          _     = rest shouldEqual List(
+          _     = as.collect { case a: Action.Load => a } shouldEqual List(
             Action.Load("c"),
             Action.Load("b"),
-            Action.Load("a"),
+            Action.Load("a"))
+
+          _     = as.collect { case a: Action.Validate => a } shouldEqual List(
             Action.Validate("a", 0L),
             Action.Validate("b", 1L),
+            Action.Validate("c", 2L))
+
+          _     = as.collect { case a: Action.Effect => a } shouldEqual List(
             Action.Effect("a", 1L.asRight),
-            Action.Validate("c", 2L),
             Action.Effect("b", 2L.asRight),
             Action.Effect("c", 3L.asRight))
 
-          _     = appends shouldEqual List(
+          _     = as.collect { case a: Action.Append => a } shouldEqual List(
             Action.Append(Events.of(0L)),
             Action.Append(Events.of(1L)),
             Action.Append(Events.of(2L)))
