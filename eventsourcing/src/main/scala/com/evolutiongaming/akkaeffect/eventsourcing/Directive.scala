@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.implicits._
 import cats.{Applicative, Monad}
-import com.evolutiongaming.akkaeffect.persistence.SeqNr
+import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
 
 /**
   * Describes optional change as well as effect to be executed after change is applied and events are stored
@@ -33,6 +33,10 @@ object Directive {
     Directive(none[Change[S, E]], effect, stop = true)
   }
 
+  def stop[F[_]: Applicative, S, E, A](f: Either[Throwable, SeqNr] => F[A]): Directive[F, S, E, A] = {
+    Directive(none[Change[S, E]], Effect(f), stop = true)
+  }
+
 
   def apply[F[_], S, E, A](effect: Effect[F, A]): Directive[F, S, E, A] = {
     apply(none, effect, stop = false)
@@ -45,6 +49,15 @@ object Directive {
 
   def effect[F[_], S, E, A](f: Either[Throwable, SeqNr] => F[A]): Directive[F, S, E, A] = {
     Directive(Effect(f))
+  }
+
+
+  def change[F[_], S, E, A](change: Change[S, E])(f: Either[Throwable, SeqNr] => F[A]): Directive[F, S, E, A] = {
+    Directive(change.some, Effect(f), stop = false)
+  }
+
+  def change[F[_], S, E, A](state: S, events: Events[E])(f: Either[Throwable, SeqNr] => F[A]): Directive[F, S, E, A] = {
+    Directive(Change(state, events).some, Effect(f), stop = false)
   }
 
 
