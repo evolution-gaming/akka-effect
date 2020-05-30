@@ -934,6 +934,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         for {
           _          <- d0.get
           terminated <- probe.watch(actorEffect.toUnsafe)
+          _          <- Timer[F].sleep(10.millis)
           _          <- d1.complete(())
           _          <- terminated
         } yield {}
