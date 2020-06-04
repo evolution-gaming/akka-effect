@@ -26,7 +26,7 @@ object PersistentActorOf {
     new PersistentActor { actor =>
 
       lazy val (act, eventSourced) = {
-        val act = Act.adapter(self)
+        val act = Act.Adapter(self)
         val eventSourced = {
           val actorCtx = ActorCtx[F](act.value.toSafe, context)
           act.sync {

@@ -12,7 +12,7 @@ class ActTest extends AnyFunSuite with Matchers {
   test("adapter") {
     var msg = none[Any]
     val tell = (a: Any) => msg = a.some
-    val act = Act.adapter(tell)
+    val act = Act.Adapter(tell)
     act
       .sync { act.value { 0 } }
       .value shouldEqual 0.pure[Try].some

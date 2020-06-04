@@ -41,7 +41,7 @@ object ActorOf {
 
       private implicit val fail = Fail.fromActorRef[F](self)
 
-      private val act = Act.adapter(self)
+      private val act = Act.Adapter(self)
 
       private val actorVar = ActorVar[F, State](act.value, context)
 
