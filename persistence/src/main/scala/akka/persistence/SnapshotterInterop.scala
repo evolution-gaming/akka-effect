@@ -31,7 +31,8 @@ object SnapshotterInterop {
       Sync[F]
         .delay { akka.pattern.ask(snapshotStore, a, snapshotter.self)(timeout1) }
         .map { future =>
-          FromFuture[F]
+          FromFuture
+            .summon[F]
             .apply { future }
             .flatMap { a =>
               Sync[F]

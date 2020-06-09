@@ -194,7 +194,7 @@ object Engine {
     for {
       stateRef    <- Ref[F].of(State(initial, stopped = false)).toResource
       append      <- Append.of(append).toResource
-      cores       <- Runtime[F].availableCores.toResource
+      cores       <- Runtime.summon[F].availableCores.toResource
       parallelism  = cores max 5
       queue       <- queue(parallelism, stateRef, append)
       engine       = {
@@ -239,7 +239,8 @@ object Engine {
         }
 
         def offer(fiber: Fiber[F, Validate[F, S, E, Unit]]) = {
-          FromFuture[F]
+          FromFuture
+            .summon[F]
             .apply { queue.offer(fiber.join) }
             .adaptError { case e => EngineError(s"queue offer failed: $e", e) }
             .flatMap {

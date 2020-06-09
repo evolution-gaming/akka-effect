@@ -5,9 +5,8 @@ import akka.{persistence => ap}
 import cats.effect.{Resource, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect._
-import com.evolutiongaming.akkaeffect.util.Lazy
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, Memoize, ToFuture, ToTry}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Await
@@ -60,11 +59,11 @@ object PersistentActorOf {
         deleteEventsTo: DeleteEventsTo[F])
 
       lazy val (resources: Resources, release) = {
-        val stopped = Lazy.sync[F, Throwable] { Sync[F].delay { actorError("has been stopped", none) } }
+        val stopped = Memoize.sync[F, Throwable] { Sync[F].delay { actorError("has been stopped", none) } }
         val result = for {
           stopped        <- stopped.toResource
           act            <- act.value.toSafe.pure[Resource[F, *]]
-          append         <- Append.adapter[F, Any](act, actor, stopped.get)
+          append         <- Append.adapter[F, Any](act, actor, stopped)
           deleteEventsTo <- DeleteEventsTo.of(actor, timeout)
         } yield {
           Resources(append, deleteEventsTo)

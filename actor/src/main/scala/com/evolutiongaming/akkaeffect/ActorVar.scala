@@ -100,7 +100,8 @@ object ActorVar {
       def receive(f: A => F[Option[Releasable[F, A]]]) = {
         stateVar.foreach { state =>
           run {
-            FromFuture[F]
+            FromFuture
+              .summon[F]
               .apply { state }
               .flatMap { state =>
                 f(state.value)
@@ -134,7 +135,8 @@ object ActorVar {
         stateVar match {
           case Some(state) =>
             stateVar = none
-            FromFuture[F]
+            FromFuture
+              .summon[F]
               .apply { state }
               .flatMap { _.release }
           case None        =>

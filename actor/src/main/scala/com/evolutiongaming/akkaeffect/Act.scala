@@ -44,7 +44,7 @@ private[akkaeffect] object Act {
   implicit class ActFutureOps(val self: Act[Future]) extends AnyVal {
 
     def toSafe[F[_]: FromFuture]: Act[F] = new Act[F] {
-      def apply[A](f: => A) = FromFuture[F].apply { self(f) }
+      def apply[A](f: => A) = FromFuture.summon[F].apply { self(f) }
     }
   }
 

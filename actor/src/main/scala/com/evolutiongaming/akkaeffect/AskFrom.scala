@@ -42,7 +42,7 @@ object AskFrom {
         def apply[A, B: ClassTag](to: ActorRef)(f: ActorRef => A) = {
           Sync[F]
             .delay { akka.pattern.ask(actorRef, Msg(to, f), from)(timeout1) }
-            .map { future => FromFuture[F].apply { future.mapTo[B] } }
+            .map { future => FromFuture.summon[F].apply { future.mapTo[B] } }
         }
       }
     }

@@ -31,7 +31,7 @@ private[akkaeffect] object PromiseEffect {
       .map { promise =>
         new PromiseEffect[F, A] {
 
-          def get: F[A] = FromFuture[F].apply { promise.future }
+          def get: F[A] = FromFuture.summon[F].apply { promise.future }
 
           def complete(a: Try[A]): F[Unit] = Sync[F].delay { promise.complete(a) }
         }

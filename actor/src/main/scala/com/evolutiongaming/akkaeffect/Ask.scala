@@ -58,7 +58,7 @@ object Ask {
 
         Sync[F]
           .delay { akka.pattern.ask(actorRef, msg, sender1)(timeout1) }
-          .map { future => FromFuture[F].apply { future } }
+          .map { future => FromFuture.summon[F].apply { future } }
       }
 
       override def toString = {
@@ -77,7 +77,7 @@ object Ask {
         val sender1 = sender getOrElse ActorRef.noSender
         Sync[F]
           .delay { akka.pattern.ask(actorSelection, msg, sender1)(timeout1) }
-          .map { future => FromFuture[F].apply { future } }
+          .map { future => FromFuture.summon[F].apply { future } }
       }
 
       override def toString = {

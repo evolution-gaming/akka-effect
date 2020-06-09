@@ -16,7 +16,7 @@ object ResourceFromQueue {
     } { queue =>
       for {
         _ <- Sync[F].delay { queue.complete() }
-        _ <- FromFuture[F].apply { queue.watchCompletion() }
+        _ <- FromFuture.summon[F].apply { queue.watchCompletion() }
       } yield {}
     }
   }
