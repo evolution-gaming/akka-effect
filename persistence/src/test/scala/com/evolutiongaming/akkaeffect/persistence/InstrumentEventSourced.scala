@@ -67,9 +67,9 @@ object InstrumentEventSourced {
                         _      <- resource(Action.ReplayAllocated, Action.ReplayReleased)
                         replay <- recovering.replay
                       } yield {
-                        Replay[F, E] { (seqNr, event) =>
+                        Replay[E] { (event, seqNr) =>
                           for {
-                            _ <- replay(seqNr, event)
+                            _ <- replay(event, seqNr)
                             _ <- record(Action.Replayed(event, seqNr))
                           } yield {}
                         }
@@ -155,7 +155,7 @@ object InstrumentEventSourced {
                         receive <- recovering.completed(seqNr, journaller1, snapshotter1)
                         _       <- resource(Action.ReceiveAllocated(seqNr), Action.ReceiveReleased)
                       } yield {
-                        Receive[F, C] { (msg, sender) =>
+                        Receive[C] { (msg, sender) =>
                           for {
                             stop <- receive(msg, sender)
                             _    <- record(Action.Received(msg, sender, stop))

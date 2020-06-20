@@ -206,7 +206,7 @@ object Engine {
             .attempt
             .flatMap {
               case Right(validate) =>
-                val result = Validate[F, S, E, Unit] { (state, seqNr) =>
+                val result = Validate[S] { (state, seqNr) =>
                   validate(state, seqNr)
                     .attempt
                     .flatMap {

@@ -119,7 +119,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     for {
                       stateRef <- Ref[F].of(0).toResource
                     } yield {
-                      val receive = Receive[F, Cmd] { (msg, sender) =>
+                      val receive = Receive[Cmd] { (msg, sender) =>
 
                         val reply = Reply.fromActorRef[F](to = sender, from = actorCtx.self)
 
@@ -1126,7 +1126,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
               } yield {
                 new Recovering[F, S, E, C] {
 
-                  val replay = Replay.const[F, E](stateRef.set(false)).pure[Resource[F, *]]
+                  val replay = Replay.const[E](stateRef.set(false)).pure[Resource[F, *]]
 
                   def completed(
                     seqNr: SeqNr,
@@ -1273,7 +1273,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                         for {
                           _ <- actorCtx.setReceiveTimeout(10.millis).toResource
                         } yield {
-                          Receive[F, C] { (a, _) =>
+                          Receive[C] { (a, _) =>
                             a match {
                               case ReceiveTimeout => timedOut.complete(()).as(true)
                               case _              => false.pure[F]

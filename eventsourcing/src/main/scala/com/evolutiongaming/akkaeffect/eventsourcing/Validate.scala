@@ -23,13 +23,23 @@ object Validate {
   def empty[F[_]: Applicative, S, E]: Validate[F, S, E, Unit] = const(Directive.empty[F, S, E].pure[F])
 
 
-  def apply[F[_], S, E, A](f: (S, SeqNr) => F[Directive[F, S, E, A]]): Validate[F, S, E, A] = {
-    (state, seqNr) => f(state, seqNr)
+  def apply[S]: Apply[S] = new Apply[S]
+
+  private[Validate] final class Apply[S](private val b: Boolean = true) extends AnyVal {
+
+    def apply[F[_], E, A](f: (S, SeqNr) => F[Directive[F, S, E, A]]): Validate[F, S, E, A] = {
+      (state, seqNr) => f(state, seqNr)
+    }
   }
 
 
-  def effect[F[_]: Applicative, S, E, R](f: Either[Throwable, SeqNr] => F[R]): Validate[F, S, E, R] = {
-    const(Directive.effect[F, S, E, R](f).pure[F])
+  def effect[S, E]: EffectApply[S, E] = new EffectApply[S, E]
+
+  private[Validate] final class EffectApply[S, E](private val b: Boolean = true) extends AnyVal {
+
+    def apply[F[_]: Applicative, A](f: Either[Throwable, SeqNr] => F[A]): Validate[F, S, E, A] = {
+      const(Directive.effect[S, E](f).pure[F])
+    }
   }
 
 

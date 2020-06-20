@@ -10,14 +10,29 @@ import cats.{Applicative, FlatMap}
   */
 trait Replay[F[_], A] {
 
-  def apply(seqNr: SeqNr, event: A): F[Unit]
+  def apply(event: A, seqNr: SeqNr): F[Unit]
 }
 
 object Replay {
 
-  def apply[F[_], A](f: (SeqNr, A) => F[Unit]): Replay[F, A] = (seqNr, event) => f(seqNr, event)
+  def apply[A]: Apply[A] = new Apply[A]
 
-  def const[F[_], A](value: F[Unit]): Replay[F, A] = (_, _) => value
+  private[Replay] final class Apply[A](private val b: Boolean = true) extends AnyVal {
+
+    def apply[F[_]](f: (A, SeqNr) => F[Unit]): Replay[F, A] = {
+      (a, seqNr) => f(a, seqNr)
+    }
+  }
+
+
+  def const[A]: ConstApply[A] = new ConstApply[A]
+
+  private[Replay] final class ConstApply[A](private val b: Boolean = true) extends AnyVal {
+
+    def apply[F[_]](value: F[Unit]): Replay[F, A] = (_, _) => value
+  }
+
+
 
   def empty[F[_]: Applicative, A]: Replay[F, A] = const(().pure[F])
 
@@ -25,10 +40,10 @@ object Replay {
   implicit class ReplayOps[F[_], A](val self: Replay[F, A]) extends AnyVal {
 
     def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Replay[F, B] = {
-      (seqNr, event) => {
+      (a, seqNr) => {
         for {
-          e <- f(event)
-          _ <- self(seqNr, e)
+          a <- f(a)
+          _ <- self(a, seqNr)
         } yield {}
       }
     }

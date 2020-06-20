@@ -13,7 +13,7 @@ trait ReplayStateful[F[_], S, E] {
 
 object ReplayStateful {
 
-  def of[F[_]: Sync, S, E](initial: S)(f: (SeqNr, S, E) => F[S]): F[ReplayStateful[F, S, E]] = {
+  def of[F[_]: Sync, S, E](initial: S)(f: (S, E, SeqNr) => F[S]): F[ReplayStateful[F, S, E]] = {
     Ref[F]
       .of(initial)
       .map { stateRef =>
@@ -21,10 +21,10 @@ object ReplayStateful {
 
           val state = stateRef.get
 
-          val replay = Replay[F, E] { (seqNr, event) =>
+          val replay = Replay[E] { (event, seqNr) =>
             for {
               s <- stateRef.get
-              s <- f(seqNr, s, event)
+              s <- f(s, event, seqNr)
               _ <- stateRef.set(s)
             } yield {}
           }

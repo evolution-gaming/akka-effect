@@ -53,7 +53,7 @@ private[akkaeffect] object Persistence {
         val result = for {
           recovering <- recoveryStarted(seqNr, none)
           replay     <- Allocated.of(recovering.replay)
-          _          <- replay.value(seqNr, event).toResource
+          _          <- replay.value(event, seqNr).toResource
         } yield {
           Persistence.recovering(replay.some, recovering)
         }
@@ -96,7 +96,7 @@ private[akkaeffect] object Persistence {
         replay match {
           case Some(replay) =>
             replay
-              .value(seqNr, event)
+              .value(event, seqNr)
               .as {
                 Persistence
                   .recovering(replay.some, recovering)
@@ -108,7 +108,7 @@ private[akkaeffect] object Persistence {
               .of(recovering.replay)
               .flatMap { replay =>
                 replay
-                  .value(seqNr, event)
+                  .value(event, seqNr)
                   .as { Persistence.recovering(replay.some, recovering) }
                   .toResource
               }

@@ -27,11 +27,24 @@ object Receive {
 
   def stop[F[_]: Applicative, A]: Receive[F, A] = const(true.pure[F])
 
-  def const[F[_]: Applicative, A](stop: F[Stop]): Receive[F, A] = (_, _) => stop
 
-  def apply[F[_], A](f: (A, ActorRef) => F[Stop]): Receive[F, A] = {
-    (msg, sender) => f(msg, sender)
+  def apply[A]: Apply[A] = new Apply[A]
+
+  private[Receive] final class Apply[A](private val b: Boolean = true) extends AnyVal {
+
+    def apply[F[_]](f: (A, ActorRef) => F[Stop]): Receive[F, A] = {
+      (msg, sender) => f(msg, sender)
+    }
   }
+
+
+  def const[A]: ConstApply[A] = new ConstApply[A]
+
+  private[Receive] final class ConstApply[A](private val b: Boolean = true) extends AnyVal {
+
+    def apply[F[_]](stop: F[Stop]): Receive[F, A] = (_, _) => stop
+  }
+
 
   def fromReceive[F[_]: Sync](
     receive: Receive1[F, Any, Any],

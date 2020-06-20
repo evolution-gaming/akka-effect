@@ -11,7 +11,7 @@ trait Fail[F[_]] {
 
 object Fail {
 
-  def summon[F[_]](implicit F: Fail[F]): Fail[F] = F
+  def apply[F[_]](implicit F: Fail[F]): Fail[F] = F
 
 
   def fromActorRef[F[_]: ApplicativeThrowable](actorRef: ActorRef): Fail[F] = new Fail[F] {
@@ -28,9 +28,9 @@ object Fail {
 
     implicit class StringOpsFail(val self: String) extends AnyVal {
 
-      def fail[F[_]: Fail, A]: F[A] = Fail.summon[F].apply(self)
+      def fail[F[_]: Fail, A]: F[A] = Fail[F].apply(self)
 
-      def fail[F[_]: Fail, A](cause: Throwable): F[A] = Fail.summon[F].apply(self, cause.some)
+      def fail[F[_]: Fail, A](cause: Throwable): F[A] = Fail[F].apply(self, cause.some)
     }
   }
 

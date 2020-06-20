@@ -233,7 +233,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
       result        = {
         def load = {
           Validate
-            .const[F, S, E, Either[Throwable, SeqNr]] {
+            .const {
               val effect = Effect { _.pure[F] }
               val change = Change((), Events.of(()))
               Directive(change, effect).pure[F]
@@ -278,7 +278,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
         for {
           _        <- ().pure[F]
 
-          success   = Validate.effect[F, S, E, Int] { _.liftTo[F].as(0) }
+          success   = Validate.effect[S, E] { _.liftTo[F].as(0) }
           result   <- engine(success.pure[F]).flatten
           _         = result shouldEqual 0
 
@@ -287,7 +287,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           result   <- result.attempt
           _         = result shouldEqual error.asLeft
 
-          success   = Validate.effect[F, S, E, Int] { _.liftTo[F].as(1) }
+          success   = Validate.effect[S, E] { _.liftTo[F].as(1) }
           result   <- engine(success.pure[F]).flatten
           _         = result shouldEqual 1
 
@@ -296,16 +296,16 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           result   <- result.attempt
           _         = result shouldEqual error.asLeft
 
-          success   = Validate.effect[F, S, E, Int] { _.liftTo[F].as(2) }
+          success   = Validate.effect[S, E] { _.liftTo[F].as(2) }
           result   <- engine(success.pure[F]).flatten
           _         = result shouldEqual 2
 
-          effect    = Validate.effect[F, S, E, Unit] { _ => error.raiseError[F, Unit] }
+          effect    = Validate.effect[S, E] { _ => error.raiseError[F, Unit] }
           result   <- engine(effect.pure[F])
           result   <- result.attempt
           _         = result shouldEqual error.asLeft
 
-          success   = Validate.effect[F, S, E, Int] { _.liftTo[F].as(3) }
+          success   = Validate.effect[S, E] { _.liftTo[F].as(3) }
           result   <- engine(success.pure[F]).flatten
           _         = result shouldEqual 3
 
@@ -314,7 +314,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           result   <- engine(append.pure[F]).flatten
           _         = result shouldEqual error.asLeft
 
-          success   = Validate.effect[F, S, E, SeqNr] { _.liftTo[F] }
+          success   = Validate.effect[S, E] { _.liftTo[F] }
           result   <- engine(success.pure[F])
           result   <- result.attempt
           _         = result shouldEqual error.asLeft
@@ -342,7 +342,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           d0a   <- Deferred[F, Unit]
           d0b   <- Deferred[F, Either[Throwable, SeqNr]]
           l0     = Validate
-            .effect[F, S, E, Unit] { seqNr => d0b.complete(seqNr) *> d0a.get }
+            .effect[S, E] { seqNr => d0b.complete(seqNr) *> d0a.get }
             .pure[F]
           _     <- engine(l0)
 
@@ -355,7 +355,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           d2    <- Deferred[F, Unit]
           l2     = d2
             .complete(())
-            .as(Validate.effect[F, S, E, Either[Throwable, SeqNr]] { _.pure[F] })
+            .as(Validate.effect[S, E] { _.pure[F] })
           a2    <- engine(l2)
 
           _     <- d2.get
@@ -394,19 +394,19 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
       d0a          <- Deferred[F, Unit]
       d0b          <- Deferred[F, Unit]
       d0            = d0a.complete(()) *> d0b.get
-      l0            = Validate.effect[F, S, E, Unit] { _ => d0 }.pure[F]
+      l0            = Validate.effect[S, E] { _ => d0 }.pure[F]
       a0           <- engine(l0)
 
       d1a          <- Deferred[F, Unit]
       d1b          <- Deferred[F, Unit]
       d1            = d1a.complete(()) *> d1b.get
-      l1            = Validate.const(d1.as(Directive.effect[F, S, E, Either[Throwable, SeqNr]] { _.pure[F] })).pure[F]
+      l1            = Validate.const(d1.as(Directive.effect[S, E] { _.pure[F] })).pure[F]
       a1           <- engine(l1)
 
       d2a          <- Deferred[F, Unit]
       d2b          <- Deferred[F, Unit]
       d2            = d2a.complete(()) *> d2b.get
-      l2            = d2.as(Validate.effect[F, S, E, Either[Throwable, SeqNr]] { _.pure[F] })
+      l2            = d2.as(Validate.effect[S, E] { _.pure[F] })
       a2           <- engine(l2)
 
       _            <- d0a.get

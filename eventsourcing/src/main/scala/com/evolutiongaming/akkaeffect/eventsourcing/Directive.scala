@@ -47,8 +47,13 @@ object Directive {
   }
 
 
-  def effect[F[_], S, E, A](f: Either[Throwable, SeqNr] => F[A]): Directive[F, S, E, A] = {
-    Directive(Effect(f))
+  def effect[S, E]: EffectApply[S, E] = new EffectApply[S, E]
+
+  private[Directive] final class EffectApply[S, E](private val b: Boolean = true) extends AnyVal {
+
+    def apply[F[_], A](f: Either[Throwable, SeqNr] => F[A]): Directive[F, S, E, A] = {
+      Directive(Effect(f))
+    }
   }
 
 
