@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorRef
-import cats.effect.{Resource, Sync}
+import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
 
