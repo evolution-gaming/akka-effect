@@ -76,9 +76,16 @@ object Events {
 
 
   /**
-    * @return detached batches of single event each
+    * @return single batch of attached events
     */
   def of[A](a: A, as: A*): Events[A] = attached(a, as: _*)
+
+
+  /**
+    * @return single batch of attached events
+    */
+  def fromList[A](as: List[A]): Option[Events[A]] = as.toNel.map { as => Events(Nel.of(as)) }
+
 
   def batched[A](a: Nel[A], as: Nel[A]*): Events[A] = Events(Nel(a, as.toList))
 
@@ -95,6 +102,36 @@ object Events {
 
   implicit class EventsOps[A](val self: Events[A]) extends AnyVal {
 
-    def ::(a: A): Events[A] = Events(Nel.of(a) :: self.values)
+    def prepend[B >: A](events: Nel[B]): Events[B] = self.copy(values = events :: self.values)
+
+    def prepend[B >: A](event: B): Events[B] = self.prepend(Nel.of(event))
+
+    def prepend[B >: A](events: List[B]): Events[B] = events.toNel.fold[Events[B]](self) { as => self.prepend(as) }
+
+
+    def append[B >: A](events: Nel[B]): Events[B] = self.copy(values = self.values :+ events)
+
+    def append[B >: A](event: B): Events[B] = self.append(Nel.of(event))
+
+    def append[B >: A](events: List[B]): Events[B] = events.toNel.fold[Events[B]](self) { as => self.append(as) }
+  }
+
+
+  object implicits {
+
+    implicit class ListOpsEvents[E](val self: List[E]) extends AnyVal {
+
+      def toEvents: Option[Events[E]] = Events.fromList(self)
+
+      def toEventsDetached: Option[Events[E]] = self.toNel.map { as => Events(as.map(a => Nel.of(a))) }
+    }
+
+
+    implicit class NelOpsEvents[E](val self: Nel[E]) extends AnyVal {
+
+      def toEvents: Events[E] = Events.batched(self)
+
+      def toEventsDetached: Events[E] = Events(self.map { a => Nel.of(a) })
+    }
   }
 }
