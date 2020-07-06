@@ -7,7 +7,7 @@ import scala.util.Failure
 
 object ToTryFromToFuture {
 
-  def syncOrError[F[_] : ToFuture]: ToTry[F] = new ToTry[F] {
+  def syncOrError[F[_]: ToFuture]: ToTry[F] = new ToTry[F] {
 
     def apply[A](fa: F[A]) = {
       fa
