@@ -16,7 +16,7 @@ object Dependencies {
     val core   = "org.typelevel" %% "cats-core"   % version
     val kernel = "org.typelevel" %% "cats-kernel" % version
     val macros = "org.typelevel" %% "cats-macros" % version
-    val effect = "org.typelevel" %% "cats-effect" % "2.1.3"
+    val effect = "org.typelevel" %% "cats-effect" % "2.1.4"
   }
 
   object Akka {
