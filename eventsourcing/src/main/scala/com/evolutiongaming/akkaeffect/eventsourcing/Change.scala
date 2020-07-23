@@ -1,5 +1,7 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
+import cats.Semigroup
+import cats.implicits._
 import com.evolutiongaming.akkaeffect.persistence.Events
 
 /**
@@ -14,4 +16,7 @@ final case class Change[+S, +E](state: S, events: Events[E])
 
 object Change {
 
+  implicit def semigroupChange[S, E]: Semigroup[Change[S, E]] = {
+    (a, b) => Change(b.state, a.events.combine(b.events))
+  }
 }

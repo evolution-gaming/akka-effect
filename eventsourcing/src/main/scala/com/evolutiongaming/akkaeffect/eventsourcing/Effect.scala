@@ -1,6 +1,7 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.implicits._
+import cats.kernel.Semigroup
 import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 
@@ -39,5 +40,10 @@ object Effect {
     }
 
     def pure[A](a: A) = Effect[F, A] { _ => a.pure[F] }
+  }
+
+
+  implicit def semigroupEffect[F[_]: Monad, A: Semigroup]: Semigroup[Effect[F, A]] = {
+    (a, b) => a.flatMap { a => b.map { b => a.combine(b) } }
   }
 }
