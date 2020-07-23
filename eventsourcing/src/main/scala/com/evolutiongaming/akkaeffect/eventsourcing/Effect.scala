@@ -28,15 +28,15 @@ object Effect {
   implicit def monadEffect[F[_]: Monad]: Monad[Effect[F, *]] = new Monad[Effect[F, *]] {
 
     override def map[A, B](fa: Effect[F, A])(f: A => B) = {
-      Effect[F, B] { seqNr => fa(seqNr).map(f) }
+      Effect { seqNr => fa(seqNr).map(f) }
     }
 
     def flatMap[A, B](fa: Effect[F, A])(f: A => Effect[F, B]) = {
-      Effect[F, B] { seqNr => fa(seqNr).flatMap { a => f(a)(seqNr) } }
+      Effect { seqNr => fa(seqNr).flatMap { a => f(a)(seqNr) } }
     }
 
     def tailRecM[A, B](a: A)(f: A => Effect[F, Either[A, B]]) = {
-      Effect[F, B] { seqNr => a.tailRecM { a => f(a)(seqNr) } }
+      Effect { seqNr => a.tailRecM { a => f(a)(seqNr) } }
     }
 
     def pure[A](a: A) = Effect[F, A] { _ => a.pure[F] }
