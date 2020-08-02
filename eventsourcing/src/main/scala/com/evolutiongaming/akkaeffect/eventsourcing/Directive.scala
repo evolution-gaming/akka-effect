@@ -1,6 +1,7 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.implicits._
+import cats.kernel.Semigroup
 import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
 
@@ -19,6 +20,13 @@ final case class Directive[F[_], +S, +E, A](
   stop: Boolean)
 
 object Directive {
+
+  implicit def semigroupDirective[F[_]: Monad, S, E, A: Semigroup]: Semigroup[Directive[F, S, E, A]] = {
+    (a, b) => Directive(
+      a.change.combine(b.change), 
+      a.effect.combine(b.effect),
+      a.stop || b.stop)
+  }
 
   def empty[F[_]: Applicative, S, E]: Directive[F, S, E, Unit] = {
     Directive(none[Change[S, E]], Effect.empty[F], stop = false)

@@ -88,7 +88,7 @@ private[akkaeffect] object Act {
             if (threadLocal.get().contains(self)) {
               f.asFuture
             } else {
-              val promise = Promise[A]
+              val promise = Promise[A]()
               val f1 = () => {
                 val a = Try(f)
                 promise.complete(a)

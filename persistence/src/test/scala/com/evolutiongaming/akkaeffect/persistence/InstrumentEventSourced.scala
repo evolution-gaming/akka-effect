@@ -4,7 +4,6 @@ import java.time.Instant
 
 import akka.actor.ActorRef
 import akka.persistence.{Recovery, SnapshotSelectionCriteria}
-import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.implicits._

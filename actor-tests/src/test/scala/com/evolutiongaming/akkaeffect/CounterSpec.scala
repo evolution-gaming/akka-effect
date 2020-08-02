@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.ActorSystem
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
 import cats.implicits._

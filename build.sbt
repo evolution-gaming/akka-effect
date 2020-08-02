@@ -9,13 +9,14 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://evolutiongaming.com")),
   bintrayOrganization := Some("evolutiongaming"),
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.2", "2.12.11"),
+  crossScalaVersions := Seq("2.13.3", "2.12.12"),
   scalacOptions in(Compile, doc) ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   resolvers += Resolver.bintrayRepo("evolutiongaming", "maven"),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
-  scalacOptsFailOnWarn := Some(false)/*TODO*/ /*,
-  testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))*/)
+  scalacOptsFailOnWarn := Some(false),
+  /*testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))*/
+  libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full))
 
 
 lazy val root = (project in file(".")
@@ -28,7 +29,9 @@ lazy val root = (project in file(".")
     testkit,
     persistence,
     eventsourcing,
-    `akka-effect-safe-persistence-async`))
+    `akka-effect-safe-persistence-async`,
+    cluster,
+    `cluster-sharding`))
 
 lazy val actor = (project in file("actor")
   settings (name := "akka-effect-actor")
@@ -45,8 +48,7 @@ lazy val actor = (project in file("actor")
     Slf4j.`log4j-over-slf4j` % Test,
     `cats-helper`,
     `executor-tools`,
-    scalatest % Test,
-    compilerPlugin(`kind-projector` cross CrossVersion.full))))
+    scalatest % Test)))
 
 lazy val `actor-tests` = (project in file("actor-tests")
   settings (name := "akka-effect-actor-tests")
@@ -54,8 +56,7 @@ lazy val `actor-tests` = (project in file("actor-tests")
   settings (skip in publish := true)
   dependsOn(actor % "test->test;compile->compile", testkit % "test->test;test->compile")
   settings (libraryDependencies ++= Seq(
-    Akka.testkit % Test,
-    compilerPlugin(`kind-projector` cross CrossVersion.full))))
+    Akka.testkit % Test)))
 
 lazy val testkit = (project in file("testkit")
   settings (name := "akka-effect-testkit")
@@ -63,8 +64,7 @@ lazy val testkit = (project in file("testkit")
   dependsOn actor
   settings (libraryDependencies ++= Seq(
     Akka.testkit % Test,
-    scalatest % Test,
-    compilerPlugin(`kind-projector` cross CrossVersion.full))))
+    scalatest % Test)))
 
 lazy val persistence = (project in file("persistence")
   settings (name := "akka-effect-persistence")
@@ -73,37 +73,59 @@ lazy val persistence = (project in file("persistence")
     actor         % "test->test;compile->compile",
     testkit       % "test->test;test->compile",
     `actor-tests` % "test->test")
-  settings (libraryDependencies ++= Seq(
-    Akka.actor,
-    Akka.stream,
-    Akka.persistence,
-    Akka.`persistence-query`,
-    Akka.slf4j   % Test,
-    Akka.testkit % Test,
-    Cats.core,
-    Cats.effect,
-    `cats-helper`,
-    pureconfig,
-    smetrics,
-    scalatest % Test,
-    `akka-persistence-inmemory` % Test,
-    compilerPlugin(`kind-projector` cross CrossVersion.full))))
+  settings (
+    libraryDependencies ++= Seq(
+      Akka.actor,
+      Akka.stream,
+      Akka.persistence,
+      Akka.`persistence-query`,
+      Akka.slf4j   % Test,
+      Akka.testkit % Test,
+      Cats.core,
+      Cats.effect,
+      `cats-helper`,
+      pureconfig,
+      smetrics,
+      scalatest % Test,
+      `akka-persistence-inmemory` % Test)))
 
 lazy val eventsourcing = (project in file("eventsourcing")
   settings (name := "akka-effect-eventsourcing")
   settings commonSettings
   dependsOn persistence % "test->test;compile->compile"
-  settings (libraryDependencies ++= Seq(
-    Akka.stream,
-    retry,
-    compilerPlugin(`kind-projector` cross CrossVersion.full))))
+  settings (
+    libraryDependencies ++= Seq(
+      Akka.stream,
+      retry)))
+
+lazy val cluster = (project in file("cluster")
+  settings (name := "akka-effect-cluster")
+  settings commonSettings
+  dependsOn(
+    actor         % "test->test;compile->compile",
+    testkit       % "test->test;test->compile",
+    `actor-tests` % "test->test")
+  settings (
+    libraryDependencies ++= Seq(
+      Akka.cluster,
+      pureconfig)))
+
+lazy val `cluster-sharding` = (project in file("cluster-sharding")
+  settings (name := "akka-effect-cluster-sharding")
+  settings commonSettings
+  dependsOn (
+    cluster % "test->test;compile->compile",
+    persistence % "test->test;compile->compile")
+  settings (
+    libraryDependencies ++= Seq(
+      Akka.`cluster-sharding`)))
 
 lazy val `akka-effect-safe-persistence-async` = (project in file("modules/safe-persistence-async")
   settings (name := "akka-effect-safe-persistence-async")
   settings commonSettings
   dependsOn eventsourcing % "test->test;compile->compile"
-  settings (libraryDependencies ++= Seq(
-    SafeAkka.actor,
-    SafeAkka.persistence,
-    SafeAkka.`persistence-async`,
-    compilerPlugin(`kind-projector` cross CrossVersion.full))))
+  settings (
+    libraryDependencies ++= Seq(
+      SafeAkka.actor,
+      SafeAkka.persistence,
+      SafeAkka.`persistence-async`)))

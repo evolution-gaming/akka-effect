@@ -1,6 +1,7 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.implicits._
+import cats.kernel.Semigroup
 import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 
@@ -27,17 +28,22 @@ object Effect {
   implicit def monadEffect[F[_]: Monad]: Monad[Effect[F, *]] = new Monad[Effect[F, *]] {
 
     override def map[A, B](fa: Effect[F, A])(f: A => B) = {
-      Effect[F, B] { seqNr => fa(seqNr).map(f) }
+      Effect { seqNr => fa(seqNr).map(f) }
     }
 
     def flatMap[A, B](fa: Effect[F, A])(f: A => Effect[F, B]) = {
-      Effect[F, B] { seqNr => fa(seqNr).flatMap { a => f(a)(seqNr) } }
+      Effect { seqNr => fa(seqNr).flatMap { a => f(a)(seqNr) } }
     }
 
     def tailRecM[A, B](a: A)(f: A => Effect[F, Either[A, B]]) = {
-      Effect[F, B] { seqNr => a.tailRecM { a => f(a)(seqNr) } }
+      Effect { seqNr => a.tailRecM { a => f(a)(seqNr) } }
     }
 
     def pure[A](a: A) = Effect[F, A] { _ => a.pure[F] }
+  }
+
+
+  implicit def semigroupEffect[F[_]: Monad, A: Semigroup]: Semigroup[Effect[F, A]] = {
+    (a, b) => a.flatMap { a => b.map { b => a.combine(b) } }
   }
 }

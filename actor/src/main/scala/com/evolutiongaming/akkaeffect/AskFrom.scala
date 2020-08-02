@@ -19,7 +19,7 @@ trait AskFrom[F[_]] {
 
 object AskFrom {
 
-  def of[F[_] : Sync : FromFuture](
+  def of[F[_]: Sync: FromFuture](
     actorRefOf: ActorRefOf[F],
     from: ActorRef,
     timeout: FiniteDuration

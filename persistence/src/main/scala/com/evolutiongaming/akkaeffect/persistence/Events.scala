@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import cats.kernel.Eq
+import cats.kernel.{Eq, Semigroup}
 import cats.{Apply, Eval, NonEmptyTraverse, Order, Show}
 
 /**
@@ -56,6 +56,11 @@ object Events {
         .values
         .foldRight(b) { (as, b) => as.foldRight(b)(f) }
     }
+  }
+
+
+  implicit def semigroupEvents[A]: Semigroup[Events[A]] = {
+    (a, b) => Events(a.values.combine(b.values))
   }
 
 

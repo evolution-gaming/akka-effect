@@ -4,7 +4,7 @@ import akka.actor.Status.Status
 import akka.actor.{ActorRef, Status}
 import cats.effect.Sync
 import cats.implicits._
-import cats.{FlatMap, ~>}
+import cats.{Contravariant, FlatMap, ~>}
 
 /**
   * Typesafe api for replying part of "ask pattern" in conjunction with `Status`
@@ -21,6 +21,18 @@ trait ReplyStatus[F[_], -A] {
 
 object ReplyStatus {
 
+  implicit def contravariantReplyStatus[F[_]]: Contravariant[ReplyStatus[F, *]] = {
+    new Contravariant[ReplyStatus[F, *]] {
+
+      def contramap[A, B](fa: ReplyStatus[F, A])(f: B => A) = new ReplyStatus[F, B] {
+
+        def success(a: B): F[Unit] = fa.success(f(a))
+
+        def fail(error: Throwable) = fa.fail(error)
+      }
+    }
+  }
+
   def fromReply[F[_]](reply: Reply[F, Status]): ReplyStatus[F, Any] = new ReplyStatus[F, Any] {
 
     def success(a: Any) = reply(Status.Success(a))
@@ -31,7 +43,7 @@ object ReplyStatus {
   }
 
 
-  def fromActorRef[F[_] : Sync](
+  def fromActorRef[F[_]: Sync](
     to: ActorRef,
     from: Option[ActorRef],
   ): ReplyStatus[F, Any] = {

@@ -2,7 +2,6 @@ package com.evolutiongaming.akkaeffect
 
 import cats.Parallel
 import cats.effect.{Concurrent, ContextShift, IO, Timer}
-import cats.implicits._
 import org.scalatest.Succeeded
 
 import scala.concurrent.duration._
@@ -18,7 +17,7 @@ object IOSuite {
   implicit val parallel: Parallel[IO]             = IO.ioParallel
 
   def runIO[A](io: IO[A], timeout: FiniteDuration = Timeout): Future[Succeeded.type] = {
-    io.timeout(timeout).as(Succeeded).unsafeToFuture
+    io.timeout(timeout).as(Succeeded).unsafeToFuture()
   }
 
   implicit class IOOps[A](val self: IO[A]) extends AnyVal {
