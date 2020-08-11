@@ -195,7 +195,7 @@ object Engine {
       stateRef    <- Ref[F].of(State(initial, stopped = false)).toResource
       append      <- Append.of(append).toResource
       cores       <- Runtime.summon[F].availableCores.toResource
-      parallelism  = cores max 5
+      parallelism  = (cores max 2) * 10
       queue       <- queue(parallelism, stateRef, append)
       engine       = {
         def loadOf[A](
