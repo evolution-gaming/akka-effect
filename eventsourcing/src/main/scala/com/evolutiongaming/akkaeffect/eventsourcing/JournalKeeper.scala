@@ -2,6 +2,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 // format: off
 import akka.persistence.SnapshotSelectionCriteria
+import cats.Applicative
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.effect.{Clock, Concurrent}
@@ -38,7 +39,27 @@ trait JournalKeeper[F[_], Sn, St] {
 
 object JournalKeeper {
 
-  type SnapshotOf[F[_], A, B] = Candidate[A] => F[Option[B]]
+  trait SnapshotOf[F[_], St, Sn] {
+
+    def apply(candidate: Candidate[St]): F[Option[Sn]]
+  }
+
+  object SnapshotOf {
+
+    def empty[F[_]: Applicative, St, Sn]: SnapshotOf[F, St, Sn] = _ => none[Sn].pure[F]
+
+    def identity[F[_]: Applicative, S]: SnapshotOf[F, S, S] = _.value.some.pure[F]
+    
+
+    def apply[St]: Apply[St] = new Apply[St]
+
+    private[SnapshotOf] final class Apply[St](private val b: Boolean = true) extends AnyVal {
+
+      def apply[F[_], Sn](f: Candidate[St] => F[Option[Sn]]): SnapshotOf[F, St, Sn] = {
+        candidate => f(candidate)
+      }
+    }
+  }
 
   /**
     * JournalKeeper is responsible for

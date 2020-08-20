@@ -372,7 +372,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       actions: Actions[F],
     ): F[JournalKeeper[F, S, S]] = {
 
-      val snapshotOf = (a: JournalKeeper.Candidate[S]) => {
+      val snapshotOf = JournalKeeper.SnapshotOf[S] { a =>
         val snapshot = if (a.seqNr % 2 == 0) none else a.value.some
         snapshot.pure[F]
       }
