@@ -24,10 +24,16 @@ object EventSourcedOf {
     _ => eventSourced
   }
 
-  def apply[F[_], S, E, C](
-    f: ActorCtx[F] => F[EventSourced[F, S, E, C]]
-  ): EventSourcedOf[F, S, E, C] = {
-    actorCtx => f(actorCtx)
+
+  def apply[F[_]]: Apply[F] = new Apply[F]
+
+  private[EventSourcedOf] final class Apply[F[_]](private val b: Boolean = true) extends AnyVal {
+
+    def apply[S, E, C](
+      f: ActorCtx[F] => F[EventSourced[F, S, E, C]]
+    ): EventSourcedOf[F, S, E, C] = {
+      actorCtx => f(actorCtx)
+    }
   }
 
 
