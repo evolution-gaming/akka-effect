@@ -25,6 +25,8 @@ private[akkaeffect] trait Persistence[F[_], S, E, C] {
   ): F[Result]
 
   def command(seqNr: SeqNr, cmd: C, sender: ActorRef): F[Option[Result]]
+
+  def timeout(seqNr: SeqNr): F[Option[Result]]
 }
 
 private[akkaeffect] object Persistence {
@@ -76,6 +78,10 @@ private[akkaeffect] object Persistence {
 
       def command(seqNr: SeqNr, cmd: C, sender: ActorRef) = {
         unexpected[F, Option[Result]](name = s"command $cmd", state = "started")
+      }
+
+      def timeout(seqNr: SeqNr) = {
+        unexpected[F, Option[Result]](name = s"ReceiveTimeout", state = "started")
       }
     }
   }
@@ -135,6 +141,10 @@ private[akkaeffect] object Persistence {
       def command(seqNr: SeqNr, cmd: C, sender: ActorRef) = {
         unexpected[F, Option[Result]](name = s"command $cmd", state = "recovering")
       }
+
+      def timeout(seqNr: SeqNr) = {
+        unexpected[F, Option[Result]](name = s"ReceiveTimeout", state = "recovering")
+      }
     }
   }
 
@@ -163,6 +173,13 @@ private[akkaeffect] object Persistence {
 
       def command(seqNr: SeqNr, cmd: C, sender: ActorRef) = {
         receive(Envelope(cmd, sender)).map {
+          case false => Releasable(self).some
+          case true  => none
+        }
+      }
+
+      def timeout(seqNr: SeqNr) = {
+        receive.timeout.map {
           case false => Releasable(self).some
           case true  => none
         }

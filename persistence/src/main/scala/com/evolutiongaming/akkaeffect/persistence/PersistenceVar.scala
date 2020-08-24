@@ -24,6 +24,8 @@ private[akkaeffect] trait PersistenceVar[F[_], S, E, C] {
 
   def command(cmd: C, seqNr: SeqNr, sender: ActorRef): Unit
 
+  def timeout(seqNr: SeqNr): Unit
+
   def postStop(seqNr: SeqNr): F[Unit]
 }
 
@@ -66,6 +68,10 @@ private[akkaeffect] object PersistenceVar {
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {
         actorVar.receive { _.command(seqNr, cmd, sender) }
+      }
+
+      def timeout(seqNr: SeqNr) = {
+        actorVar.receive { _.timeout(seqNr) }
       }
 
       def postStop(seqNr: SeqNr) = {

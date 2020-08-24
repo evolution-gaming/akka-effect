@@ -159,6 +159,11 @@ object InstrumentEventSourced {
                             stop <- receive(envelope)
                             _    <- record(Action.Received(envelope.msg, envelope.from, stop))
                           } yield stop
+                        } {
+                          for {
+                            stop <- receive.timeout
+                            _    <- record(Action.ReceiveTimeout)
+                          } yield stop
                         }
                       }
                     }
@@ -247,5 +252,7 @@ object InstrumentEventSourced {
       sender: ActorRef,
       stop: Boolean
     ) extends Action[Nothing, C, Nothing]
+
+    final case object ReceiveTimeout extends Action[Nothing, Nothing, Nothing]
   }
 }

@@ -65,6 +65,8 @@ object Probe {
                 _           <- listenersRef.update { _ -- unsubscribe }
               } yield false
           }
+        } {
+          false.pure[F]
         }.pure[Resource[F, *]]
       }
     }

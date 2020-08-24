@@ -1,5 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import akka.actor.ReceiveTimeout
 import akka.persistence.{PersistentActor, RecoveryCompleted}
 import akka.{persistence => ap}
 import cats.effect.{Resource, Sync, Timer}
@@ -92,8 +93,6 @@ object PersistentActorOf {
         eventSourced.pluginIds.snapshot getOrElse super.snapshotPluginId
       }
 
-//      override def recovery = eventSourced.recovery TODO
-
       override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]) = {
         // TODO should we react on this?
         super.onRecoveryFailure(cause, event)
@@ -122,7 +121,8 @@ object PersistentActorOf {
       }
 
       def receiveCommand: Receive = act.receive {
-        case a => persistence.command(a, lastSeqNr(), sender())
+        case ReceiveTimeout => persistence.timeout(lastSeqNr())
+        case a              => persistence.command(a, lastSeqNr(), sender())
       }
 
       override def persist[A](event: A)(f: A => Unit): Unit = {

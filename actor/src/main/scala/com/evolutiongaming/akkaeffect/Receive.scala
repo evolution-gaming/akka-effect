@@ -19,6 +19,11 @@ trait Receive[F[_], -A, B] {
     * This basically preserves the semantic of Actors
     */
   def apply(msg: A): F[B]
+
+  /**
+    * @see [[akka.actor.ReceiveTimeout]]
+    */
+  def timeout:  F[B]
 }
 
 object Receive {
@@ -27,28 +32,74 @@ object Receive {
 
   private[Receive] final class Apply[A](private val b: Boolean = true) extends AnyVal {
 
-    def apply[F[_], B](f: A => F[B]): Receive[F, A, B] = a => f(a)
+    def apply[F[_], B](f: A => F[B])(timeout: F[B]): Receive[F, A, B] = {
+      val timeout1 = timeout
+      new Receive[F, A, B] {
+
+        def apply(msg: A) = f(msg)
+
+        def timeout = timeout1
+      }
+    }
   }
 
 
-  def const[A]: ConstApply[A] = new ConstApply[A]
+  def const[A]: Const[A] = new Const[A]
 
-  private[Receive] final class ConstApply[A](private val b: Boolean = true) extends AnyVal {
+  private[Receive] final class Const[A](private val b: Boolean = true) extends AnyVal {
 
-    def apply[F[_], B](b: F[B]): Receive[F, A, B] = _ => b
+    def apply[F[_], B](b: F[B]): Receive[F, A, B] = new Receive[F, A, B] {
+
+      def apply(msg: A) = b
+
+      def timeout = b
+    }
   }
 
 
   implicit class ReceiveOps[F[_], A, B](val self: Receive[F, A, B]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): Receive[G, A, B] = a => f(self(a))
+    def mapK[G[_]](f: F ~> G): Receive[G, A, B] = new Receive[G, A, B] {
+      
+      def apply(msg: A) = f(self(msg))
+
+      def timeout = f(self.timeout)
+    }
 
 
-    def convert[A1, B1](af: A1 => F[A], bf: B => F[B1])(implicit F: FlatMap[F]): Receive[F, A1, B1] = {
-      a => {
+    def map[A1](f: A1 => A): Receive[F, A1, B] = new Receive[F, A1, B] {
+
+      def apply(msg: A1) = self(f(msg))
+
+      def timeout = self.timeout
+    }
+
+
+    def mapM[A1](f: A1 => F[A])(implicit F: FlatMap[F]): Receive[F, A1, B] = new Receive[F, A1, B] {
+
+      def apply(msg: A1) = f(msg).flatMap { a => self(a) }
+
+      def timeout = self.timeout
+    }
+
+
+    def convert[A1, B1](
+      af: A1 => F[A],
+      bf: B => F[B1])(implicit
+      F: FlatMap[F]
+    ): Receive[F, A1, B1] = new Receive[F, A1, B1] {
+
+      def apply(msg: A1) = {
         for {
-          a <- af(a)
+          a <- af(msg)
           b <- self(a)
+          b <- bf(b)
+        } yield b
+      }
+
+      def timeout = {
+        for {
+          b <- self.timeout
           b <- bf(b)
         } yield b
       }
@@ -59,9 +110,9 @@ object Receive {
   implicit class ReceiveCallOps[F[_], A, B, C](val self: Receive[F, Call[F, A, B], C]) extends AnyVal {
 
     def toReceiveEnvelope(from: Option[ActorRef])(implicit F: Sync[F]): Receive[F, Envelope[A], C] = {
-      Receive[Envelope[A]] { a =>
+      self.map[Envelope[A]] { a =>
         val reply = Reply.fromActorRef(a.from, from)
-        self(Call(a.msg, reply))
+        Call(a.msg, reply)
       }
     }
 
@@ -78,14 +129,17 @@ object Receive {
 
   implicit class ReceiveEnvelopeOps[F[_], A, B](val self: Receive[F, Envelope[A], B]) extends AnyVal {
 
-    def convert[A1, B1](af: A1 => F[A], bf: B => F[B1])(implicit F: FlatMap[F]): Receive[F, Envelope[A1], B1] = {
-      Receive[Envelope[A1]] { envelope =>
-        for {
-          a <- af(envelope.msg)
-          b <- self(envelope.copy(msg = a))
-          b <- bf(b)
-        } yield b
+    def convert[A1, B1](
+      af: A1 => F[A],
+      bf: B => F[B1])(implicit
+      F: FlatMap[F]
+    ): Receive[F, Envelope[A1], B1] = {
+
+      def a1f(envelope: Envelope[A1]) = {
+        af(envelope.msg).map { a => envelope.copy(msg = a) }
       }
+
+      ReceiveOps(self).convert[Envelope[A1], B1](a1f, bf)
     }
   }
 }

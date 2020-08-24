@@ -4,7 +4,7 @@ import cats.effect.{Resource, Sync}
 import cats.implicits._
 import cats.{Applicative, Monad}
 
-trait ReceiveOf[F[_], A, B] {
+trait ReceiveOf[F[_], -A, B] {
 
   def apply(actorCtx: ActorCtx[F]): Resource[F, Receive[F, A, B]]
 }

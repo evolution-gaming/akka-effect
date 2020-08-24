@@ -60,6 +60,8 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
                 _ <- call.reply(n)
               } yield true
           }
+        } {
+          false.pure[F]
         }
       }
   }
@@ -82,6 +84,8 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
                 case a: Msg => receive(call.copy(msg = a))
                 case _      => false.pure[F]
               }
+            } {
+              false.pure[F]
             }
           }
       }

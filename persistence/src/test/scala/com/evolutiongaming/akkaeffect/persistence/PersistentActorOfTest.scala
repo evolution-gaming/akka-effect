@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import java.time.Instant
 
-import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, ReceiveTimeout}
+import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify}
 import akka.persistence.Recovery
 import akka.testkit.TestActors
 import cats.data.{NonEmptyList => Nel}
@@ -83,12 +83,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     sealed trait Cmd
 
     object Cmd {
-
-      def timeout: Cmd = Timeout
-
       final case object Inc extends Cmd
       final case object Stop extends Cmd
-      final case object Timeout extends Cmd
       final case class WithCtx[A](f: ActorCtx[F] => F[A]) extends Cmd
     }
 
@@ -119,7 +115,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                     for {
                       stateRef <- Ref[F].of(0).toResource
                     } yield {
-                      val receive = Receive[Envelope[Cmd]] { envelope =>
+                      Receive[Envelope[Cmd]] { envelope =>
 
                         val reply = Reply.fromActorRef[F](to = envelope.from, from = actorCtx.self)
 
@@ -128,12 +124,6 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                             for {
                               a <- a.f(actorCtx)
                               _ <- reply(a)
-                            } yield false
-
-                          case Cmd.Timeout =>
-                            for {
-                              _ <- actorCtx.setReceiveTimeout(Duration.Inf)
-                              _ <- receiveTimeout
                             } yield false
 
                           case Cmd.Inc =>
@@ -154,15 +144,18 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                               _ <- reply("stopping")
                             } yield true
                         }
+                      } {
+                        for {
+                          _ <- actorCtx.setReceiveTimeout(Duration.Inf)
+                          _ <- receiveTimeout
+                        } yield false
                       }
-
-                      Receive[Envelope[Any]] { envelope =>
-                        val cmd = envelope.msg match {
-                          case ReceiveTimeout => Cmd.timeout.pure[F]
-                          case a              => a.castM[F, Cmd]
+                        .mapM[Envelope[Any]] { envelope =>
+                          envelope
+                            .msg
+                            .castM[F, Cmd]
+                            .map { a => envelope.copy(msg = a) }
                         }
-                        cmd.flatMap { cmd => receive(envelope.copy(msg = cmd)) }
-                      }
                     }
                   }
                 }
@@ -1276,11 +1269,10 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                         for {
                           _ <- actorCtx.setReceiveTimeout(10.millis).toResource
                         } yield {
-                          Receive[Envelope[C]] { envelope =>
-                            envelope.msg match {
-                              case ReceiveTimeout => timedOut.complete(()).as(true)
-                              case _              => false.pure[F]
-                            }
+                          Receive[Envelope[C]] { _ =>
+                            false.pure[F]
+                          } {
+                            timedOut.complete(()).as(true)
                           }
                         }
                       }

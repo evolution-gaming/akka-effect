@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, PoisonPill, Props, ReceiveTimeout}
+import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, PoisonPill, Props}
 import akka.testkit.TestActors
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync, Timer}
@@ -135,13 +135,6 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
                 _ <- call.reply(a)
               } yield false
 
-            case ReceiveTimeout =>
-              for {
-                _ <- shift
-                _ <- actorCtx.setReceiveTimeout(Duration.Inf)
-                _ <- receiveTimeout
-              } yield false
-
             case "stop" =>
               for {
                 _ <- shift
@@ -150,6 +143,12 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
             case _ => shift as false
           }
+        } {
+          for {
+            _ <- shift
+            _ <- actorCtx.setReceiveTimeout(Duration.Inf)
+            _ <- receiveTimeout
+          } yield false
         }
 
         Resource.make { shift as receive } { _ => shift }
@@ -191,6 +190,8 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
             case _ => shift as false
           }
+        } {
+          false.pure[F]
         }
       }
       Resource.make { shift productR receive } { _ => shift }
@@ -290,6 +291,8 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
           case _      =>
             shift as false
         }
+      } {
+        false.pure[F]
       }
 
       for {
@@ -360,6 +363,8 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
                 case _      =>
                   shift as false
               }
+            } {
+              false.pure[F]
             }
             shift as receive
           } { _ =>
@@ -404,6 +409,8 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
                 case _      =>
                   shift as false
               }
+            } {
+              false.pure[F]
             }
           }
         } { _ =>
@@ -470,20 +477,19 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     def receiveOf(
       timedOut: Deferred[F, Unit],
-    ): ReceiveOf[F, Call[F, Any, Any], Boolean] = {
+    ): ReceiveOf[F, Any, Boolean] = {
       actorCtx => {
         val receive = for {
           _ <- shift
           _ <- actorCtx.setReceiveTimeout(10.millis)
         } yield {
-          Receive[Call[F, Any, Any]] { call =>
+          Receive[Any] { _ =>
+            shift.as(false)
+          } {
             for {
-              _    <- shift
-              stop <- call.msg match {
-                case ReceiveTimeout => timedOut.complete(()).as(true)
-                case _              => false.pure[F]
-              }
-            } yield stop
+              _ <- shift
+              _ <- timedOut.complete(())
+            } yield true
           }
         }
         receive.toResource
@@ -538,6 +544,8 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
             }
             _    <- call.reply(())
           } yield stop
+        } {
+          false.pure[F]
         }
 
         Resource.make { shift as receive } { _ => shift *> stopped }

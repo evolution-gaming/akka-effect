@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorRef, ReceiveTimeout}
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.Fail.implicits._
@@ -30,7 +30,11 @@ object ActorOf {
 
     def onReceive(a: Any, sender: ActorRef)(implicit fail: Fail[F]) = {
       state: State =>
-        state(Envelope(a, sender))
+        val stop = a match {
+          case ReceiveTimeout => state.timeout
+          case a              => state(Envelope(a, sender))
+        }
+        stop
           .map {
             case false => Releasable[F, State](state).some
             case true  => none[Releasable[F, State]]
