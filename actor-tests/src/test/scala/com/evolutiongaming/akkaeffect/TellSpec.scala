@@ -45,14 +45,14 @@ class TellSpec extends AsyncFunSuite with ActorSuite with Matchers {
     resources.use { case (actorRef, probe) =>
       val tell = Tell.fromActorRef[F](probe.actorEffect.toUnsafe).mapK(FunctionK.id)
       for {
-        envelope <- probe.expect
+        envelope <- probe.expect[String]
         _        <- tell("msg0")
         envelope <- envelope
-        _        <- Sync[F].delay { envelope shouldEqual Probe.Envelop("msg0", actorSystem.deadLetters) }
-        envelope <- probe.expect
+        _        <- Sync[F].delay { envelope shouldEqual Envelope("msg0", actorSystem.deadLetters) }
+        envelope <- probe.expect[String]
         _        <- tell("msg1", actorRef.some)
         envelope <- envelope
-        _        <- Sync[F].delay { envelope shouldEqual Probe.Envelop("msg1", actorRef) }
+        _        <- Sync[F].delay { envelope shouldEqual Envelope("msg1", actorRef) }
       } yield {}
     }
   }

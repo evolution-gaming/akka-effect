@@ -140,7 +140,7 @@ private[akkaeffect] object Persistence {
 
 
   def receive[F[_]: Sync: Fail, S, E, C](
-    receive: Receive[F, C]
+    receive: Receive[F, Envelope[C], Boolean]
   ): Persistence[F, S, E, C] = {
 
     new Persistence[F, S, E, C] { self =>
@@ -162,7 +162,7 @@ private[akkaeffect] object Persistence {
       }
 
       def command(seqNr: SeqNr, cmd: C, sender: ActorRef) = {
-        receive(cmd, sender).map {
+        receive(Envelope(cmd, sender)).map {
           case false => Releasable(self).some
           case true  => none
         }

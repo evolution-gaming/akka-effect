@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import cats.Monad
 import cats.effect.Resource
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.Receive
+import com.evolutiongaming.akkaeffect.{Envelope, Receive}
 
 /**
   * Describes "Recovery" phase
@@ -28,7 +28,7 @@ trait Recovering[F[_], S, E, C] {
     seqNr: SeqNr,
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]
-  ): Resource[F, Receive[F, C]]
+  ): Resource[F, Receive[F, Envelope[C], Boolean]]
 }
 
 object Recovering {
@@ -38,7 +38,9 @@ object Recovering {
     def replay = Replay.empty[F, E].pure[Resource[F, *]]
 
     def completed(seqNr: SeqNr, journaller: Journaller[F, E], snapshotter: Snapshotter[F, S]) = {
-      Receive.empty[F, C].pure[Resource[F, *]]
+      Receive
+        .const[Envelope[C]](false.pure[F])
+        .pure[Resource[F, *]]
     }
   }
 
@@ -64,7 +66,7 @@ object Recovering {
         val snapshotter1 = snapshotter.convert(sf)
         self
           .completed(seqNr, journaller1, snapshotter1)
-          .map { _.convert(cf) }
+          .map { _.convert(cf, _.pure[F]) }
       }
     }
 
@@ -84,7 +86,7 @@ object Recovering {
       ) = {
         self
           .completed(seqNr, journaller, snapshotter)
-          .map { _.convert(cf) }
+          .map { _.convert(cf, _.pure[F]) }
       }
     }
 

@@ -44,10 +44,10 @@ class ReplyTest extends AsyncFunSuite with ActorSuite with Matchers {
     resources.use { case (probe, from) =>
       val reply = Reply.fromActorRef[F](to = probe.actorEffect.toUnsafe, from = from).mapK(FunctionK.id)
       for {
-        a <- probe.expect
+        a <- probe.expect[String]
         _ <- reply("msg")
         a <- a
-        _ <- Sync[F].delay { a shouldEqual Probe.Envelop("msg", from) }
+        _ <- Sync[F].delay { a shouldEqual Envelope("msg", from) }
       } yield {}
     }
   }

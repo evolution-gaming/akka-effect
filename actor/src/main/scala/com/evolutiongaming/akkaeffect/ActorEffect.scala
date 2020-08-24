@@ -39,11 +39,11 @@ object ActorEffect {
 
   def of[F[_]: Sync: ToFuture: FromFuture](
     actorRefOf: ActorRefOf[F],
-    receiveOf: Receive1Of[F, Any, Any],
+    receiveOf: ReceiveOf[F, Call[F, Any, Any], ActorOf.Stop],
     name: Option[String] = None
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 
-    def actor = ActorOf[F](receiveOf.toReceiveOf)
+    def actor = ActorOf[F](receiveOf.toReceiveOfEnvelope)
 
     val props = Props(actor)
 

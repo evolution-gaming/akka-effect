@@ -70,7 +70,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
           expected: Either[Throwable, A]
         ) = {
           for {
-            a <- probe.expect
+            a <- probe.expect[Any]
             b <- fa
             a <- a
             _  = a.msg shouldEqual req

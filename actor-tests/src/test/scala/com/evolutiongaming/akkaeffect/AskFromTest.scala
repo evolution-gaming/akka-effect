@@ -7,7 +7,6 @@ import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
-import scala.concurrent.duration._
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -27,7 +26,7 @@ class AskFromTest extends AsyncFunSuite with ActorSuite with Matchers {
       askFrom  <- AskFrom.of(actorRefOf, from.actorEffect.toUnsafe, 1.minute)
       result   <- Resource.liftF {
         for {
-          envelope <- to.expect
+          envelope <- to.expect[Any]
           result   <- askFrom[ActorRef, String](to.actorEffect.toUnsafe) { identity }
           envelope <- envelope
           _         = envelope.msg should not equal from.actorEffect.toUnsafe

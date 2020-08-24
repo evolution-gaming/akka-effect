@@ -9,24 +9,21 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 import scala.concurrent.duration._
+import scala.reflect.ClassTag
 
 
 trait Probe[F[_]] {
-  import Probe._
 
   def actorEffect: ActorEffect[F, Any, Any]
 
-  def expect: F[F[Envelop]]
+  def expect[A: ClassTag]: F[F[Envelope[A]]]
 
-  def last: F[Option[Envelop]]
+  def last[A: ClassTag]: F[Option[Envelope[A]]]
 
   def watch(actorRef: ActorRef): F[F[Unit]]
 }
 
 object Probe {
-
-  final case class Envelop(msg: Any, from: ActorRef)
-
 
   def of[F[_] : Concurrent : ToFuture : FromFuture](
     actorRefOf: ActorRefOf[F]
@@ -39,28 +36,28 @@ object Probe {
 
     type Unsubscribe = Boolean
 
-    type Listener = Envelop => F[Unsubscribe]
+    type Listener = Envelope[Any] => F[Unsubscribe]
 
 
-    def receiveOf(listenersRef: Ref[F, Set[Listener]]): ReceiveOf[F] = {
+    def receiveOf(listenersRef: Ref[F, Set[Listener]]): ReceiveOf[F, Envelope[Any], Boolean] = {
       actorCtx => {
-        Receive[Any] { (msg, sender) =>
-          msg match {
+        Receive[Envelope[Any]] { a =>
+          a.msg match {
             case Watch(actorRef) =>
               for {
                 _ <- actorCtx.watch(actorRef, Terminated(actorRef))
-                _ <- Sync[F].delay { sender.tell((), ActorRef.noSender) }
+                _ <- Sync[F].delay { a.from.tell((), ActorRef.noSender) }
               } yield false
 
             case msg =>
-              val envelop = Envelop(msg, sender)
+              val envelope = Envelope(msg, a.from)
 
               for {
                 listeners   <- listenersRef.get
                 unsubscribe <- listeners.foldLeft(List.empty[Listener].pure[F]) { (listeners, listener) =>
                   for {
                     listeners   <- listeners
-                    unsubscribe <- listener(envelop)
+                    unsubscribe <- listener(envelope)
                   } yield {
                     if (unsubscribe) listener :: listeners else listeners
                   }
@@ -74,8 +71,8 @@ object Probe {
 
     def lastRef(subscribe: Listener => F[Unit]) = {
       for {
-        history  <- Ref[F].of(none[Envelop])
-        listener  = (a: Envelop) => history.set(a.some).as(false)
+        history  <- Ref[F].of(none[Envelope[Any]])
+        listener  = (a: Envelope[Any]) => history.set(a.some).as(false)
         _        <- subscribe(listener)
       } yield history
     }
@@ -100,22 +97,30 @@ object Probe {
 
         val actorEffect = ActorEffect.fromActor(actorRef)
 
-        val expect = {
+        def expect[A: ClassTag] = {
           for {
-            deferred <- Deferred[F, Envelop]
-            listener  = (a: Envelop) => deferred.complete(a).as(true)
+            deferred <- Deferred[F, Envelope[Any]]
+            listener  = (a: Envelope[Any]) => deferred.complete(a).as(true)
             _        <- subscribe(listener)
           } yield {
-            deferred.get
+            deferred
+              .get
+              .flatMap { _.cast[F, A] }
           }
         }
 
-        val last = lastRef.get
+        def last[A: ClassTag] = {
+          lastRef
+            .get
+            .flatMap { envelope =>
+              envelope.traverse { envelope => envelope.msg.castM[F, A].map { a => envelope.copy(msg = a) } }
+            }
+        }
 
         def watch(target: ActorRef) = {
 
           def listenerOf(deferred: Deferred[F, Unit]) = {
-            a: Envelop =>
+            a: Envelope[Any] =>
               a.msg match {
                 case Terminated(`target`) => deferred.complete(()).as(true)
                 case _                    => false.pure[F]

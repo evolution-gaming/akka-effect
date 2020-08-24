@@ -1,10 +1,10 @@
 package com.evolutiongaming.akkaeffect.util
 
 import cats.effect.implicits._
-import cats.effect.{Concurrent, IO, Timer}
+import cats.effect.{Concurrent, IO, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
-import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf, ActorSuite, Receive1Of}
+import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf, ActorSuite, Call, Receive, ReceiveOf}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -31,7 +31,7 @@ class TerminatedTest extends AsyncFunSuite with ActorSuite with Matchers {
     val terminatedActor = Terminated(actorRefOf)
 
     ActorEffect
-      .of(actorRefOf, Receive1Of.empty[F, Any, Any])
+      .of(actorRefOf, ReceiveOf.const(Receive.const[Call[F, Any, Any]](false.pure[F]).pure[Resource[F, *]]))
       .use { actorEffect =>
         for {
           fiber <- terminatedActor(actorEffect).start
@@ -51,7 +51,7 @@ class TerminatedTest extends AsyncFunSuite with ActorSuite with Matchers {
     val terminatedActor = Terminated(actorRefOf)
 
     ActorEffect
-      .of(actorRefOf, Receive1Of.empty[F, Any, Any])
+      .of(actorRefOf, ReceiveOf.const(Receive.const[Call[F, Any, Any]](false.pure[F]).pure[Resource[F, *]]))
       .use { actorEffect => terminatedActor(actorEffect).pure[F] }
       .flatten
   }

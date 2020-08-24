@@ -71,7 +71,7 @@ class DeleteEventsToInteropTest extends AsyncFunSuite with ActorSuite with Match
           expected: Either[Throwable, A]
         ) = {
           for {
-            a      <- probe.expect
+            a      <- probe.expect[Any]
             b      <- fa
             a      <- a
             sender  = a.msg should matchPattern(req)

@@ -8,15 +8,18 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 /**
-  * Creates instance of [[akka.actor.Actor]] out of [[Receive1Of]]
+  * Creates instance of [[akka.actor.Actor]] out of [[ReceiveOf]]
   */
 object ActorOf {
 
+  type Stop = Boolean
+
+
   def apply[F[_]: Sync: ToFuture: FromFuture](
-    receiveOf: ReceiveOf[F]
+    receiveOf: ReceiveOf[F, Envelope[Any], Stop]
   ): Actor = {
 
-    type State = Receive[F, Any]
+    type State = Receive[F, Envelope[Any], Stop]
 
     def onPreStart(actorCtx: ActorCtx[F])(implicit fail: Fail[F]) = {
       receiveOf(actorCtx)
@@ -27,7 +30,7 @@ object ActorOf {
 
     def onReceive(a: Any, sender: ActorRef)(implicit fail: Fail[F]) = {
       state: State =>
-        state(a, sender)
+        state(Envelope(a, sender))
           .map {
             case false => Releasable[F, State](state).some
             case true  => none[Releasable[F, State]]

@@ -26,7 +26,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
       replies <- Ref[F].of(List.empty[Any])
       reply    = Reply[F, Any] { msg => replies.update { msg :: _ } }
       rcv     <- counter[F]
-      inc      = rcv(Msg.Inc, reply)
+      inc      = rcv(Call(Msg.Inc, reply))
       expect   = (n: Int) => replies.get.map { replies => replies.headOption shouldEqual Some(n) }
       _       <- inc
       _       <- expect(1)
@@ -34,7 +34,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
       _       <- expect(2)
       _       <- inc
       _       <- expect(3)
-      _       <- rcv(Msg.Stop, reply)
+      _       <- rcv(Call(Msg.Stop, reply))
       _       <- expect(3)
     } yield {}
   }
@@ -43,21 +43,21 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
     Ref[F]
       .of(0)
       .map { ref =>
-        Receive1[F, Msg, Any] { (msg, reply) =>
-          msg match {
+        Receive[Call[F, Msg, Int]] { call =>
+          call.msg match {
             case Msg.Inc =>
               for {
                 n <- ref.modify { n =>
                   val n1 = n + 1
                   (n1, n1)
                 }
-                _ <- reply(n)
+                _ <- call.reply(n)
               } yield false
 
             case Msg.Stop =>
               for {
                 n <- ref.get
-                _ <- reply(n)
+                _ <- call.reply(n)
               } yield true
           }
         }
@@ -77,9 +77,11 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
         Resource
           .make { counter[F] } { _ => onStop }
           .map { receive =>
-            receive.collect[Any] {
-              case msg: Msg => msg.some.pure[F]
-              case _        => none[Msg].pure[F]
+            Receive[Call[F, Any, Any]] { call =>
+              call.msg match {
+                case a: Msg => receive(call.copy(msg = a))
+                case _      => false.pure[F]
+              }
             }
           }
       }
@@ -94,7 +96,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
           val inc    = tell(Msg.Inc)
           val expect = (n: Int) => {
             for {
-              a <- probe.expect
+              a <- probe.expect[Int]
             } yield for {
               a <- a
             } yield {

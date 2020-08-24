@@ -2,7 +2,6 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, PoisonPill, Props, ReceiveTimeout}
 import akka.testkit.TestActors
-import cats.arrow.FunctionK
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync, Timer}
 import cats.implicits._
@@ -123,17 +122,17 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       } yield {}
     }
 
-    def receiveOf(receiveTimeout: F[Unit]): Receive1Of[F, Any, Any] = {
+    def receiveOf(receiveTimeout: F[Unit]): ReceiveOf[F, Call[F, Any, Any], Boolean] = {
       (actorCtx: ActorCtx[F]) => {
 
-        val receive = Receive1[F, Any, Any] { (a, reply) =>
-          a match {
+        val receive = Receive[Call[F, Any, Any]] { call =>
+          call.msg match {
             case a: WithCtx[_, _] =>
               val f = a.asInstanceOf[WithCtx[F, Any]].f
               for {
                 _ <- shift
                 a <- f(actorCtx)
-                _ <- reply(a)
+                _ <- call.reply(a)
               } yield false
 
             case ReceiveTimeout =>
@@ -146,7 +145,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
             case "stop" =>
               for {
                 _ <- shift
-                _ <- reply("stopping")
+                _ <- call.reply("stopping")
               } yield true
 
             case _ => shift as false
@@ -176,18 +175,18 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     case class GetAndInc(delay: F[Unit])
 
-    def receiveOf = Receive1Of.const[F, Any, Any] {
+    def receiveOf = ReceiveOf.const {
       val receive = for {
         state <- Ref[F].of(0)
       } yield {
-        Receive1[F, Any, Any] { (a, reply) =>
-          a match {
+        Receive[Call[F, Any, Any]] { call =>
+          call.msg match {
             case a: GetAndInc =>
               for {
                 _ <- shift
                 _ <- a.delay
                 a <- state.modify { a => (a + 1, a) }
-                _ <- reply(a)
+                _ <- call.reply(a)
               } yield false
 
             case _ => shift as false
@@ -242,19 +241,19 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     shift: F[Unit]
   ) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
-    val receiveOf = Receive1Of[F, Any, Any] { actorCtx =>
+    val receiveOf = ReceiveOf[F] { actorCtx =>
       Resource.make {
         for {
           _ <- shift
           _ <- actorCtx.stop
         } yield {
-          Receive1.empty[F, Any, Any]
+          Receive.const[Envelope[Any]](false.pure[F])
         }
       } {
         _ => shift
       }
     }
-    def actor = ActorOf[F](receiveOf.toReceiveOf)
+    def actor = ActorOf[F](receiveOf)
     val props = Props(actor)
     val probe = Probe.of[F](actorRefOf)
     val actorRef = actorRefOf(props)
@@ -273,20 +272,20 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
-    def receiveOf(started: F[Unit]) = Receive1Of.const[F, Any, Any] {
-      val receive = Receive1[F, Any, Any] { (a, reply) =>
-        a match {
+    def receiveOf(started: F[Unit]) = ReceiveOf.const {
+      val receive = Receive[Call[F, Any, Any]] { call =>
+        call.msg match {
           case "fail" =>
             for {
               _ <- shift
-              _ <- reply("ok")
-              a <- error.raiseError[F, Receive1.Stop]
+              _ <- call.reply("ok")
+              a <- error.raiseError[F, Boolean]
             } yield a
 
           case "ping" =>
             for {
               _ <- shift
-              _ <- reply("pong")
+              _ <- call.reply("pong")
             } yield false
           case _      =>
             shift as false
@@ -302,10 +301,8 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       started   <- Deferred[F, Unit]
       ref       <- Ref[F].of(started)
-      receiveOf <- receiveOf(ref.get.flatMap(_.complete(())))
-        .convert[Any, Any](_.pure[F], _.pure[F])
-        .pure[F]
-      actor      = () => ActorOf[F](receiveOf.toReceiveOf)
+      receiveOf <- receiveOf(ref.get.flatMap(_.complete(()))).pure[F]
+      actor      = () => ActorOf[F](receiveOf.toReceiveOfEnvelope)
       props      = Props(actor())
       result    <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
@@ -330,7 +327,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   ) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
-    val actor = () => ActorOf[F] { _ => (shift *> error.raiseError[F, Receive[F, Any]]).toResource }
+    val actor = () => ActorOf[F] { _ => (shift *> error.raiseError[F, Receive[F, Envelope[Any], Boolean]]).toResource }
     val props = Props(actor())
 
     val result = for {
@@ -350,15 +347,15 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
-    def receiveOf(stopped: F[Unit]): Receive1Of[F, Any, Any] = {
+    def receiveOf(stopped: F[Unit]): ReceiveOf[F, Call[F, Any, Any], Boolean] = {
       (_: ActorCtx[F]) => {
         Resource
           .make {
-            val receive = Receive1[F, Any, Any] { (a, reply) =>
-              a match {
+            val receive = Receive[Call[F, Any, Any]] { call =>
+              call.msg match {
                 case "stop" => for {
                   _ <- shift
-                  _ <- reply(())
+                  _ <- call.reply(())
                 } yield true
                 case _      =>
                   shift as false
@@ -374,7 +371,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       stopped <- Deferred[F, Unit]
       receive  = receiveOf(stopped.complete(()))
-      actor    = () => ActorOf[F](receive.toReceiveOf)
+      actor    = () => ActorOf[F](receive.toReceiveOfEnvelope)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
@@ -394,12 +391,12 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
-    def receiveOf(stopped: F[Unit]): Receive1Of[F, Any, Any] = {
+    def receiveOf(stopped: F[Unit]): ReceiveOf[F, Call[F, Any, Any], Boolean] = {
       actorCtx => {
         Resource.make {
           shift.as {
-            Receive1[F, Any, Any] { (a, _) =>
-              a match {
+            Receive[Call[F, Any, Any]] { call =>
+              call.msg match {
                 case "stop" => for {
                   _ <- shift
                   _ <- actorCtx.stop
@@ -418,7 +415,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       stopped <- Deferred[F, Unit]
       receive  = receiveOf(stopped.complete(()))
-      actor    = () => ActorOf[F](receive.toReceiveOf)
+      actor    = () => ActorOf[F](receive.toReceiveOfEnvelope)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
@@ -438,11 +435,11 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
-    def receiveOf(stopped: F[Unit]): Receive1Of[F, Any, Any] =
-      (_: ActorCtx[F]) => {
+    def receiveOf(stopped: F[Unit]): ReceiveOf[F, Call[F, Any, Any], Boolean] =
+      ReceiveOf.const {
           Resource
           .make {
-            shift as Receive1.empty[F, Any, Any]
+            shift as Receive.const[Call[F, Any, Any]](false.pure[F])
           } { _ =>
             shift *> stopped
           }
@@ -451,7 +448,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       stopped <- Deferred[F, Unit]
       receive  = receiveOf(stopped.complete(()))
-      actor    = () => ActorOf[F](receive.toReceiveOf)
+      actor    = () => ActorOf[F](receive.toReceiveOfEnvelope)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
         val tell = Tell.fromActorRef[F](actorRef)
@@ -473,16 +470,16 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     def receiveOf(
       timedOut: Deferred[F, Unit],
-    ): Receive1Of[F, Any, Any] = {
+    ): ReceiveOf[F, Call[F, Any, Any], Boolean] = {
       actorCtx => {
         val receive = for {
           _ <- shift
           _ <- actorCtx.setReceiveTimeout(10.millis)
         } yield {
-          Receive1[F, Any, Any] { (msg, _) =>
+          Receive[Call[F, Any, Any]] { call =>
             for {
               _    <- shift
-              stop <- msg match {
+              stop <- call.msg match {
                 case ReceiveTimeout => timedOut.complete(()).as(true)
                 case _              => false.pure[F]
               }
@@ -520,12 +517,12 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     def receiveOf(
       terminated: Deferred[F, ActorRef],
       stopped: F[Unit]
-    ): Receive1Of[F, Msg, Unit] = {
+    ): ReceiveOf[F, Call[F, Msg, Unit], Boolean] = {
       actorCtx => {
-        val receive = Receive1[F, Msg, Unit] { (msg, reply) =>
+        val receive = Receive[Call[F, Msg, Unit]] { call =>
           for {
             _    <- shift
-            stop <- msg match {
+            stop <- call.msg match {
               case Msg.Watch(actorRef)      =>
                 actorCtx
                   .watch(actorRef, Msg.Terminated(actorRef))
@@ -539,7 +536,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
                   .complete(actorRef)
                   .as(true)
             }
-            _    <- reply(())
+            _    <- call.reply(())
           } yield stop
         }
 
@@ -553,8 +550,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       stopped    <- Deferred[F, Unit]
       terminated <- Deferred[F, ActorRef]
       receiveOf  <- receiveOf(terminated, stopped.complete(()))
-        .typeless(_.castM[F, Msg])
-        .mapK(FunctionK.id, FunctionK.id)
+        .convert[Any, Any, Boolean](_.castM[F, Msg], (_: Any).pure[F], _.pure[F])
         .pure[F]
       result  = for {
         actorEffect <- ActorEffect.of(actorRefOf, receiveOf)
