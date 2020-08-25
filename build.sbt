@@ -29,7 +29,6 @@ lazy val root = (project in file(".")
     testkit,
     persistence,
     eventsourcing,
-    `akka-effect-safe-persistence-async`,
     cluster,
     `cluster-sharding`))
 
@@ -119,13 +118,3 @@ lazy val `cluster-sharding` = (project in file("cluster-sharding")
   settings (
     libraryDependencies ++= Seq(
       Akka.`cluster-sharding`)))
-
-lazy val `akka-effect-safe-persistence-async` = (project in file("modules/safe-persistence-async")
-  settings (name := "akka-effect-safe-persistence-async")
-  settings commonSettings
-  dependsOn eventsourcing % "test->test;compile->compile"
-  settings (
-    libraryDependencies ++= Seq(
-      SafeAkka.actor,
-      SafeAkka.persistence,
-      SafeAkka.`persistence-async`)))
