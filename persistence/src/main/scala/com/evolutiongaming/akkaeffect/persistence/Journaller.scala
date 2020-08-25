@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.{Applicative, FlatMap, Monad}
+import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.{Log, MonadThrowable}
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -50,6 +50,14 @@ object Journaller {
 
 
   implicit class JournallerOps[F[_], A](val self: Journaller[F, A]) extends AnyVal {
+
+    def mapK[G[_]: Applicative](f: F ~> G): Journaller[G, A] = new Journaller[G, A] {
+
+      def append = self.append.mapK(f)
+
+      def deleteTo = self.deleteTo.mapK(f)
+    }
+
 
     def convert[B](f: B => F[A])(implicit F: Monad[F]): Journaller[F, B] = new Journaller[F, B] {
 

@@ -7,7 +7,6 @@ import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 
-// TODO move out to cats-helper
 /**
   * Runs `fa` strictly serially, somehow similar to actor's semantic
   */

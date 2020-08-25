@@ -20,7 +20,7 @@ trait ActorVar[F[_], A] {
   /**
     * @param f takes current state and returns tuple from next state and optional release callback
     */
-  def receive(f: A => F[Option[Releasable[F, A]]]): Unit // TODO simplify F[Option[Releasable
+  def receive(f: A => F[Option[Releasable[F, A]]]): Unit
 
   def postStop(): F[Unit]
 }

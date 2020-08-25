@@ -93,11 +93,6 @@ object PersistentActorOf {
         eventSourced.pluginIds.snapshot getOrElse super.snapshotPluginId
       }
 
-      override protected def onRecoveryFailure(cause: Throwable, event: Option[Any]) = {
-        // TODO should we react on this?
-        super.onRecoveryFailure(cause, event)
-      }
-
       override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
         val error = actorError(s"[$seqNr] persist failed for $event", cause.some)
         act.sync {

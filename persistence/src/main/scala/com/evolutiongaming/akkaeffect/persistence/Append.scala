@@ -4,7 +4,7 @@ import akka.persistence._
 import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import cats.{Applicative, FlatMap, Monad}
+import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.akkaeffect.util.PromiseEffect
 import com.evolutiongaming.akkaeffect.{Act, Fail}
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -131,6 +131,10 @@ object Append {
 
 
   implicit class AppendOps[F[_], A](val self: Append[F, A]) extends AnyVal {
+
+    def mapK[G[_]: Applicative](f: F ~> G): Append[G, A] = {
+      events => f(self(events)).map { a => f(a) }
+    }
 
     def convert[B](f: B => F[A])(implicit F: Monad[F]): Append[F, B] = {
       events => {

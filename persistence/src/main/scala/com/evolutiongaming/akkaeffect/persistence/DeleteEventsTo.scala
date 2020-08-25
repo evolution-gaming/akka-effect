@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.persistence.DeleteEventsToInterop
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import cats.{Applicative, FlatMap}
+import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.{FromFuture, Log, MonadThrowable}
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -37,6 +37,10 @@ object DeleteEventsTo {
 
 
   implicit class DeleteEventsToOps[F[_]](val self: DeleteEventsTo[F]) extends AnyVal {
+
+    def mapK[G[_]: Applicative](f: F ~> G): DeleteEventsTo[G] = {
+      seqNr => f(self(seqNr)).map { a => f(a) }
+    }
 
     def withLogging(
       log: Log[F])(implicit

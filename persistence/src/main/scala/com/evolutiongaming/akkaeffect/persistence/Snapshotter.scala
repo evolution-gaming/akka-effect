@@ -5,7 +5,7 @@ import java.time.Instant
 import akka.persistence.{SnapshotSelectionCriteria, Snapshotter => _, _}
 import cats.effect.Sync
 import cats.implicits._
-import cats.{Applicative, FlatMap}
+import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.{FromFuture, Log, MonadThrowable}
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -13,7 +13,6 @@ import com.evolutiongaming.smetrics.MeasureDuration
 import scala.concurrent.duration.FiniteDuration
 
 
-// TODO add useful methods and cats interop
 /**
   * Describes communication with underlying snapshot storage
   *
@@ -65,6 +64,16 @@ object Snapshotter {
 
 
   implicit class SnapshotterOps[F[_], A](val self: Snapshotter[F, A]) extends AnyVal {
+
+    def mapK[G[_]: Applicative](f: F ~> G): Snapshotter[G, A] = new Snapshotter[G, A] {
+
+      def save(seqNr: SeqNr, snapshot: A) = f(self.save(seqNr, snapshot)).map { a => f(a) }
+
+      def delete(seqNr: SeqNr) = f(self.delete(seqNr)).map { a => f(a) }
+
+      def delete(criteria: SnapshotSelectionCriteria) = f(self.delete(criteria)).map { a => f(a) }
+    }
+
 
     def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Snapshotter[F, B] = new Snapshotter[F, B] {
 
