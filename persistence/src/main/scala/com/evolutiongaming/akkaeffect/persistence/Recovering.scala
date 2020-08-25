@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import cats.Monad
 import cats.effect.Resource
-import cats.implicits._
+import cats.implicits.catsSyntaxApplicativeId
 import com.evolutiongaming.akkaeffect.{Envelope, Receive}
 
 /**
@@ -10,9 +10,9 @@ import com.evolutiongaming.akkaeffect.{Envelope, Receive}
   *
   * @tparam S snapshot
   * @tparam E event
-  * @tparam C command
+  * @tparam A recovery result
   */
-trait Recovering[F[_], S, E, C] {
+trait Recovering[F[_], S, E, A] {
   /**
     * Used to replay events during recovery against passed state,
     * resource will be released when recovery is completed
@@ -28,32 +28,40 @@ trait Recovering[F[_], S, E, C] {
     seqNr: SeqNr,
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]
-  ): Resource[F, Receive[F, Envelope[C], Boolean]]
+  ): Resource[F, A]
 }
 
 object Recovering {
 
-  def empty[F[_]: Monad, S, E, C]: Recovering[F, S, E, C] = new Recovering[F, S, E, C] {
+  def apply[F[_], S, E, A](
+    replay: Resource[F, Replay[F, E]],
+    completed: (SeqNr, Journaller[F, E], Snapshotter[F, S]) => Resource[F, A]
+  ): Recovering[F, S, E, A] = {
+    val replay1 = replay
+    val completed1 = completed
+    new Recovering[F, S, E, A] {
 
-    def replay = Replay.empty[F, E].pure[Resource[F, *]]
+      def replay = replay1
 
-    def completed(seqNr: SeqNr, journaller: Journaller[F, E], snapshotter: Snapshotter[F, S]) = {
-      Receive
-        .const[Envelope[C]](false.pure[F])
-        .pure[Resource[F, *]]
+      def completed(
+        seqNr: SeqNr,
+        journaller: Journaller[F, E],
+        snapshotter: Snapshotter[F, S]
+      ) = {
+        completed1(seqNr, journaller, snapshotter)
+      }
     }
   }
 
+  implicit class RecoveringOps[F[_], S, E, A](val self: Recovering[F, S, E, A]) extends AnyVal {
 
-  implicit class RecoveringOps[F[_], S, E, C](val self: Recovering[F, S, E, C]) extends AnyVal {
-
-    def convert[S1, E1, C1](
+    def convert[S1, E1, A1](
       sf: S => F[S1],
       ef: E => F[E1],
       e1f: E1 => F[E],
-      cf: C1 => F[C])(implicit
+      af: A => Resource[F, A1])(implicit
       F: Monad[F],
-    ): Recovering[F, S1, E1, C1] = new Recovering[F, S1, E1, C1] {
+    ): Recovering[F, S1, E1, A1] = new Recovering[F, S1, E1, A1] {
 
       def replay = self.replay.map { _.convert(e1f) }
 
@@ -66,27 +74,33 @@ object Recovering {
         val snapshotter1 = snapshotter.convert(sf)
         self
           .completed(seqNr, journaller1, snapshotter1)
-          .map { _.convert(cf, _.pure[F]) }
+          .flatMap(af)
       }
     }
+  }
 
+  implicit class RecoveringReceiveEnvelopeOps[F[_], S, E, C](
+    val self: Recovering[F, S, E, Receive[F, Envelope[C], Boolean]]
+  ) extends AnyVal {
 
     def widen[S1 >: S, C1 >: C, E1 >: E](
       ef: E1 => F[E],
       cf: C1 => F[C])(implicit
       F: Monad[F]
-    ): Recovering[F, S1, E1, C1] = new Recovering[F, S1, E1, C1] {
+    ): Recovering[F, S1, E1, Receive[F, Envelope[C1], Boolean]] = {
+      new Recovering[F, S1, E1, Receive[F, Envelope[C1], Boolean]] {
 
-      def replay = self.replay.map { _.convert(ef) }
+        def replay = self.replay.map { _.convert(ef) }
 
-      def completed(
-        seqNr: SeqNr,
-        journaller: Journaller[F, E1],
-        snapshotter: Snapshotter[F, S1]
-      ) = {
-        self
-          .completed(seqNr, journaller, snapshotter)
-          .map { _.convert(cf, _.pure[F]) }
+        def completed(
+          seqNr: SeqNr,
+          journaller: Journaller[F, E1],
+          snapshotter: Snapshotter[F, S1]
+        ) = {
+          self
+            .completed(seqNr, journaller, snapshotter)
+            .map { _.convert(cf, _.pure[F]) }
+        }
       }
     }
 
@@ -95,6 +109,8 @@ object Recovering {
       ef: Any => F[E],
       cf: Any => F[C])(implicit
       F: Monad[F]
-    ): Recovering[F, Any, Any, Any] = widen(ef, cf)
+    ): Recovering[F, Any, Any, Receive[F, Envelope[Any], Boolean]] = {
+      widen(ef, cf)
+    }
   }
 }

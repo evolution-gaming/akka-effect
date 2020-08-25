@@ -17,7 +17,7 @@ import scala.concurrent.duration._
 object PersistentActorOf {
 
   def apply[F[_]: Sync: Timer: ToFuture: FromFuture: ToTry](
-    eventSourcedOf: EventSourcedOf[F, Any, Any, Any],
+    eventSourcedOf: EventSourcedOf[F, Any, Any, Receive[F, Envelope[Any], Boolean]],
     timeout: FiniteDuration = 1.minute
   ): PersistentActor = {
 

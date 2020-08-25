@@ -32,7 +32,7 @@ private[akkaeffect] trait Persistence[F[_], S, E, C] {
 private[akkaeffect] object Persistence {
 
   def started[F[_]: Sync: Fail, S, E, C](
-    eventSourced: EventSourced[F, S, E, C],
+    eventSourced: EventSourced[F, S, E, Receive[F, Envelope[C], Boolean]],
   ): Resource[F, Persistence[F, S, E, C]] = {
     eventSourced
       .start
@@ -40,7 +40,7 @@ private[akkaeffect] object Persistence {
   }
 
   def started[F[_]: Sync: Fail, S, E, C](
-    recoveryStarted: RecoveryStarted[F, S, E, C],
+    recoveryStarted: RecoveryStarted[F, S, E, Receive[F, Envelope[C], Boolean]],
   ): Persistence[F, S, E, C] = {
 
     new Persistence[F, S, E, C] {
@@ -89,7 +89,7 @@ private[akkaeffect] object Persistence {
 
   def recovering[F[_]: Sync: Fail, S, E, C, R](
     replay: Option[Allocated[F, Replay[F, E]]],
-    recovering: Recovering[F, S, E, C]
+    recovering: Recovering[F, S, E, Receive[F, Envelope[C], Boolean]]
   ): Persistence[F, S, E, C] = {
 
     new Persistence[F, S, E, C] {

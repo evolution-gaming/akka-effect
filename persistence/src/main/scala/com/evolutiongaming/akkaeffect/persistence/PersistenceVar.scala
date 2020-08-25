@@ -3,14 +3,14 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.actor.{ActorContext, ActorRef}
 import cats.effect.Sync
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Act, ActorVar, Fail}
+import com.evolutiongaming.akkaeffect.{Act, ActorVar, Envelope, Fail, Receive}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 import scala.concurrent.Future
 
 private[akkaeffect] trait PersistenceVar[F[_], S, E, C] {
 
-  def preStart(eventSourced: EventSourced[F, S, E, C]): Unit
+  def preStart(eventSourced: EventSourced[F, S, E, Receive[F, Envelope[C], Boolean]]): Unit
 
   def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]): Unit
 
@@ -44,7 +44,7 @@ private[akkaeffect] object PersistenceVar {
 
     new PersistenceVar[F, S, E, C] {
 
-      def preStart(eventSourced: EventSourced[F, S, E, C]) = {
+      def preStart(eventSourced: EventSourced[F, S, E, Receive[F, Envelope[C], Boolean]]) = {
         actorVar.preStart {
           Persistence.started(eventSourced)
         }

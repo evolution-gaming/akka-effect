@@ -3,6 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.persistence.Recovery
 import cats.Monad
 import cats.effect.Resource
+import com.evolutiongaming.akkaeffect.{Envelope, Receive}
 
 /**
   * EventSourced describes lifecycle of entity with regards to event sourcing
@@ -15,9 +16,9 @@ import cats.effect.Resource
   *
   * @tparam S snapshot
   * @tparam E event
-  * @tparam C command
+  * @tparam A recovery result
   */
-trait EventSourced[F[_], S, E, C] {
+trait EventSourced[F[_], S, E, A] {
 
   /**
     * @see [[akka.persistence.PersistentActor.persistenceId]]
@@ -40,24 +41,24 @@ trait EventSourced[F[_], S, E, C] {
     *
     * @see [[akka.persistence.PersistentActor.preStart]]
     */
-  def start: Resource[F, RecoveryStarted[F, S, E, C]]
+  def start: Resource[F, RecoveryStarted[F, S, E, A]]
 }
 
 
 object EventSourced {
 
-  implicit class EventSourcedOps[F[_], S, E, C](
-    val self: EventSourced[F, S, E, C]
+  implicit class EventSourcedOps[F[_], S, E, A](
+    val self: EventSourced[F, S, E, A]
   ) extends AnyVal {
 
-    def convert[S1, E1, C1](
+    def convert[S1, E1, A1](
       sf: S => F[S1],
       s1f: S1 => F[S],
       ef: E => F[E1],
       e1f: E1 => F[E],
-      cf: C1 => F[C])(implicit
+      af: A => Resource[F, A1])(implicit
       F: Monad[F],
-    ): EventSourced[F, S1, E1, C1] = new EventSourced[F, S1, E1, C1] {
+    ): EventSourced[F, S1, E1, A1] = new EventSourced[F, S1, E1, A1] {
 
       def eventSourcedId = self.eventSourcedId
 
@@ -66,26 +67,33 @@ object EventSourced {
       def recovery = self.recovery
 
       def start = {
-        self.start.map { _.convert(sf, s1f, ef, e1f, cf) }
+        self.start.map { _.convert(sf, s1f, ef, e1f, af) }
       }
     }
+  }
 
+  
+  implicit class EventSourcedReceiveEnvelopeOps[F[_], S, E, C](
+    val self: EventSourced[F, S, E, Receive[F, Envelope[C], Boolean]]
+  ) extends AnyVal {
 
     def widen[S1 >: S, C1 >: C, E1 >: E](
       sf: S1 => F[S],
       ef: E1 => F[E],
       cf: C1 => F[C])(implicit
       F: Monad[F],
-    ): EventSourced[F, S1, E1, C1] = new EventSourced[F, S1, E1, C1] {
+    ): EventSourced[F, S1, E1, Receive[F, Envelope[C1], Boolean]] = {
+      new EventSourced[F, S1, E1, Receive[F, Envelope[C1], Boolean]] {
 
-      def eventSourcedId = self.eventSourcedId
+        def eventSourcedId = self.eventSourcedId
 
-      def pluginIds = self.pluginIds
+        def pluginIds = self.pluginIds
 
-      def recovery = self.recovery
+        def recovery = self.recovery
 
-      def start = {
-        self.start.map { _.widen(sf, ef, cf) }
+        def start = {
+          self.start.map { _.widen(sf, ef, cf) }
+        }
       }
     }
 
@@ -95,7 +103,7 @@ object EventSourced {
       ef: Any => F[E],
       cf: Any => F[C])(implicit
       F: Monad[F],
-    ): EventSourced[F, Any, Any, Any] = {
+    ): EventSourced[F, Any, Any, Receive[F, Envelope[Any], Boolean]] = {
       widen[Any, Any, Any](sf, ef, cf)
     }
   }
