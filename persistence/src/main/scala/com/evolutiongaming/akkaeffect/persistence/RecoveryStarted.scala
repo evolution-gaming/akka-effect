@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.Monad
 import cats.effect.Resource
 import cats.implicits._
+import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.{Envelope, Receive}
 import com.evolutiongaming.catshelper.CatsHelper._
 
@@ -72,6 +72,20 @@ object RecoveryStarted {
         } yield {
           recovering.convert(sf, ef, e1f, af)
         }
+      }
+    }
+
+
+    def map[A1](f: A => A1)(implicit F: Applicative[F]): RecoveryStarted[F, S, E, A1] = {
+      (seqNr, snapshotOffer) => {
+        self(seqNr, snapshotOffer).map { _.map(f) }
+      }
+    }
+
+
+    def mapM[A1](f: A => Resource[F, A1])(implicit F: Applicative[F]): RecoveryStarted[F, S, E, A1] = {
+      (seqNr, snapshotOffer) => {
+        self(seqNr, snapshotOffer).map { _.mapM(f) }
       }
     }
   }

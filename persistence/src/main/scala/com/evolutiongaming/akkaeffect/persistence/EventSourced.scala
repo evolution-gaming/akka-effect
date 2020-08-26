@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.Recovery
-import cats.Monad
 import cats.effect.Resource
+import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.{Envelope, Receive}
 
 /**
@@ -70,9 +70,40 @@ object EventSourced {
         self.start.map { _.convert(sf, s1f, ef, e1f, af) }
       }
     }
+
+
+    def map[A1](
+      f: A => A1)(implicit
+      F: Applicative[F]
+    ): EventSourced[F, S, E, A1] = new EventSourced[F, S, E, A1] {
+      def eventSourcedId = self.eventSourcedId
+
+      def pluginIds = self.pluginIds
+
+      def recovery = self.recovery
+
+      def start = {
+        self.start.map { _.map(f) }
+      }
+    }
+
+
+    def mapM[A1](f: A => Resource[F, A1])(implicit F: Applicative[F]): EventSourced[F, S, E, A1] = {
+      new EventSourced[F, S, E, A1] {
+        def eventSourcedId = self.eventSourcedId
+
+        def pluginIds = self.pluginIds
+
+        def recovery = self.recovery
+
+        def start = {
+          self.start.map { _.mapM(f) }
+        }
+      }
+    }
   }
 
-  
+
   implicit class EventSourcedReceiveEnvelopeOps[F[_], S, E, C](
     val self: EventSourced[F, S, E, Receive[F, Envelope[C], Boolean]]
   ) extends AnyVal {

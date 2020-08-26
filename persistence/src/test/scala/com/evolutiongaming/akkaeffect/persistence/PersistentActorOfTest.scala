@@ -150,7 +150,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                           _ <- receiveTimeout
                         } yield false
                       }
-                        .mapM[Envelope[Any]] { envelope =>
+                        .contramapM[Envelope[Any]] { envelope =>
                           envelope
                             .msg
                             .castM[F, Cmd]

@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.Monad
 import cats.effect.Resource
 import cats.implicits.catsSyntaxApplicativeId
+import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.{Envelope, Receive}
 
 /**
@@ -75,6 +75,42 @@ object Recovering {
         self
           .completed(seqNr, journaller1, snapshotter1)
           .flatMap(af)
+      }
+    }
+
+
+    def map[A1](
+      f: A => A1)(implicit F: Applicative[F]
+    ): Recovering[F, S, E, A1] = new Recovering[F, S, E, A1] {
+
+      def replay = self.replay
+
+      def completed(
+        seqNr: SeqNr,
+        journaller: Journaller[F, E],
+        snapshotter: Snapshotter[F, S]
+      ) = {
+        self
+          .completed(seqNr, journaller, snapshotter)
+          .map(f)
+      }
+    }
+
+
+    def mapM[A1](
+      f: A => Resource[F, A1]
+    ): Recovering[F, S, E, A1] = new Recovering[F, S, E, A1] {
+
+      def replay = self.replay
+
+      def completed(
+        seqNr: SeqNr,
+        journaller: Journaller[F, E],
+        snapshotter: Snapshotter[F, S]
+      ) = {
+        self
+          .completed(seqNr, journaller, snapshotter)
+          .flatMap(f)
       }
     }
   }
