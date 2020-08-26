@@ -107,7 +107,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
             _     <- actions.add(Action.Load(name))
             delay <- delay
           } yield {
-            (state: S, seqNr: SeqNr) => {
+            Validate[S] { (state, seqNr) =>
               for {
                 delay <- delay
                 _     <- actions.add(Action.Validate(name, seqNr))
@@ -122,7 +122,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
                 val change = Change(state1, Events.of(seqNr))
                 Directive(change, effect)
               }
-            }
+            }.convert[S, E, Unit](_.pure[F], _.pure[F], _.pure[F], _.pure[F])
           }
         }
 

@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.implicits._
-import cats.{Applicative, FlatMap}
+import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 
 /**
@@ -45,15 +45,50 @@ object Validate {
 
   implicit class ValidateOps[F[_], S, E, A](val self: Validate[F, S, E, A]) extends AnyVal {
 
-    def convertDirective[E1, B](
-      f: Directive[F, S, E, A] => F[Directive[F, S, E1, B]])(implicit
+    def map[E1, A1](
+      f: Directive[F, S, E, A] => Directive[F, S, E1, A1])(implicit
       F: FlatMap[F]
-    ): Validate[F, S, E1, B] = {
+    ): Validate[F, S, E1, A1] = {
+      (state, seqNr) => self(state, seqNr).map(f)
+    }
 
+    def mapM[E1, A1](
+      f: Directive[F, S, E, A] => F[Directive[F, S, E1, A1]])(implicit
+      F: FlatMap[F]
+    ): Validate[F, S, E1, A1] = {
+      (state, seqNr) => self(state, seqNr).flatMap(f)
+    }
+
+    def convert[S1, E1, A1](
+      sf: S => F[S1],
+      s1f: S1 => F[S],
+      ef: E => F[E1],
+      af: A => F[A1])(implicit
+      F: Monad[F]
+    ): Validate[F, S1, E1, A1] = {
       (state, seqNr) => {
         for {
-          a <- self(state, seqNr)
-          a <- f(a)
+          a <- s1f(state)
+          a <- self(a, seqNr)
+          a <- a.convert(sf, ef, af)
+        } yield a
+      }
+    }
+
+    def convertE[E1](f: E => F[E1])(implicit F: Monad[F]): Validate[F, S, E1, A] = {
+      self.mapM { _.convertE(f) }
+    }
+
+    def convertS[S1](
+      sf: S => F[S1],
+      s1f: S1 => F[S])(implicit
+      F: Monad[F]
+    ): Validate[F, S1, E, A] = {
+      (state, seqNr) => {
+        for {
+          a <- s1f(state)
+          a <- self(a, seqNr)
+          a <- a.convertS(sf)
         } yield a
       }
     }

@@ -22,10 +22,11 @@ final case class Directive[F[_], +S, +E, A](
 object Directive {
 
   implicit def semigroupDirective[F[_]: Monad, S, E, A: Semigroup]: Semigroup[Directive[F, S, E, A]] = {
-    (a, b) => Directive(
-      a.change.combine(b.change), 
-      a.effect.combine(b.effect),
-      a.stop || b.stop)
+    (a, b) =>
+      Directive(
+        a.change.combine(b.change),
+        a.effect.combine(b.effect),
+        a.stop || b.stop)
   }
 
   def empty[F[_]: Applicative, S, E]: Directive[F, S, E, Unit] = {
@@ -78,6 +79,35 @@ object Directive {
 
     def andThen(effect: Effect[F, A])(implicit F: Monad[F]): Directive[F, S, E, A] = {
       self.copy(effect = self.effect.productR(effect))
+    }
+
+    def convert[S1, E1, A1](
+      sf: S => F[S1],
+      ef: E => F[E1],
+      af: A => F[A1])(implicit
+      F: Monad[F]
+    ): F[Directive[F, S1, E1, A1]] = {
+      self
+        .change
+        .traverse { _.convert(sf, ef) }
+        .map { change =>
+          val effect = self.effect.mapM(af)
+          self.copy(change, effect)
+        }
+    }
+
+    def convertE[E1](f: E => F[E1])(implicit F: Monad[F]): F[Directive[F, S, E1, A]] = {
+      self
+        .change
+        .traverse { _.convertE(f) }
+        .map { change => self.copy(change) }
+    }
+
+    def convertS[S1](f: S => F[S1])(implicit F: Monad[F]): F[Directive[F, S1, E, A]] = {
+      self
+        .change
+        .traverse { _.convertS(f) }
+        .map { change => self.copy(change) }
     }
   }
 }

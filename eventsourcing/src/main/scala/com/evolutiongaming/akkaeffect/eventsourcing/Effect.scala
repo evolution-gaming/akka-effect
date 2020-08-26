@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.implicits._
 import cats.kernel.Semigroup
-import cats.{Applicative, Monad}
+import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 
 /**
@@ -45,5 +45,13 @@ object Effect {
 
   implicit def semigroupEffect[F[_]: Monad, A: Semigroup]: Semigroup[Effect[F, A]] = {
     (a, b) => a.flatMap { a => b.map { b => a.combine(b) } }
+  }
+
+
+  implicit class EffectOps[F[_], A](val self: Effect[F, A]) extends AnyVal {
+
+    def mapM[B](f: A => F[B])(implicit F: FlatMap[F]): Effect[F, B] = {
+      seqNr => self(seqNr).flatMap(f)
+    }
   }
 }
