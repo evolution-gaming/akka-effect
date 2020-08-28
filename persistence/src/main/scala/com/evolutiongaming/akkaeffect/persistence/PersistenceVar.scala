@@ -1,16 +1,16 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.{ActorContext, ActorRef}
-import cats.effect.Sync
+import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.akkaeffect.{Act, ActorVar, Envelope, Fail, Receive}
+import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 import scala.concurrent.Future
 
 private[akkaeffect] trait PersistenceVar[F[_], S, E, C] {
 
-  def preStart(eventSourced: EventSourced[F, S, E, Receive[F, Envelope[C], Boolean]]): Unit
+  def preStart(recoveryStarted: Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], Boolean]]]): Unit
 
   def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]): Unit
 
@@ -31,22 +31,22 @@ private[akkaeffect] trait PersistenceVar[F[_], S, E, C] {
 
 private[akkaeffect] object PersistenceVar {
 
-  def apply[F[_] : Sync : ToFuture : FromFuture : Fail, S, E, C](
+  def apply[F[_]: Sync: ToFuture: FromFuture: Fail, S, E, C](
     act: Act[Future],
     context: ActorContext
   ): PersistenceVar[F, S, E, C] = {
     apply(ActorVar[F, Persistence[F, S, E, C]](act, context))
   }
 
-  def apply[F[_] : Sync : Fail, S, E, C](
+  def apply[F[_]: Sync: Fail, S, E, C](
     actorVar: ActorVar[F, Persistence[F, S, E, C]]
   ): PersistenceVar[F, S, E, C] = {
 
     new PersistenceVar[F, S, E, C] {
 
-      def preStart(eventSourced: EventSourced[F, S, E, Receive[F, Envelope[C], Boolean]]) = {
+      def preStart(recoveryStarted: Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], Boolean]]]) = {
         actorVar.preStart {
-          Persistence.started(eventSourced)
+          recoveryStarted.map { recoveryStarted => Persistence.started(recoveryStarted) }
         }
       }
 
@@ -63,7 +63,7 @@ private[akkaeffect] object PersistenceVar {
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S]
       ) = {
-        actorVar.receive { _.recoveryCompleted(seqNr, journaller, snapshotter).map { _.some} }
+        actorVar.receive { _.recoveryCompleted(seqNr, journaller, snapshotter).map { _.some } }
       }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {

@@ -16,14 +16,30 @@ import scala.concurrent.duration._
 
 object PersistentActorOf {
 
+  /**
+    * Describes lifecycle of entity with regards to event sourcing & PersistentActor
+    * Lifecycle phases:
+    *
+    * 1. RecoveryStarted: we have id in place and can decide whether we should continue with recovery
+    * 2. Recovering     : reading snapshot and replaying events
+    * 3. Receiving      : receiving commands and potentially storing events & snapshots
+    * 4. Termination    : triggers all release hooks of allocated resources within previous phases
+    *
+    * @tparam S snapshot
+    * @tparam E event
+    * @tparam C command
+    */
+  type Type[F[_], S, E, C] = EventSourcedOf[F, Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], ActorOf.Stop]]]]
+
   def apply[F[_]: Sync: Timer: ToFuture: FromFuture: ToTry](
-    eventSourcedOf: EventSourcedOf[F, Any, Any, Receive[F, Envelope[Any], Boolean]],
+    eventSourcedOf: Type[F, Any, Any, Any],
     timeout: FiniteDuration = 1.minute
   ): PersistentActor = {
 
     def await[A](fa: F[A]) = Await.result(fa.toFuture, timeout)
 
-    new PersistentActor { actor =>
+    new PersistentActor {
+      actor =>
 
       lazy val (act, eventSourced) = {
         val act = Act.Adapter(self)
@@ -79,7 +95,7 @@ object PersistentActorOf {
       override def preStart(): Unit = {
         super.preStart()
         act.sync {
-          persistence.preStart(eventSourced)
+          persistence.preStart(eventSourced.value)
         }
       }
 

@@ -32,14 +32,6 @@ private[akkaeffect] trait Persistence[F[_], S, E, C] {
 private[akkaeffect] object Persistence {
 
   def started[F[_]: Sync: Fail, S, E, C](
-    eventSourced: EventSourced[F, S, E, Receive[F, Envelope[C], Boolean]],
-  ): Resource[F, Persistence[F, S, E, C]] = {
-    eventSourced
-      .start
-      .map { a => Persistence.started(a) }
-  }
-
-  def started[F[_]: Sync: Fail, S, E, C](
     recoveryStarted: RecoveryStarted[F, S, E, Receive[F, Envelope[C], Boolean]],
   ): Persistence[F, S, E, C] = {
 

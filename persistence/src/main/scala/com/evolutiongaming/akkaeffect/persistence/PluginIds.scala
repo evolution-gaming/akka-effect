@@ -1,5 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import cats.Show
 import cats.implicits._
 
 /**
@@ -11,7 +12,10 @@ final case class PluginIds(
   snapshot: Option[String] = None)
 
 object PluginIds {
-  
+
+  implicit val showPluginIds: Show[PluginIds] = Show.fromToString
+
+
   val Empty: PluginIds = PluginIds()
 
   def apply(journal: String, snapshot: String): PluginIds = {
