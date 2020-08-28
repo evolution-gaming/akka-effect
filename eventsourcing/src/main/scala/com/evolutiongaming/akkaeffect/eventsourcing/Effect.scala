@@ -4,6 +4,7 @@ import cats.implicits._
 import cats.kernel.Semigroup
 import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
+import com.evolutiongaming.catshelper.MonadThrowable
 
 /**
   * This function will be executed after events are stored
@@ -23,6 +24,10 @@ object Effect {
   def const[F[_], A](fa: F[A]): Effect[F, A] = _ => fa
 
   def apply[F[_], A](f: Either[Throwable, SeqNr] => F[A]): Effect[F, A] = seqNr => f(seqNr)
+
+  def right[F[_]: MonadThrowable, A](f: SeqNr => F[A]): Effect[F, A] = Effect { _.liftTo[F].flatMap(f) }
+
+  def rightConst[F[_]: MonadThrowable, A](fa: => F[A]): Effect[F, A] = right { _ => fa }
 
 
   implicit def monadEffect[F[_]: Monad]: Monad[Effect[F, *]] = new Monad[Effect[F, *]] {
