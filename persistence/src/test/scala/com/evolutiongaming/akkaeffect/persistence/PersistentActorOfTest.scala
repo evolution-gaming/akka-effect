@@ -94,7 +94,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
             RecoveryStarted.const {
               Recovering[State] {
                 Replay.empty[F, Event].pure[Resource[F, *]]
-              } { (seqNr, journaller, snapshotter) =>
+              } { (_, journaller, snapshotter) =>
                 for {
                   stateRef <- Ref[F].of(0).toResource
                 } yield {
@@ -291,7 +291,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           val started = RecoveryStarted.const {
             Recovering[S] {
               Replay.empty[F, E].pure[Resource[F, *]]
-            } { (seqNr, journaller, snapshotter) =>
+            } { (_, journaller, snapshotter) =>
               val receive = for {
                 seqNr <- journaller.append(Events.of(0)).flatten
                 _     <- snapshotter.save(seqNr, 1).flatten
@@ -379,7 +379,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           val started = RecoveryStarted.const {
             Recovering[S] {
               Replay.empty[F, E].pure[Resource[F, *]]
-            } { (seqNr, journaller, snapshotter) =>
+            } { (_, journaller, snapshotter) =>
               val receive = for {
                 seqNr <- journaller.append(Events.of(0)).flatten
                 _     <- snapshotter.save(seqNr, 1).flatten
@@ -568,7 +568,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           val started = RecoveryStarted.const {
             Recovering[S] {
               Replay.empty[F, E].pure[Resource[F, *]]
-            } { (seqNr, journaller, snapshotter) =>
+            } { (_, journaller, snapshotter) =>
               val receive = for {
                 seqNr <- journaller.append(Events.of(0)).flatten
                 _     <- snapshotter.save(seqNr, 1).flatten
@@ -674,9 +674,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         val recoveryStarted = {
           val started = RecoveryStarted.const {
             Recovering[S] {
-
               Replay.empty[F, E].pure[Resource[F, *]]
-            } { (seqNr, journaller, snapshotter) =>
+            } { (_, journaller, snapshotter) =>
               val receive = for {
                 seqNr <- journaller.append(Events.of(0)).flatten
                 _     <- snapshotter.save(seqNr, 1).flatten
@@ -974,7 +973,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
               } yield {
                 Recovering[S] {
                   Replay.const[E](stateRef.set(false)).pure[Resource[F, *]]
-                } { (seqNr, journaller, snapshotter) =>
+                } { (_, journaller, _) =>
                   def append: F[Unit] = {
                     for {
                       state  <- stateRef.get
