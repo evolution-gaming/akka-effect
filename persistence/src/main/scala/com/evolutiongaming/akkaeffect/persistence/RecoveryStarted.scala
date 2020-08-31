@@ -13,7 +13,7 @@ import com.evolutiongaming.catshelper.CatsHelper._
   * @tparam E event
   * @tparam A recovery result
   */
-trait RecoveryStarted[F[_], S, E, A] {
+trait RecoveryStarted[F[_], S, E, +A] {
 
   /**
     * Called upon starting recovery, resource will be released upon actor termination

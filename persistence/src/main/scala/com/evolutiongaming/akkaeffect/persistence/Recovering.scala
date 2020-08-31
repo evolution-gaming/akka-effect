@@ -12,7 +12,7 @@ import com.evolutiongaming.akkaeffect.{Envelope, Receive}
   * @tparam E event
   * @tparam A recovery result
   */
-trait Recovering[F[_], S, E, A] {
+trait Recovering[F[_], S, E, +A] {
   /**
     * Used to replay events during recovery against passed state,
     * resource will be released when recovery is completed
@@ -33,25 +33,53 @@ trait Recovering[F[_], S, E, A] {
 
 object Recovering {
 
-  def apply[F[_], S, E, A](
-    replay: Resource[F, Replay[F, E]],
-    completed: (SeqNr, Journaller[F, E], Snapshotter[F, S]) => Resource[F, A]
-  ): Recovering[F, S, E, A] = {
-    val replay1 = replay
-    val completed1 = completed
-    new Recovering[F, S, E, A] {
+  def apply[S]: Apply[S] = new Apply[S]
 
-      def replay = replay1
+  private[Recovering] final class Apply[S](private val b: Boolean = true) extends AnyVal {
 
-      def completed(
-        seqNr: SeqNr,
-        journaller: Journaller[F, E],
-        snapshotter: Snapshotter[F, S]
-      ) = {
-        completed1(seqNr, journaller, snapshotter)
+    def apply[F[_], E, A](
+      replay: Resource[F, Replay[F, E]])(
+      completed: (SeqNr, Journaller[F, E], Snapshotter[F, S]) => Resource[F, A]
+    ): Recovering[F, S, E, A] = {
+      val replay1 = replay
+      val completed1 = completed
+      new Recovering[F, S, E, A] {
+
+        def replay = replay1
+
+        def completed(
+          seqNr: SeqNr,
+          journaller: Journaller[F, E],
+          snapshotter: Snapshotter[F, S]
+        ) = {
+          completed1(seqNr, journaller, snapshotter)
+        }
       }
     }
   }
+
+
+  def const[S]: Const[S] = new Const[S]
+
+  private[Recovering] final class Const[S](private val b: Boolean = true) extends AnyVal {
+
+    def apply[F[_], E, A](
+      replay: Resource[F, Replay[F, E]])(
+      completed: Resource[F, A]
+    ): Recovering[F, S, E, A] = {
+      val replay1 = replay
+      val completed1 = completed
+      new Recovering[F, S, E, A] {
+
+        def replay = replay1
+
+        def completed(seqNr: SeqNr, journaller: Journaller[F, E], snapshotter: Snapshotter[F, S]) = {
+          completed1
+        }
+      }
+    }
+  }
+  
 
   implicit class RecoveringOps[F[_], S, E, A](val self: Recovering[F, S, E, A]) extends AnyVal {
 

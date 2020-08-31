@@ -10,7 +10,7 @@ import cats.{Functor, Show}
   * @param pluginIds      @see [[akka.persistence.PersistentActor.journalPluginId]]
   * @param value          usually something used to construct instance of an actor
   */
-final case class EventSourced[A](
+final case class EventSourced[+A](
   eventSourcedId: EventSourcedId,
   recovery: Recovery = Recovery(),
   pluginIds: PluginIds = PluginIds.Empty,
