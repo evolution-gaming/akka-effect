@@ -4,7 +4,7 @@ import akka.actor.ReceiveTimeout
 import akka.persistence.{PersistentActor, RecoveryCompleted}
 import akka.{persistence => ap}
 import cats.effect.{Resource, Sync, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, Memoize, ToFuture, ToTry}

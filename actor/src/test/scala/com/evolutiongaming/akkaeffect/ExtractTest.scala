@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.implicits._
+import cats.syntax.all._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 

@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, FlatMap, Functor, ~>}
 import com.evolutiongaming.akkaeffect.persistence
 import com.evolutiongaming.akkaeffect.persistence.SeqNr

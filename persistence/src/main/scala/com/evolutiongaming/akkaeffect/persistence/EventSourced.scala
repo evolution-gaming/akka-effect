@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.Recovery
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Functor, Show}
 
 /**

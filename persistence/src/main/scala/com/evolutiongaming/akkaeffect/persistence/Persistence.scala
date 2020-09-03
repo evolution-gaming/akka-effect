@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.actor.ActorRef
 import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.Fail.implicits._
 import com.evolutiongaming.akkaeffect.Releasable.implicits._
 import com.evolutiongaming.akkaeffect._

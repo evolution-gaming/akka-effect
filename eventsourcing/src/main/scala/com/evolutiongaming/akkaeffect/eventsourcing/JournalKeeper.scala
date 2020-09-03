@@ -6,7 +6,7 @@ import cats.Applicative
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.effect.{Clock, Concurrent}
-import cats.implicits._
+import cats.syntax.all._
 import cats.kernel.Order
 import com.evolutiongaming.akkaeffect.ActorStoppedError
 import com.evolutiongaming.akkaeffect.persistence.{SeqNr, SnapshotMetadata, Snapshotter}

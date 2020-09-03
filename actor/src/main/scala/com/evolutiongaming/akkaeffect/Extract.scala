@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import cats.data.OptionT
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Functor, Monad}
 
 import scala.reflect.ClassTag

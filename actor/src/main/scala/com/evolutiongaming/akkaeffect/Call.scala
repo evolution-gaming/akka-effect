@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Functor, Monad}
 
 final case class Call[F[_], A, B](msg: A, reply: Reply[F, B])

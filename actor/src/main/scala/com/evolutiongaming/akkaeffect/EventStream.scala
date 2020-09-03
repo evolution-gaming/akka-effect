@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorRef, ActorRefFactory, ActorSystem, Props}
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 import scala.reflect.ClassTag

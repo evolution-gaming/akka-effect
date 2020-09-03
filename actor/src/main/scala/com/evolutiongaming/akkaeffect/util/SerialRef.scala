@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.util
 
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 

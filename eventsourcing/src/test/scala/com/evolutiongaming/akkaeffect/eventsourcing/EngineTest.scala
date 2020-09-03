@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.stream.SystemMaterializer
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorSuite
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}

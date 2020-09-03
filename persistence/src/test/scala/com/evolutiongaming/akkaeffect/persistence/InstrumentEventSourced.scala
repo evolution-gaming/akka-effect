@@ -6,7 +6,7 @@ import akka.actor.ActorRef
 import akka.persistence.{Recovery, SnapshotSelectionCriteria}
 import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
 
 object InstrumentEventSourced {

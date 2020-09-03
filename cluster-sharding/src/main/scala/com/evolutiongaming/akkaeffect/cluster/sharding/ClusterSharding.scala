@@ -6,7 +6,7 @@ import akka.cluster.sharding.ShardRegion.GracefulShutdown
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
 import cats.effect.implicits._
 import cats.effect.{Concurrent, Resource, Sync, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorRefOf
 import com.evolutiongaming.akkaeffect.cluster.{DataCenter, Role}
 import com.evolutiongaming.akkaeffect.persistence.TypeName

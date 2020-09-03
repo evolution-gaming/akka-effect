@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, FlatMap}
 
 /**

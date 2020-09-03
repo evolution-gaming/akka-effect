@@ -1,6 +1,4 @@
 package com.evolutiongaming.akkaeffect.persistence
-
-import cats.implicits._
 import cats.{Order, Show}
 import pureconfig.ConfigReader
 

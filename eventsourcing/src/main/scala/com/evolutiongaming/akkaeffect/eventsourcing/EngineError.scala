@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
 // format: off
-import cats.implicits._
+import cats.syntax.all._
 
 
 final case class EngineError(

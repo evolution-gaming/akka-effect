@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.effect.Resource
-import cats.implicits.catsSyntaxApplicativeId
+import cats.syntax.all._
 import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.{Envelope, Receive}
 

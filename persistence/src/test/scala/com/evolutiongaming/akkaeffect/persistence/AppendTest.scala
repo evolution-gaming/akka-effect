@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{IO, Sync}
 import cats.effect.concurrent.Ref
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._

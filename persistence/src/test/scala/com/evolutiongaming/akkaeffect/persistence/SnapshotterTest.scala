@@ -4,7 +4,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.persistence.{Snapshotter => _, SnapshotMetadata =>_, _}
 import cats.effect.concurrent.Deferred
 import cats.effect.{Concurrent, IO, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.{ActorSuite, _}
 import com.evolutiongaming.akkaeffect.testkit.Probe

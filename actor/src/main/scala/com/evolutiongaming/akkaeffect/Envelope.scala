@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorRef
 import cats.Functor
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.MonadThrowable
 

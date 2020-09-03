@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.effect.{Async, Concurrent, IO, Resource, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.util.PromiseEffect
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}

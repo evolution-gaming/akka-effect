@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.{ActorRef, ActorSelection}
 import akka.util.Timeout
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Contravariant, FlatMap, Functor, ~>}
 import com.evolutiongaming.catshelper.FromFuture
 

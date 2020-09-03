@@ -8,7 +8,7 @@ import akka.testkit.TestActors
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.InstrumentEventSourced.Action
 import com.evolutiongaming.akkaeffect.testkit.Probe

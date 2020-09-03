@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.{ActorContext, ActorRef}
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 

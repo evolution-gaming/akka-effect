@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import cats.effect.concurrent.Deferred
 import cats.effect.{Concurrent, IO}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.ToFuture
 import com.evolutiongaming.akkaeffect.IOSuite._
 import org.scalatest.funsuite.AsyncFunSuite

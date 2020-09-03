@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.DeleteEventsToInterop
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.{FromFuture, Log, MonadThrowable}

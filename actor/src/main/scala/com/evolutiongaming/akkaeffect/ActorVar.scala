@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.ActorContext
 import cats.effect._
 import cats.effect.implicits._
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, FromFuture, ToFuture}

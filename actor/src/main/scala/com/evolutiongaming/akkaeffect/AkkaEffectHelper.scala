@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 

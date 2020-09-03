@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing.util
 
 import akka.stream.scaladsl.SourceQueueWithComplete
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.FromFuture
 
 

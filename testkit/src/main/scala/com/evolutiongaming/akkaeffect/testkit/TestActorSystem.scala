@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.testkit
 
 import akka.actor.ActorSystem
 import cats.effect.{Async, Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.FromFuture
 import com.typesafe.config.{Config, ConfigFactory}
