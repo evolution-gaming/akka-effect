@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.implicits._
 import cats.kernel.Semigroup
-import cats.{Applicative, Monad}
+import cats.{Applicative, FlatMap, Functor, Monad}
 import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
 
 /**
@@ -20,6 +20,12 @@ final case class Directive[F[_], +S, +E, A](
   stop: Boolean)
 
 object Directive {
+
+  implicit def functorDirective[F[_]: Functor, S, E]: Functor[Directive[F, S, E, *]] = {
+    new Functor[Directive[F, S, E, *]] {
+      def map[A, B](fa: Directive[F, S, E, A])(f: A => B) = fa.map(f)
+    }
+  }
 
   implicit def semigroupDirective[F[_]: Monad, S, E, A: Semigroup]: Semigroup[Directive[F, S, E, A]] = {
     (a, b) =>
@@ -77,8 +83,20 @@ object Directive {
 
   implicit class DirectiveOps[F[_], S, E, A](val self: Directive[F, S, E, A]) extends AnyVal {
 
+    def mapEffect[A1](f: Effect[F, A] => Effect[F, A1]): Directive[F, S, E, A1] = {
+      self.copy(effect = f(self.effect))
+    }
+
+    def map[A1](f: A => A1)(implicit F: Functor[F]): Directive[F, S, E, A1] = {
+      mapEffect { _.map(f) }
+    }
+
+    def mapM[A1](f: A => F[A1])(implicit F: FlatMap[F]): Directive[F, S, E, A1] = {
+      mapEffect { _.mapM(f) }
+    }
+
     def andThen(effect: Effect[F, A])(implicit F: Monad[F]): Directive[F, S, E, A] = {
-      self.copy(effect = self.effect.productR(effect))
+      mapEffect { _.productR(effect) }
     }
 
     def convert[S1, E1, A1](

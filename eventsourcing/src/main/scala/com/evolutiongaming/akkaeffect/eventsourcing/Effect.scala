@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.implicits._
 import cats.kernel.Semigroup
-import cats.{Applicative, FlatMap, Monad}
+import cats.{Applicative, FlatMap, Functor, Monad}
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.catshelper.MonadThrowable
 
@@ -33,7 +33,7 @@ object Effect {
   implicit def monadEffect[F[_]: Monad]: Monad[Effect[F, *]] = new Monad[Effect[F, *]] {
 
     override def map[A, B](fa: Effect[F, A])(f: A => B) = {
-      Effect { seqNr => fa(seqNr).map(f) }
+      fa.map(f)
     }
 
     def flatMap[A, B](fa: Effect[F, A])(f: A => Effect[F, B]) = {
@@ -57,6 +57,10 @@ object Effect {
 
     def mapM[B](f: A => F[B])(implicit F: FlatMap[F]): Effect[F, B] = {
       seqNr => self(seqNr).flatMap(f)
+    }
+
+    def map[B](f: A => B)(implicit F: Functor[F]): Effect[F, B] = {
+      seqNr => self(seqNr).map(f)
     }
   }
 }

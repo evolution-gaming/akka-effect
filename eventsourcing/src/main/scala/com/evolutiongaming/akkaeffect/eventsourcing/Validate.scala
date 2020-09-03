@@ -9,6 +9,7 @@ import com.evolutiongaming.akkaeffect.persistence.SeqNr
   *
   * @tparam S state
   * @tparam E event
+  * @tparam A result
   */
 trait Validate[F[_], S, E, A] {
 
