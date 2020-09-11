@@ -40,7 +40,7 @@ object Directive {
   }
 
 
-  def stop[F[_]: Applicative, S, E, A]: Directive[F, S, E, Unit] = {
+  def stop[F[_]: Applicative, S, E]: Directive[F, S, E, Unit] = {
     Directive(none[Change[S, E]], Effect.empty[F], stop = true)
   }
 
