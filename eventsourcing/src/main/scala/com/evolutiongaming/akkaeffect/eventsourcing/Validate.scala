@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
-import cats.syntax.all._
-import cats.{Applicative, FlatMap, Monad}
+import cats.implicits._
+import cats.{Applicative, FlatMap, Functor, Monad}
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 
 /**
@@ -48,7 +48,7 @@ object Validate {
 
     def map[E1, A1](
       f: Directive[F, S, E, A] => Directive[F, S, E1, A1])(implicit
-      F: FlatMap[F]
+      F: Functor[F]
     ): Validate[F, S, E1, A1] = {
       (state, seqNr) => self(state, seqNr).map(f)
     }
@@ -58,6 +58,10 @@ object Validate {
       F: FlatMap[F]
     ): Validate[F, S, E1, A1] = {
       (state, seqNr) => self(state, seqNr).flatMap(f)
+    }
+
+    def mapA[A1](f: A => A1)(implicit F: Functor[F]): Validate[F, S, E, A1] = {
+      self.map { _.map(f) }
     }
 
     def convert[S1, E1, A1](
@@ -74,6 +78,10 @@ object Validate {
           a <- a.convert(sf, ef, af)
         } yield a
       }
+    }
+
+    def convertA[A1](f: A => F[A1])(implicit F: FlatMap[F]): Validate[F, S, E, A1] = {
+      self.map { _.mapM(f) }
     }
 
     def convertE[E1](f: E => F[E1])(implicit F: Monad[F]): Validate[F, S, E1, A] = {
