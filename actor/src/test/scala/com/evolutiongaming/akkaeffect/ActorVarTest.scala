@@ -1,9 +1,9 @@
 package com.evolutiongaming.akkaeffect
 
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync}
 import cats.effect.implicits._
-import cats.syntax.all._
+import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync}
+import cats.implicits._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
@@ -19,7 +19,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
     actorVar[IO].run()
   }
 
-  def actorVar[F[_] : Concurrent : ContextShift : ToFuture : FromFuture : ToTry]: F[Unit] = {
+  def actorVar[F[_]: Concurrent: ContextShift: ToFuture: FromFuture: ToTry]: F[Unit] = {
 
     sealed trait Action
 
