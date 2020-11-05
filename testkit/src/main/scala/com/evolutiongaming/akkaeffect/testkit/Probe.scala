@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.testkit
 import akka.actor.{ActorRef, Props}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}

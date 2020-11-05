@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
-import cats.implicits._
+import cats.syntax.all._
 
 trait ReplayStateful[F[_], S, E] {
 

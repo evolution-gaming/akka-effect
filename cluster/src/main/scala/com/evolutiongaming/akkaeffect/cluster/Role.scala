@@ -1,6 +1,5 @@
 package com.evolutiongaming.akkaeffect.cluster
 
-import cats.implicits._
 import cats.{Order, Show}
 import pureconfig.ConfigReader
 

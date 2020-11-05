@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorRef
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, MonadThrowable}
 
 trait Fail[F[_]] {

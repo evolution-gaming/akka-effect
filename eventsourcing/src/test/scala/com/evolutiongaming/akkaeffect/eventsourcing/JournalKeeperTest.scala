@@ -6,7 +6,7 @@ import akka.persistence.SnapshotSelectionCriteria
 import cats.Monad
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Clock, Concurrent, IO, Sync, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.{SeqNr, SnapshotMetadata, Snapshotter}
 import com.evolutiongaming.catshelper.Log

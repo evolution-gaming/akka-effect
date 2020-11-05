@@ -4,7 +4,7 @@ import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, PoisonPill, P
 import akka.testkit.TestActors
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.catshelper.CatsHelper._

@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.persistence.JournalProtocol.DeleteMessagesTo
 import cats.effect.concurrent.Deferred
 import cats.effect.{Concurrent, IO, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.akkaeffect.persistence.DeleteEventsTo

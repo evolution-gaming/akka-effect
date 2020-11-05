@@ -7,7 +7,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
 import cats.effect.{Concurrent, Fiber, Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, FlatMap, Functor, Monad}
 import com.evolutiongaming.akkaeffect
 import com.evolutiongaming.akkaeffect.eventsourcing.util.ResourceFromQueue

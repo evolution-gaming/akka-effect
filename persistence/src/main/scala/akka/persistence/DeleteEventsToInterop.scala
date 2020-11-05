@@ -3,7 +3,7 @@ package akka.persistence
 import akka.actor.{ActorContext, ActorRef}
 import akka.persistence.JournalProtocol.DeleteMessagesTo
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.persistence.{DeleteEventsTo, SeqNr}
 import com.evolutiongaming.akkaeffect.{ActorRefOf, AskFrom}
 import com.evolutiongaming.catshelper.FromFuture

@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.persistence._
 import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.akkaeffect.util.PromiseEffect
 import com.evolutiongaming.akkaeffect.{Act, Fail}

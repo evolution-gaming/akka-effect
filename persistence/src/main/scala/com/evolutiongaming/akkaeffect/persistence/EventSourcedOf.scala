@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.effect.Resource
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Functor, Monad}
 import com.evolutiongaming.akkaeffect.{ActorCtx, Envelope, Receive}
 

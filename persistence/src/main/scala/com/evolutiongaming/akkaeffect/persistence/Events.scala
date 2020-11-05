@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import cats.kernel.{Eq, Semigroup}
 import cats.{Apply, Eval, NonEmptyTraverse, Order, Show}
 

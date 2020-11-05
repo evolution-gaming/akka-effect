@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.implicits._
+import cats.syntax.all._
 
 final case class ActorError(
   msg: String,

@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.util
 
 import cats.effect.implicits._
 import cats.effect.{Concurrent, IO, Resource, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf, ActorSuite, Call, Receive, ReceiveOf}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}

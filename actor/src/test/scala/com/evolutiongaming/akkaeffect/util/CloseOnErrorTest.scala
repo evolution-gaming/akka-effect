@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.util
 
 import org.scalatest.funsuite.AsyncFunSuite
 import cats.effect.IO
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import org.scalatest.matchers.should.Matchers
 

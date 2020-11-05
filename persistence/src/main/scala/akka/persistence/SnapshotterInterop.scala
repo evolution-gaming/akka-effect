@@ -5,7 +5,7 @@ import java.time.Instant
 import akka.persistence.SnapshotProtocol.{DeleteSnapshot, DeleteSnapshots, Request, SaveSnapshot}
 import akka.util.Timeout
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.catshelper.FromFuture

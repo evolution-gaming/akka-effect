@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.{Actor, ActorRef, Props}
 import akka.util.Timeout
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.FromFuture
 
 import scala.concurrent.duration.FiniteDuration

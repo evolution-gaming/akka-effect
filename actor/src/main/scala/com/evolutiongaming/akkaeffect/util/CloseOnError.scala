@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.util
 import cats.arrow.FunctionK
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
-import cats.implicits._
+import cats.syntax.all._
 
 
 trait CloseOnError[F[_]] {

@@ -8,7 +8,7 @@ import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.ShardId
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
 import cats.effect.{Concurrent, Resource}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorRefOf
 import com.evolutiongaming.akkaeffect.cluster.{DataCenter, Role}
 import com.evolutiongaming.akkaeffect.persistence.TypeName

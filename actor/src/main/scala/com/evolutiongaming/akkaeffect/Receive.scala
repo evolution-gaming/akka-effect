@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorRef
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Contravariant, FlatMap, Functor, Monad, ~>}
 
 /**

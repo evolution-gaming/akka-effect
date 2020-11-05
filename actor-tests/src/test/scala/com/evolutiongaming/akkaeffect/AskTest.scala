@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.testkit.TestActors
 import cats.arrow.FunctionK
 import cats.effect.{Concurrent, IO, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite

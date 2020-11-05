@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.Monad
 import cats.arrow.FunctionK
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 
 /**

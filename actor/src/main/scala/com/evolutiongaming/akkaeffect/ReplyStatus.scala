@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.Status.Status
 import akka.actor.{ActorRef, Status}
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Contravariant, FlatMap, ~>}
 
 /**

@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef}
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.akkaeffect.util.Serial
 import com.evolutiongaming.catshelper.CatsHelper._

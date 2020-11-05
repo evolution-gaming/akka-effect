@@ -4,7 +4,7 @@ import java.time.Instant
 
 import akka.persistence.{SnapshotSelectionCriteria, Snapshotter => _, _}
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.{FromFuture, Log, MonadThrowable}

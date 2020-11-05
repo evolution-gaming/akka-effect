@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.Show
-import cats.implicits._
+import cats.syntax.all._
 
 /**
   * @param journal  @see [[akka.persistence.PersistentActor.journalPluginId]]

@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 

@@ -2,8 +2,8 @@ import sbt._
 
 object Dependencies {
   
-  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.1"
-  val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "2.1.0"
+  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.2"
+  val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "2.1.2"
   val `executor-tools`            = "com.evolutiongaming"   %% "executor-tools"            % "1.0.2"
   val retry                       = "com.evolutiongaming"   %% "retry"                     % "2.0.0"
   val `akka-persistence-inmemory` = "com.github.dnvriend"   %% "akka-persistence-inmemory" % "2.5.15.2"
@@ -12,11 +12,11 @@ object Dependencies {
   val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "0.1.2"
 
   object Cats {
-    private val version = "2.1.1"
+    private val version = "2.2.0"
     val core   = "org.typelevel" %% "cats-core"   % version
     val kernel = "org.typelevel" %% "cats-kernel" % version
     val macros = "org.typelevel" %% "cats-macros" % version
-    val effect = "org.typelevel" %% "cats-effect" % "2.1.4"
+    val effect = "org.typelevel" %% "cats-effect" % "2.2.0"
   }
 
   object Akka {
