@@ -1,6 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.syntax.all._
+import cats.arrow.FunctionK
+import cats.implicits._
 import cats.{Applicative, FlatMap}
 
 /**
@@ -50,5 +51,10 @@ object Replay {
 
 
     def typeless(f: Any => F[A])(implicit F: FlatMap[F]): Replay[F, Any] = convert(f)
+
+
+    def mapK[G[_]](f: FunctionK[F, G]): Replay[G, A] = {
+      (event, seqNr) => f(self(event, seqNr))
+    }
   }
 }
