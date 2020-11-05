@@ -1,6 +1,7 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
 import cats.Monad
+import cats.arrow.FunctionK
 import cats.implicits._
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 
@@ -30,6 +31,10 @@ object Replay {
     def convert[E1](f: E1 => F[E])(implicit F: Monad[F]): Replay[F, S, E1] = {
       (state, event, seqNr) =>
         f(event).flatMap { event => self(state, event, seqNr) }
+    }
+
+    def mapK[G[_]](f: FunctionK[F, G]): Replay[G, S, E] = {
+      (state, event, seqNr) => f(self(state, event, seqNr))
     }
   }
 }
