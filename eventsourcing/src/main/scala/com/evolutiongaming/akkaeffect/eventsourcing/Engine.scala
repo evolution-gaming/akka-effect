@@ -7,8 +7,8 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
 import cats.effect.{Concurrent, Fiber, Resource, Sync}
-import cats.syntax.all._
-import cats.{Applicative, FlatMap, Monad}
+import cats.implicits._
+import cats.{Applicative, FlatMap, Functor, Monad}
 import com.evolutiongaming.akkaeffect
 import com.evolutiongaming.akkaeffect.eventsourcing.util.ResourceFromQueue
 import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
@@ -297,6 +297,13 @@ object Engine {
 
 
   final case class State[A](value: A, seqNr: SeqNr)
+
+  object State {
+
+    implicit val functorState: Functor[State] = new Functor[State] {
+      def map[A, B](fa: State[A])(f: A => B): State[B] = fa.copy(value = f(fa.value))
+    }
+  }
 
 
   trait Append[F[_], -A] {
