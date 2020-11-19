@@ -10,7 +10,6 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, Memoize, ToFuture, ToTry}
 
 import scala.collection.immutable.Seq
-import scala.concurrent.Await
 import scala.concurrent.duration._
 
 
@@ -36,23 +35,20 @@ object PersistentActorOf {
     timeout: FiniteDuration = 1.minute
   ): PersistentActor = {
 
-    def await[A](fa: F[A]) = Await.result(fa.toFuture, timeout)
-
-    new PersistentActor {
-      actor =>
+    new PersistentActor { actor =>
 
       lazy val (act, eventSourced) = {
         val act = Act.Adapter(self)
         val eventSourced = {
           val actorCtx = ActorCtx[F](act.value.toSafe, context)
           act.sync {
-            await {
-              eventSourcedOf(actorCtx)
-                .adaptError { case error =>
-                  val path = self.path.toStringWithoutAddress
-                  ActorError(s"$path failed to allocate eventSourced: $error", error)
-                }
-            }
+            eventSourcedOf(actorCtx)
+              .adaptError { case error =>
+                val path = self.path.toStringWithoutAddress
+                ActorError(s"$path failed to allocate eventSourced: $error", error)
+              }
+              .toTry
+              .get
           }
         }
 
@@ -85,9 +81,10 @@ object PersistentActorOf {
         } yield {
           Resources(append, deleteEventsTo)
         }
-        await {
-          result.allocated
-        }
+        result
+          .allocated
+          .toTry
+          .get
       }
 
       val persistence = PersistenceVar[F, Any, Any, Any](act.value, context)

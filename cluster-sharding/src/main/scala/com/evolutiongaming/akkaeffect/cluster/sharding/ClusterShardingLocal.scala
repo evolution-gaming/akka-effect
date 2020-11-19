@@ -10,13 +10,13 @@ import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorRefOf
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.akkaeffect.cluster.{DataCenter, Role}
 import com.evolutiongaming.akkaeffect.persistence.TypeName
 import com.evolutiongaming.akkaeffect.util.Terminated
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.Promise
 import scala.util.Try
 
 
@@ -29,11 +29,9 @@ trait ClusterShardingLocal[F[_]] {
 
 object ClusterShardingLocal {
 
-  def of[F[_]: Concurrent: ToFuture: FromFuture](
+  def of[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): Resource[F, ClusterShardingLocal[F]] = {
-
-    def await[A](fa: Future[A]) = Try { Await.result(fa, 1.minute) }
 
     def actorNameOf(a: String) = URLEncoder.encode(a, StandardCharsets.UTF_8.name())
 
@@ -63,7 +61,7 @@ object ClusterShardingLocal {
       .map { shardingRef =>
 
         def withActorContext[A](f: ActorContext => A) = {
-          FromFuture.summon[F].apply {
+          FromFuture[F].apply {
             val promise = Promise[A]()
 
             def f1(context: ActorContext): Unit = {
@@ -156,7 +154,10 @@ object ClusterShardingLocal {
                     context
                       .child(shardName)
                       .fold {
-                        await(allocate).as(context.actorOf(Props(shardActor()), shardName))
+                        FromFuture[F]
+                          .apply(allocate)
+                          .toTry
+                          .as(context.actorOf(Props(shardActor()), shardName))
                       } { shard =>
                         shard.pure[Try]
                       }

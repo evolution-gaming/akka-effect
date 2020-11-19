@@ -29,7 +29,9 @@ object TestActorSystem {
             defaultExecutionContext = executor.some)
         }
       } { actorSystem =>
-        FromFuture.summon[F].apply { actorSystem.terminate() }.void
+        FromFuture[F]
+          .apply { actorSystem.terminate() }
+          .void
       }
     }
 
