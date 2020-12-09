@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SystemMaterializer}
+import akka.stream._
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
@@ -89,13 +89,13 @@ object Engine {
   def of[F[_]: Concurrent: Runtime: ToFuture: FromFuture, S, E](
     initial: State[S],
     materializer: Materializer,
-    append: Append[F, E]
+    append: Append[F, E],
+    bufferSize: Int = Int.MaxValue
   ): Resource[F, Engine[F, S, E]] = {
 
     final case class State(value: Engine.State[S], stopped: Boolean)
 
     final case class EventsAndEffect(events: List[Nel[E]], effect: Option[Throwable] => F[Unit])
-
 
     trait Append {
 
@@ -119,9 +119,6 @@ object Engine {
           }
       }
     }
-
-
-    val bufferSize = 100000
 
     def queue(
       parallelism: Int,
