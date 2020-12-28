@@ -164,12 +164,9 @@ object Engine {
           } yield result
           result.toFuture
         }
-        .batch(bufferSize.toLong, a => Nel.of(a)) { (as, a) => a :: as }
+        .batch(bufferSize.toLong, a => a :: Nil) { (as, a) => a :: as }
         .mapAsync(1) { as =>
-          val eventsAndEffects = as
-            .reverse
-            .toList
-
+          val eventsAndEffects = as.reverse
           eventsAndEffects
             .flatMap { _.events }
             .toNel
@@ -178,7 +175,7 @@ object Engine {
             } { events =>
               append(Events(events)).redeem(_.some, _ => none)
             }
-            .map { error => eventsAndEffects.foldMapM { _.effect(error) } }
+            .map { error => Sync[F].suspend { eventsAndEffects.foldMapM { _.effect(error) } } }
             .toFuture
         }
         .buffer(bufferSize, OverflowStrategy.backpressure)
@@ -235,19 +232,20 @@ object Engine {
             }
         }
 
+        val void = ().pure[F]
+
         def offer(fiber: Fiber[F, Validate[F, S, E, Unit]]) = {
           FromFuture
             .summon[F]
             .apply { queue.offer(fiber.join) }
             .adaptError { case e => EngineError(s"queue offer failed: $e", e) }
             .flatMap {
-              case QueueOfferResult.Enqueued    => ().pure[F]
+              case QueueOfferResult.Enqueued    => void
               case QueueOfferResult.Dropped     => EngineError("queue offer dropped").raiseError[F, Unit]
               case QueueOfferResult.Failure(e)  => EngineError(s"queue offer failed: $e", e).raiseError[F, Unit]
               case QueueOfferResult.QueueClosed => EngineError("queue closed").raiseError[F, Unit]
             }
         }
-
 
         new Engine[F, S, E] {
 
@@ -255,12 +253,13 @@ object Engine {
 
           def apply[A](load: F[Validate[F, S, E, A]]) = {
             for {
-              deferred <- Deferred[F, Either[Throwable, A]]
-              fiber    <- loadOf(load, deferred).start
-              _        <- offer(fiber)
-            } yield {
-              deferred.get.flatMap { _.liftTo[F] }
-            }
+              d <- Deferred.uncancelable[F, Either[Throwable, A]]
+              f <- loadOf(load, d).start
+              _ <- offer(f)
+            } yield for {
+              a <- d.get
+              a <- a.liftTo[F]
+            } yield a
           }
         }
       }
