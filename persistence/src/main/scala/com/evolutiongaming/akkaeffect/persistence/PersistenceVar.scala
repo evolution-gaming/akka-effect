@@ -3,6 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.actor.{ActorContext, ActorRef}
 import cats.effect.{Resource, Sync}
 import cats.syntax.all._
+import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
@@ -51,11 +52,19 @@ private[akkaeffect] object PersistenceVar {
       }
 
       def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]) = {
-        actorVar.receive { _.snapshotOffer(seqNr, snapshotOffer).map { _.some } }
+        actorVar.receive { persistence =>
+          persistence
+            .snapshotOffer(seqNr, snapshotOffer)
+            .map { result => Directive.update(result) }
+        }
       }
 
       def event(seqNr: SeqNr, event: E) = {
-        actorVar.receive { _.event(seqNr, event).map { _.some } }
+        actorVar.receive { persistence =>
+          persistence
+            .event(seqNr, event)
+            .map { result => Directive.update(result) }
+        }
       }
 
       def recoveryCompleted(
@@ -63,7 +72,12 @@ private[akkaeffect] object PersistenceVar {
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S]
       ) = {
-        actorVar.receive { _.recoveryCompleted(seqNr, journaller, snapshotter).map { _.some } }
+        actorVar
+          .receive { persistence =>
+            persistence
+              .recoveryCompleted(seqNr, journaller, snapshotter)
+              .map { result => Directive.update(result) }
+          }
       }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {

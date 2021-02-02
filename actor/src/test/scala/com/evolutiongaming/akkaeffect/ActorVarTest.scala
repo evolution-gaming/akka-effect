@@ -4,6 +4,7 @@ import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
 import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync}
 import cats.syntax.all._
+import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
@@ -26,7 +27,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
     object Action {
       final case object Allocated extends Action
       final case object Released extends Action
-      final case class Updated(before: Int, after: Option[Int]) extends Action
+      final case class Updated(before: Int, after: Directive[Int]) extends Action
       final case class Released(state: Int) extends Action
     }
 
@@ -74,7 +75,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
         actions.add(Action.Released)
       }
       _        <- Sync[F].delay { actorVar.preStart(resource) }
-      set       = (state: Option[Int]) => Sync[F].delay {
+      set       = (state: Directive[Int]) => Sync[F].delay {
         actorVar.receive { state0 =>
           for {
             _ <- actions.add(Action.Updated(state0, state))
@@ -87,22 +88,25 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
         }
       }
       _       <- ContextShift[F].shift
-      _       <- set(1.some)
+      _       <- set(Directive.update(1))
       _       <- ContextShift[F].shift
-      _       <- set(2.some)
+      _       <- set(Directive.update(2))
       _       <- ContextShift[F].shift
-      _       <- set(none)
+      _       <- set(Directive.ignore)
       _       <- ContextShift[F].shift
-      _       <- set(3.some)
+      _       <- set(Directive.stop)
+      _       <- ContextShift[F].shift
+      _       <- set(Directive.update(3))
       _       <- actorVar.postStop().start
       _       <- deferred.complete(())
       _       <- stopped.get
       actions <- actions.get
       _        = actions shouldEqual List(
         Action.Allocated,
-        Action.Updated(0, 1.some),
-        Action.Updated(1, 2.some),
-        Action.Updated(2, none),
+        Action.Updated(0, Directive.update(1)),
+        Action.Updated(1, Directive.update(2)),
+        Action.Updated(2, Directive.ignore),
+        Action.Updated(2, Directive.stop),
         Action.Released(2),
         Action.Released(1),
         Action.Released)

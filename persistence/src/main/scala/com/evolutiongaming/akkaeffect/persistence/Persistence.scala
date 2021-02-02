@@ -4,6 +4,7 @@ import akka.actor.ActorRef
 import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.syntax.all._
+import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect.Fail.implicits._
 import com.evolutiongaming.akkaeffect.Releasable.implicits._
 import com.evolutiongaming.akkaeffect._
@@ -24,9 +25,9 @@ private[akkaeffect] trait Persistence[F[_], S, E, C] {
     snapshotter: Snapshotter[F, S]
   ): F[Result]
 
-  def command(seqNr: SeqNr, cmd: C, sender: ActorRef): F[Option[Result]]
+  def command(seqNr: SeqNr, cmd: C, sender: ActorRef): F[Directive[Result]]
 
-  def timeout(seqNr: SeqNr): F[Option[Result]]
+  def timeout(seqNr: SeqNr): F[Directive[Result]]
 }
 
 private[akkaeffect] object Persistence {
@@ -69,11 +70,11 @@ private[akkaeffect] object Persistence {
       }
 
       def command(seqNr: SeqNr, cmd: C, sender: ActorRef) = {
-        unexpected[F, Option[Result]](name = s"command $cmd", state = "started")
+        unexpected[F, Directive[Result]](name = s"command $cmd", state = "started")
       }
 
       def timeout(seqNr: SeqNr) = {
-        unexpected[F, Option[Result]](name = s"ReceiveTimeout", state = "started")
+        unexpected[F, Directive[Result]](name = s"ReceiveTimeout", state = "started")
       }
     }
   }
@@ -131,11 +132,11 @@ private[akkaeffect] object Persistence {
       }
 
       def command(seqNr: SeqNr, cmd: C, sender: ActorRef) = {
-        unexpected[F, Option[Result]](name = s"command $cmd", state = "recovering")
+        unexpected[F, Directive[Result]](name = s"command $cmd", state = "recovering")
       }
 
       def timeout(seqNr: SeqNr) = {
-        unexpected[F, Option[Result]](name = s"ReceiveTimeout", state = "recovering")
+        unexpected[F, Directive[Result]](name = s"ReceiveTimeout", state = "recovering")
       }
     }
   }
@@ -165,15 +166,15 @@ private[akkaeffect] object Persistence {
 
       def command(seqNr: SeqNr, cmd: C, sender: ActorRef) = {
         receive(Envelope(cmd, sender)).map {
-          case false => Releasable(self).some
-          case true  => none
+          case false => Directive.ignore
+          case true  => Directive.stop
         }
       }
 
       def timeout(seqNr: SeqNr) = {
         receive.timeout.map {
-          case false => Releasable(self).some
-          case true  => none
+          case false => Directive.ignore
+          case true  => Directive.stop
         }
       }
     }

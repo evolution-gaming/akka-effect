@@ -2,7 +2,6 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorContext
 import cats.effect._
-import cats.effect.implicits._
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -14,13 +13,14 @@ import scala.util.{Failure, Success, Try}
 
 
 trait ActorVar[F[_], A] {
+  import ActorVar.Directive
 
   def preStart(a: Resource[F, A]): Unit
 
   /**
     * @param f takes current state and returns tuple from next state and optional release callback
     */
-  def receive(f: A => F[Option[Releasable[F, A]]]): Unit
+  def receive(f: A => F[Directive[Releasable[F, A]]]): Unit
 
   def postStop(): F[Unit]
 }
@@ -55,16 +55,14 @@ object ActorVar {
 
     def stateAndFunc(a: Try[Option[State]]): (Option[State], () => Unit) = {
       a match {
-        case Success(Some(a)) => (a.some     , () => ())
+        case Success(Some(a)) => (a.some, () => ())
         case Success(None)    => (none[State], () => { stateVar = none; stop() })
         case Failure(e)       => (none[State], () => { stateVar = none; throw e })
       }
     }
 
     def run(fa: F[Option[State]]): Unit = {
-      val future = fa
-        .uncancelable
-        .toFuture
+      val future = fa.toFuture
       future.value match {
         case Some(result) =>
           val (state, func) = stateAndFunc(result)
@@ -91,22 +89,19 @@ object ActorVar {
         run {
           a
             .allocated
-            .flatMap { case (a, release) =>
-              State(a, release).some.pure[F]
-            }
+            .flatMap { case (a, release) => State(a, release).some.pure[F] }
         }
       }
 
-      def receive(f: A => F[Option[Releasable[F, A]]]) = {
+      def receive(f: A => F[Directive[Releasable[F, A]]]) = {
         stateVar.foreach { state =>
           run {
-            FromFuture
-              .summon[F]
+            FromFuture[F]
               .apply { state }
               .flatMap { state =>
                 f(state.value)
                   .flatMap {
-                    case Some(a) =>
+                    case Directive.Update(a) =>
                       val release1 = a.release match {
                         case Some(release) => release *> state.release
                         case None          => state.release
@@ -115,7 +110,12 @@ object ActorVar {
                         .some
                         .pure[F]
 
-                    case None =>
+                    case Directive.Ignore =>
+                      state
+                        .some
+                        .pure[F]
+
+                    case Directive.Stop =>
                       state
                         .release
                         .handleError { _ => () }
@@ -135,13 +135,41 @@ object ActorVar {
         stateVar match {
           case Some(state) =>
             stateVar = none
-            FromFuture
-              .summon[F]
+            FromFuture[F]
               .apply { state }
               .flatMap { _.release }
           case None        =>
             ().pure[F]
         }
+      }
+    }
+  }
+
+
+  sealed trait Directive[+A]
+
+  object Directive {
+
+    def stop[A]: Directive[A] = Stop
+
+    def ignore[A]: Directive[A] = Ignore
+
+    def update[A](value: A): Directive[A] = Update(value)
+
+
+    final case class Update[A](value: A) extends Directive[A]
+
+    final case object Stop extends Directive[Nothing]
+
+    final case object Ignore extends Directive[Nothing]
+
+
+    implicit class DirectiveOps[A](val self: Directive[A]) extends AnyVal {
+
+      def map[B](f: A => B): Directive[B] = self match {
+        case Update(a) => Update(f(a))
+        case Stop      => Stop
+        case Ignore    => Ignore
       }
     }
   }

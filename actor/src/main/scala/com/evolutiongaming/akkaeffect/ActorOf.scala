@@ -3,6 +3,7 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.{Actor, ActorRef, ReceiveTimeout}
 import cats.effect._
 import cats.syntax.all._
+import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect.Fail.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
@@ -36,11 +37,11 @@ object ActorOf {
         }
         stop
           .map {
-            case false => Releasable[F, State](state).some
-            case true  => none[Releasable[F, State]]
+            case false => Directive.ignore[Releasable[F, State]]
+            case true  => Directive.stop[Releasable[F, State]]
           }
           .handleErrorWith { error =>
-            s"failed on $a from $sender".fail[F, Option[Releasable[F, State]]](error)
+            s"failed on $a from $sender".fail[F, Directive[Releasable[F, State]]](error)
           }
     }
 
