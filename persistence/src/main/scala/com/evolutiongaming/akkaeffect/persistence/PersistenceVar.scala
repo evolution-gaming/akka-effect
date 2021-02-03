@@ -72,12 +72,11 @@ private[akkaeffect] object PersistenceVar {
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S]
       ) = {
-        actorVar
-          .receive { persistence =>
-            persistence
-              .recoveryCompleted(seqNr, journaller, snapshotter)
-              .map { result => Directive.update(result) }
-          }
+        actorVar.receive { persistence =>
+          persistence
+            .recoveryCompleted(seqNr, journaller, snapshotter)
+            .map { result => Directive.update(result) }
+        }
       }
 
       def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {

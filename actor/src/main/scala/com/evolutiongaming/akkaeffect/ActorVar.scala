@@ -27,8 +27,6 @@ trait ActorVar[F[_], A] {
 
 object ActorVar {
 
-  private val released: Throwable = new RuntimeException with NoStackTrace
-
   type Release = Boolean
 
   type Stop = () => Unit
@@ -53,11 +51,11 @@ object ActorVar {
 
     var stateVar = none[Future[State]]
 
-    def stateAndFunc(a: Try[Option[State]]): (Option[State], () => Unit) = {
+    def stateAndFunc(a: Try[Option[State]]): (Option[State], Option[() => Unit]) = {
       a match {
-        case Success(Some(a)) => (a.some, () => ())
-        case Success(None)    => (none[State], () => { stateVar = none; stop() })
-        case Failure(e)       => (none[State], () => { stateVar = none; throw e })
+        case Success(Some(a)) => (a.some, none)
+        case Success(None)    => (none[State], (() => { stateVar = none; stop() }).some)
+        case Failure(e)       => (none[State], (() => { stateVar = none; throw e }).some)
       }
     }
 
@@ -67,16 +65,16 @@ object ActorVar {
         case Some(result) =>
           val (state, func) = stateAndFunc(result)
           stateVar = state.map { _.asFuture }
-          func()
+          func.foreach { _.apply() }
 
         case None =>
           stateVar = future
             .transform { value =>
               val (state, func) = stateAndFunc(value)
-              act { func() }
+              func.foreach { func => act { func() } }
               state match {
                 case Some(state) => state.pure[Try]
-                case None        => released.raiseError[Try, State]
+                case None        => new Released().raiseError[Try, State]
               }
             }(executor)
             .some
@@ -150,27 +148,30 @@ object ActorVar {
 
   object Directive {
 
-    def stop[A]: Directive[A] = Stop
+    def update[A](value: A): Directive[A] = Update(value)
 
     def ignore[A]: Directive[A] = Ignore
 
-    def update[A](value: A): Directive[A] = Update(value)
+    def stop[A]: Directive[A] = Stop
 
 
     final case class Update[A](value: A) extends Directive[A]
 
-    final case object Stop extends Directive[Nothing]
-
     final case object Ignore extends Directive[Nothing]
+
+    final case object Stop extends Directive[Nothing]
 
 
     implicit class DirectiveOps[A](val self: Directive[A]) extends AnyVal {
 
       def map[B](f: A => B): Directive[B] = self match {
         case Update(a) => Update(f(a))
-        case Stop      => Stop
         case Ignore    => Ignore
+        case Stop      => Stop
       }
     }
   }
+
+
+  final class Released extends RuntimeException with NoStackTrace
 }
