@@ -16,7 +16,7 @@ object ActorOf {
   type Stop = Boolean
 
 
-  def apply[F[_]: Sync: ToFuture: FromFuture](
+  def apply[F[_]: Async: ToFuture: FromFuture](
     receiveOf: ReceiveOf[F, Envelope[Any], Stop]
   ): Actor = {
 
@@ -51,7 +51,7 @@ object ActorOf {
 
       private val act = Act.Adapter(self)
 
-      private val actorVar = ActorVar[F, State](act.value, context)
+      private val actorVar = ActorVar[F, State](act.value.toSafe, context)
 
       override def preStart(): Unit = {
         super.preStart()

@@ -11,8 +11,6 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.Future
-import scala.util.Try
 
 class ActorVarTest extends AsyncFunSuite with Matchers {
 
@@ -55,8 +53,8 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
     }
 
     def actorVar(stop: F[Unit]) = Sync[F].delay {
-      val act = new Act[Future] {
-        def apply[A](f: => A) = Future.fromTry(Try(f))
+      val act = new Act[F] {
+        def apply[A](f: => A) = Sync[F].delay { f }
       }
       ActorVar[F, Int](act, () => stop.toTry.get)
     }

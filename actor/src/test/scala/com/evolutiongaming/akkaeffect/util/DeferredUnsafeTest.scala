@@ -6,12 +6,12 @@ import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 
-class DeferredAsyncTest extends AsyncFunSuite with Matchers {
+class DeferredUnsafeTest extends AsyncFunSuite with Matchers {
 
   test("async boundaries") {
     val threadId = IO { Thread.currentThread().getId }
     val result = for {
-      d  <- DeferredAsync[IO, Unit]
+      d  <- IO { DeferredUnsafe[IO, Unit] }
       t0 <- threadId
       _  <- d.complete(())
       t1 <- threadId
@@ -19,7 +19,7 @@ class DeferredAsyncTest extends AsyncFunSuite with Matchers {
       _  <- d.get
       t1 <- threadId
       _  <- IO { t0 shouldEqual t1 }
-      d  <- DeferredAsync[IO, Unit]
+      d  <- IO { DeferredUnsafe[IO, Unit] }
       t1 <- d.get.flatMap { _ => threadId }.start
       _  <- d.complete(())
       t1 <- t1.join
