@@ -78,7 +78,6 @@ object Append {
               val size = events.size
 
               def persist(promise: PromiseEffect[F, SeqNr]) = {
-
                 act {
                   ref
                     .update { _.enqueue(promise) }
@@ -111,7 +110,7 @@ object Append {
               }
 
               for {
-                promise <- PromiseEffect[F, SeqNr]
+                promise <- PromiseEffect.of[F, SeqNr]
                 _       <- persist(promise)
               } yield {
                 promise.get

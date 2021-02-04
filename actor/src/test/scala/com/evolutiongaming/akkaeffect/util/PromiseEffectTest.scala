@@ -14,7 +14,7 @@ class PromiseEffectTest extends AsyncFunSuite with Matchers {
 
   test("success") {
     val result = for {
-      p <- PromiseEffect[IO, Int]
+      p <- PromiseEffect.of[IO, Int]
       a <- p.get.startEnsure
       _ <- p.success(0)
       a <- a.join
@@ -26,9 +26,9 @@ class PromiseEffectTest extends AsyncFunSuite with Matchers {
   test("fail") {
     val error = new RuntimeException with NoStackTrace
     val result = for {
-      promise <- PromiseEffect[IO, Int]
-      a <- promise.get.startEnsure
-      _ <- promise.fail(error)
+      p <- PromiseEffect.of[IO, Int]
+      a <- p.get.startEnsure
+      _ <- p.fail(error)
       a <- a.join.attempt
       _  = a shouldEqual error.asLeft
     } yield {}
@@ -37,7 +37,7 @@ class PromiseEffectTest extends AsyncFunSuite with Matchers {
 
   test("complete") {
     val result = for {
-      p <- PromiseEffect[IO, Int]
+      p <- PromiseEffect.of[IO, Int]
       f <- IO { p.complete(0.pure[Try]).toFuture }
       _  = f.value shouldEqual ().pure[Try].some
       a <- p.get

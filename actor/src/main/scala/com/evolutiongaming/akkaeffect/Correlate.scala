@@ -55,7 +55,7 @@ object Correlate {
 
           val call = {
             (a: A, timeout: FiniteDuration) => {
-              PromiseEffect[F, B].flatMap { promise =>
+              PromiseEffect.of[F, B].flatMap { promise =>
                 ref
                   .update { _.map { _.updated(a, promise) } }
                   .as(promise.get.timeout(timeout))

@@ -27,7 +27,7 @@ private[akkaeffect] object Serial {
         new Serial[F] {
           def apply[A](fa: F[A]) = {
             for {
-              p <- PromiseEffect[F, Unit]
+              p <- PromiseEffect.of[F, Unit]
               b <- ref.modify { b => (p.get, b) }
               a  = for {
                 _ <- b
