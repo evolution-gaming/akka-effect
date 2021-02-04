@@ -1,6 +1,5 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
-// format: off
 import cats.syntax.all._
 
 

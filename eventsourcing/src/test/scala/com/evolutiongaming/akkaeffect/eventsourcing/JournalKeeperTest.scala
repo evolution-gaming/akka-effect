@@ -16,7 +16,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
-// format: off
 class JournalKeeperTest extends AsyncFunSuite with Matchers {
   import JournalKeeperTest._
 

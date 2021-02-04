@@ -12,7 +12,6 @@ import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-// format: off
 class CorrelateTest extends AsyncFunSuite with Matchers {
 
   private val timeout = 1.minute

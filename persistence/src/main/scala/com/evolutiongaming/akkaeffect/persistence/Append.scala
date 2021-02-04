@@ -1,11 +1,10 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence._
-import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.syntax.all._
 import cats.{Applicative, FlatMap, Monad, ~>}
-import com.evolutiongaming.akkaeffect.util.PromiseEffect
+import com.evolutiongaming.akkaeffect.util.{AtomicRef, PromiseEffect}
 import com.evolutiongaming.akkaeffect.{Act, Fail}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, Log, MonadThrowable, ToTry}
@@ -33,7 +32,7 @@ object Append {
   def empty[F[_]: Applicative, A]: Append[F, A] = const(SeqNr.Min.pure[F].pure[F])
 
 
-  private[akkaeffect] def adapter[F[_] : Sync : FromFuture : ToTry, A](
+  private[akkaeffect] def adapter[F[_]: Sync: FromFuture: ToTry, A](
     act: Act[F],
     actor: PersistentActor,
     stopped: F[Throwable]
@@ -41,32 +40,30 @@ object Append {
     adapter(act, Eventsourced(actor), stopped)
   }
 
-  private[akkaeffect] def adapter[F[_] : Sync : FromFuture : ToTry, A](
+  private[akkaeffect] def adapter[F[_]: Sync: FromFuture: ToTry, A](
     act: Act[F],
     eventsourced: Eventsourced,
     stopped: F[Throwable]
   ): Resource[F, Adapter[F, A]] = {
 
-    def fail(ref: Ref[F, Queue[PromiseEffect[F, SeqNr]]], error: F[Throwable]) = {
-      for {
-        queue  <- ref.getAndSet(Queue.empty)
-        result <- queue
-          .toList
-          .toNel
-          .foldMapM { queue =>
-            for {
-              error  <- error
-              result <- queue.foldMapM { _.fail(error) }
-            } yield result
-          }
-      } yield result
+    def fail(ref: AtomicRef[Queue[PromiseEffect[F, SeqNr]]], error: F[Throwable]) = {
+      ref
+        .getAndSet(Queue.empty)
+        .toList
+        .toNel
+        .foldMapM { queue =>
+          for {
+            error  <- error
+            result <- queue.foldMapM { _.fail(error) }
+          } yield result
+        }
     }
 
     Resource
       .make {
-        Ref[F].of(Queue.empty[PromiseEffect[F, SeqNr]])
+        Sync[F].delay { AtomicRef(Queue.empty[PromiseEffect[F, SeqNr]]) }
       } { ref =>
-        fail(ref, stopped)
+        Sync[F].suspend { fail(ref, stopped) }
       }
       .map { ref =>
 
@@ -79,32 +76,31 @@ object Append {
 
               def persist(promise: PromiseEffect[F, SeqNr]) = {
                 act {
-                  ref
-                    .update { _.enqueue(promise) }
-                    .toTry
-                    .get
-
+                  ref.update { _.enqueue(promise) }
                   var left = size
-                  events.values.toList.foreach { events =>
-                    eventsourced.persistAllAsync(events.toList) { _ =>
-                      left = left - 1
-                      if (left <= 0) {
-                        val seqNr = eventsourced.lastSequenceNr
-                        ref
-                          .modify { queue =>
-                            queue
-                              .dequeueOption
-                              .fold {
-                                (Queue.empty[PromiseEffect[F, SeqNr]], none[PromiseEffect[F, SeqNr]])
-                              } { case (promise, queue) =>
-                                (queue, promise.some)
+                  events
+                    .values
+                    .toList
+                    .foreach { events =>
+                      eventsourced.persistAllAsync(events.toList) { _ =>
+                        left = left - 1
+                        if (left <= 0) {
+                          val seqNr = eventsourced.lastSequenceNr
+                          ref
+                            .modify { queue =>
+                              queue.dequeueOption match {
+                                case Some((promise, queue)) => (queue, promise.some)
+                                case None                   => (Queue.empty, none)
                               }
-                          }
-                          .flatMap { _.foldMapM { _.success(seqNr) } }
-                          .toTry
-                          .get
+                            }
+                            .foreach { promise =>
+                              promise
+                                .success(seqNr)
+                                .toTry
+                                .get
+                            }
+                        }
                       }
-                    }
                   }
                 }
               }
@@ -150,7 +146,7 @@ object Append {
 
     def withLogging(
       log: Log[F])(implicit
-      F : FlatMap[F],
+      F: FlatMap[F],
       measureDuration: MeasureDuration[F]
     ): Append[F, A] = events => {
       for {

@@ -1,6 +1,5 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
-// format: off
 import akka.persistence.SnapshotSelectionCriteria
 import cats.Applicative
 import cats.effect.concurrent.Ref
