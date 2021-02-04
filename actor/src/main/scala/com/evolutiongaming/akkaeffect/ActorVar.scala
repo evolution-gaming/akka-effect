@@ -144,6 +144,110 @@ object ActorVar {
   }
 
 
+  def apply1[F[_]: BracketThrowable: ToFuture: FromFuture, A](
+    act: Act[Future],
+    stop: Stop
+  ): ActorVar[F, A] = {
+
+    val executor = ParasiticExecutionContext()
+
+    case class State(value: A, release: F[Unit])
+
+    var stateVar = none[Future[State]]
+
+    def stateAndFunc(a: Try[Option[State]]): (Option[State], Option[() => Unit]) = {
+      a match {
+        case Success(Some(a)) => (a.some, none)
+        case Success(None)    => (none[State], (() => { stateVar = none; stop() }).some)
+        case Failure(e)       => (none[State], (() => { stateVar = none; throw e }).some)
+      }
+    }
+
+    def run(fa: F[Option[State]]): Unit = {
+      val future = fa.toFuture
+      future.value match {
+        case Some(result) =>
+          val (state, func) = stateAndFunc(result)
+          stateVar = state.map { _.asFuture }
+          func.foreach { _.apply() }
+
+        case None =>
+          stateVar = future
+            .transform { value =>
+              val (state, func) = stateAndFunc(value)
+              func.foreach { func => act { func() } }
+              state match {
+                case Some(state) => state.pure[Try]
+                case None        => new Released().raiseError[Try, State]
+              }
+            }(executor)
+            .some
+      }
+    }
+
+    new ActorVar[F, A] {
+
+      def preStart(a: Resource[F, A]) = {
+        run {
+          a
+            .allocated
+            .flatMap { case (a, release) => State(a, release).some.pure[F] }
+        }
+      }
+
+      def receive(f: A => F[Directive[Releasable[F, A]]]) = {
+        stateVar.foreach { state =>
+          run {
+            FromFuture[F]
+              .apply { state }
+              .flatMap { state =>
+                f(state.value)
+                  .flatMap {
+                    case Directive.Update(a) =>
+                      val release1 = a.release match {
+                        case Some(release) => release *> state.release
+                        case None          => state.release
+                      }
+                      State(a.value, release1)
+                        .some
+                        .pure[F]
+
+                    case Directive.Ignore =>
+                      state
+                        .some
+                        .pure[F]
+
+                    case Directive.Stop =>
+                      state
+                        .release
+                        .handleError { _ => () }
+                        .as(none[State])
+                  }
+                  .handleErrorWith { error =>
+                    state
+                      .release
+                      .productR { error.raiseError[F, Option[State]] }
+                  }
+              }
+          }
+        }
+      }
+
+      def postStop() = {
+        stateVar match {
+          case Some(state) =>
+            stateVar = none
+            FromFuture[F]
+              .apply { state }
+              .flatMap { _.release }
+          case None        =>
+            ().pure[F]
+        }
+      }
+    }
+  }
+
+
   sealed trait Directive[+A]
 
   object Directive {
