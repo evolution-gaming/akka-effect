@@ -1,11 +1,10 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef}
-import cats.effect.{Async, Sync}
+import cats.effect.{Async, Concurrent, Sync}
 import cats.syntax.all._
-import com.evolutiongaming.akkaeffect.util.Serial
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{Serial, ToTry}
 
 /**
   * Act executes function in `receive` thread of an actor
@@ -22,18 +21,18 @@ private[akkaeffect] object Act {
     def apply[A](f: => A) = Sync[F].delay { f }
   }
 
-
-  def of[F[_]: Sync: ToFuture: FromFuture: ToTry]: F[Act[F]] = {
-    Serial.of[F].map { serially => apply(serially) }
-  }
-
-
-  def apply[F[_]: Sync: ToTry](serial: Serial[F]): Act[F] = new Act[F] {
-    def apply[A](f: => A) = {
-      serial { Sync[F].delay { f } }
-        .toTry
-        .get
-    }
+  def of[F[_]: Concurrent: ToTry]: F[Act[F]] = {
+    Serial
+      .of[F]
+      .map { serial =>
+        new Act[F] {
+          def apply[A](f: => A) = {
+            serial { Sync[F].delay { f } }
+              .toTry
+              .get
+          }
+        }
+      }
   }
 
   sealed trait AdapterLike
@@ -64,6 +63,8 @@ private[akkaeffect] object Act {
       case class Msg(f: () => Unit)
 
       new Adapter[F] { self =>
+
+        private val selfOpt = self.some
 
         def syncReceive(receive: Actor.Receive): Actor.Receive = new Actor.Receive {
 
@@ -98,7 +99,7 @@ private[akkaeffect] object Act {
         }
 
         def sync[A](f: => A) = {
-          threadLocal.set(self.some)
+          threadLocal.set(selfOpt)
           try f finally threadLocal.set(none)
         }
       }

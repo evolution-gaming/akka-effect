@@ -12,14 +12,14 @@ import scala.concurrent.duration.FiniteDuration
 
 object DeleteEventsToInterop {
 
-  def apply[F[_] : Sync : FromFuture](
+  def apply[F[_]: Sync: FromFuture](
     eventsourced: Eventsourced,
     timeout: FiniteDuration
   ): Resource[F, DeleteEventsTo[F]] = {
     apply(Interop(eventsourced), timeout)
   }
 
-  private[persistence] def apply[F[_] : Sync : FromFuture](
+  private[persistence] def apply[F[_]: Sync: FromFuture](
     eventsourced: Interop,
     timeout: FiniteDuration
   ): Resource[F, DeleteEventsTo[F]] = {

@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.{IO, Sync}
 import cats.effect.concurrent.Ref
+import cats.effect.{Concurrent, IO, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
@@ -16,13 +16,18 @@ import scala.util.control.NoStackTrace
 
 class AppendTest extends AsyncFunSuite with Matchers {
 
-  private implicit val toTry = ToTryFromToFuture.syncOrError[IO]
-  
   test("adapter") {
-    adapter[IO].run()
-  } 
-  
-  private def adapter[F[_] : Sync : ToFuture : FromFuture : ToTry]: F[Unit] = {
+    val result = for {
+      act <- Act.of[IO]
+      _   <- {
+        implicit val toTry = ToTryFromToFuture.syncOrError[IO]
+        adapter(act)
+      }
+    } yield {}
+    result.run()
+  }
+
+  private def adapter[F[_]: Concurrent: ToFuture: FromFuture: ToTry](act: Act[F]): F[Unit] = {
 
     case class Event(fa: F[Unit])
 
@@ -53,7 +58,6 @@ class AppendTest extends AsyncFunSuite with Matchers {
 
     for {
       ref          <- Ref[F].of(Queue.empty[F[Unit]])
-      act          <- Act.of[F]
       eventsourced <- eventsourced(act, ref)
       result       <- Append
         .adapter[F, Int](act, eventsourced, stopped.pure[F])

@@ -1,13 +1,14 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence._
-import cats.effect.{Resource, Sync}
-import cats.syntax.all._
+import cats.effect.concurrent.Deferred
+import cats.effect.{Concurrent, Resource, Sync}
+import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
-import com.evolutiongaming.akkaeffect.util.{AtomicRef, PromiseEffect}
+import com.evolutiongaming.akkaeffect.util.AtomicRef
 import com.evolutiongaming.akkaeffect.{Act, Fail}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, Log, MonadThrowable, ToTry}
+import com.evolutiongaming.catshelper.{Log, MonadThrowable, ToTry}
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.collection.immutable.Queue
@@ -32,7 +33,7 @@ object Append {
   def empty[F[_]: Applicative, A]: Append[F, A] = const(SeqNr.Min.pure[F].pure[F])
 
 
-  private[akkaeffect] def adapter[F[_]: Sync: FromFuture: ToTry, A](
+  private[akkaeffect] def adapter[F[_]: Concurrent: ToTry, A](
     act: Act[F],
     actor: PersistentActor,
     stopped: F[Throwable]
@@ -40,13 +41,13 @@ object Append {
     adapter(act, Eventsourced(actor), stopped)
   }
 
-  private[akkaeffect] def adapter[F[_]: Sync: FromFuture: ToTry, A](
+  private[akkaeffect] def adapter[F[_]: Concurrent: ToTry, A](
     act: Act[F],
     eventsourced: Eventsourced,
     stopped: F[Throwable]
   ): Resource[F, Adapter[F, A]] = {
 
-    def fail(ref: AtomicRef[Queue[PromiseEffect[F, SeqNr]]], error: F[Throwable]) = {
+    def fail(ref: AtomicRef[Queue[Deferred[F, Either[Throwable, SeqNr]]]], error: F[Throwable]) = {
       ref
         .getAndSet(Queue.empty)
         .toList
@@ -54,14 +55,14 @@ object Append {
         .foldMapM { queue =>
           for {
             error  <- error
-            result <- queue.foldMapM { _.fail(error) }
+            result <- queue.foldMapM { _.complete(error.asLeft) }
           } yield result
         }
     }
 
     Resource
       .make {
-        Sync[F].delay { AtomicRef(Queue.empty[PromiseEffect[F, SeqNr]]) }
+        Sync[F].delay { AtomicRef(Queue.empty[Deferred[F, Either[Throwable, SeqNr]]]) }
       } { ref =>
         Sync[F].suspend { fail(ref, stopped) }
       }
@@ -71,12 +72,11 @@ object Append {
 
           val value: Append[F, A] = {
             events => {
-
               val size = events.size
-
-              def persist(promise: PromiseEffect[F, SeqNr]) = {
-                act {
-                  ref.update { _.enqueue(promise) }
+              for {
+                deferred <- Deferred[F, Either[Throwable, SeqNr]]
+                _        <- act {
+                  ref.update { _.enqueue(deferred) }
                   var left = size
                   events
                     .values
@@ -93,23 +93,20 @@ object Append {
                                 case None                   => (Queue.empty, none)
                               }
                             }
-                            .foreach { promise =>
-                              promise
-                                .success(seqNr)
+                            .foreach { deferred =>
+                              deferred
+                                .complete(seqNr.asRight)
                                 .toTry
                                 .get
                             }
                         }
                       }
-                  }
+                    }
                 }
-              }
-
-              for {
-                promise <- PromiseEffect.of[F, SeqNr]
-                _       <- persist(promise)
               } yield {
-                promise.get
+                deferred
+                  .get
+                  .rethrow
               }
             }
           }

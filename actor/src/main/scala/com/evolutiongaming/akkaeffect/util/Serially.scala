@@ -3,11 +3,11 @@ package com.evolutiongaming.akkaeffect.util
 import cats.effect.{Async, Sync}
 import cats.syntax.all._
 
-trait Serially[F[_], A] {
+private[akkaeffect] trait Serially[F[_], A] {
   def apply(f: A => F[A]): F[Unit]
 }
 
-object Serially {
+private[akkaeffect] object Serially {
 
   def apply[F[_]: Async, A](value: A): Serially[F, A] = {
 
