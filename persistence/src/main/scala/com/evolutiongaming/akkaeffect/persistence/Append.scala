@@ -8,7 +8,7 @@ import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.akkaeffect.util.AtomicRef
 import com.evolutiongaming.akkaeffect.{Act, Fail}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{Log, MonadThrowable, ToTry}
+import com.evolutiongaming.catshelper.{Log, MonadThrowable, ToFuture}
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.collection.immutable.Queue
@@ -33,7 +33,7 @@ object Append {
   def empty[F[_]: Applicative, A]: Append[F, A] = const(SeqNr.Min.pure[F].pure[F])
 
 
-  private[akkaeffect] def adapter[F[_]: Concurrent: ToTry, A](
+  private[akkaeffect] def adapter[F[_]: Concurrent: ToFuture, A](
     act: Act[F],
     actor: PersistentActor,
     stopped: F[Throwable]
@@ -41,7 +41,7 @@ object Append {
     adapter(act, Eventsourced(actor), stopped)
   }
 
-  private[akkaeffect] def adapter[F[_]: Concurrent: ToTry, A](
+  private[akkaeffect] def adapter[F[_]: Concurrent: ToFuture, A](
     act: Act[F],
     eventsourced: Eventsourced,
     stopped: F[Throwable]
@@ -96,8 +96,7 @@ object Append {
                             .foreach { deferred =>
                               deferred
                                 .complete(seqNr.asRight)
-                                .toTry
-                                .get
+                                .toFuture
                             }
                         }
                       }
@@ -113,9 +112,8 @@ object Append {
 
           val onError: OnError[A] = {
             (error: Throwable, _: A, _: SeqNr) =>
-              fail(ref, error.pure[F])
-                .toTry
-                .get
+              fail(ref, error.pure[F]).toFuture
+              ()
           }
         }
       }
