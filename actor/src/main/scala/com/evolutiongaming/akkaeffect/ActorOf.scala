@@ -6,7 +6,7 @@ import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect.Fail.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
+import com.evolutiongaming.catshelper.ToFuture
 
 /**
   * Creates instance of [[akka.actor.Actor]] out of [[ReceiveOf]]
@@ -16,7 +16,7 @@ object ActorOf {
   type Stop = Boolean
 
 
-  def apply[F[_]: Async: ToFuture: FromFuture](
+  def apply[F[_]: Async: ToFuture](
     receiveOf: ReceiveOf[F, Envelope[Any], Stop]
   ): Actor = {
 
@@ -51,12 +51,12 @@ object ActorOf {
 
       private val act = Act.Adapter(self)
 
-      private val actorVar = ActorVar[F, State](act.value.toSafe, context)
+      private val actorVar = ActorVar[F, State](act.value, context)
 
       override def preStart(): Unit = {
         super.preStart()
         act.sync {
-          val actorCtx = ActorCtx[F](act.value.toSafe, context)
+          val actorCtx = ActorCtx[F](act.value, context)
           actorVar.preStart {
             onPreStart(actorCtx)
           }

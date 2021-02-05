@@ -1,15 +1,11 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef}
-import cats.effect.Sync
+import cats.effect.{Async, Sync}
 import cats.syntax.all._
-import com.evolutiongaming.akkaeffect.AkkaEffectHelper._
 import com.evolutiongaming.akkaeffect.util.Serial
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
-
-import scala.concurrent.{Future, Promise}
-import scala.util.Try
 
 /**
   * Act executes function in `receive` thread of an actor
@@ -40,18 +36,11 @@ private[akkaeffect] object Act {
     }
   }
 
+  sealed trait AdapterLike
 
-  implicit class ActFutureOps(val self: Act[Future]) extends AnyVal {
+  trait Adapter[F[_]] extends AdapterLike {
 
-    def toSafe[F[_]: FromFuture]: Act[F] = new Act[F] {
-      def apply[A](f: => A) = FromFuture[F].apply { self(f) }
-    }
-  }
-
-
-  trait Adapter {
-
-    def value: Act[Future]
+    def value: Act[F]
 
     def receive(receive: Actor.Receive): Actor.Receive
 
@@ -60,21 +49,21 @@ private[akkaeffect] object Act {
 
   object Adapter {
 
-    private val threadLocal: ThreadLocal[Option[Adapter]] = new ThreadLocal[Option[Adapter]] {
-      override def initialValue() = none[Adapter]
+    private val threadLocal: ThreadLocal[Option[AdapterLike]] = new ThreadLocal[Option[AdapterLike]] {
+      override def initialValue() = none[AdapterLike]
     }
 
-    def apply(actorRef: ActorRef): Adapter = {
+    def apply[F[_]: Async](actorRef: ActorRef): Adapter[F] = {
       val tell = actorRef.tell(_, ActorRef.noSender)
       apply(tell)
     }
 
 
-    def apply(tell: Any => Unit): Adapter = {
+    def apply[F[_]: Async](tell: Any => Unit): Adapter[F] = {
 
       case class Msg(f: () => Unit)
 
-      new Adapter { self =>
+      new Adapter[F] { self =>
 
         def syncReceive(receive: Actor.Receive): Actor.Receive = new Actor.Receive {
 
@@ -83,19 +72,22 @@ private[akkaeffect] object Act {
           def apply(a: Any) = sync { receive(a) }
         }
 
-        def value = new Act[Future] {
+        val value = new Act[F] {
           def apply[A](f: => A) = {
-            if (threadLocal.get().contains(self)) {
-              f.asFuture
+            if (threadLocal.get().contains(self: Adapter[F])) {
+              Sync[F].delay { f }
             } else {
-              val promise = Promise[A]()
-              val f1 = () => {
-                val a = Try(f)
-                promise.complete(a)
-                a.void.get
+              Async[F].async[A] { callback =>
+                val f1 = () => {
+                  val a = Either.catchNonFatal(f)
+                  callback(a)
+                  a match {
+                    case Right(_) =>
+                    case Left(a) => throw a
+                  }
+                }
+                tell(Msg(f1))
               }
-              tell(Msg(f1))
-              promise.future
             }
           }
         }

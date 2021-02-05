@@ -3,7 +3,6 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.{ActorContext, ActorRef, ActorRefFactory}
 import cats.effect.Sync
 import cats.~>
-import com.evolutiongaming.catshelper.FromFuture
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
@@ -70,7 +69,7 @@ trait ActorCtx[F[_]] {
 object ActorCtx {
 
 
-  def apply[F[_]: Sync: FromFuture](
+  def apply[F[_]: Sync](
     act: Act[F],
     actorContext: ActorContext
   ): ActorCtx[F] = {

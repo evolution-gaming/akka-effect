@@ -5,9 +5,8 @@ import cats.effect.{Async, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
+import com.evolutiongaming.catshelper.ToFuture
 
-import scala.concurrent.Future
 
 private[akkaeffect] trait PersistenceVar[F[_], S, E, C] {
 
@@ -32,11 +31,11 @@ private[akkaeffect] trait PersistenceVar[F[_], S, E, C] {
 
 private[akkaeffect] object PersistenceVar {
 
-  def apply[F[_]: Async: ToFuture: FromFuture: Fail, S, E, C](
-    act: Act[Future],
+  def apply[F[_]: Async: ToFuture: Fail, S, E, C](
+    act: Act[F],
     context: ActorContext
   ): PersistenceVar[F, S, E, C] = {
-    apply(ActorVar[F, Persistence[F, S, E, C]](act.toSafe, context))
+    apply(ActorVar[F, Persistence[F, S, E, C]](act, context))
   }
 
   def apply[F[_]: Sync: Fail, S, E, C](

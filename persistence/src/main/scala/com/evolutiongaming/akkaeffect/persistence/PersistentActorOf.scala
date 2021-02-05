@@ -40,7 +40,7 @@ object PersistentActorOf {
       lazy val (act, eventSourced) = {
         val act = Act.Adapter(self)
         val eventSourced = {
-          val actorCtx = ActorCtx[F](act.value.toSafe, context)
+          val actorCtx = ActorCtx[F](act.value, context)
           act.sync {
             eventSourcedOf(actorCtx)
               .adaptError { case error =>
@@ -75,7 +75,7 @@ object PersistentActorOf {
         val stopped = Memoize.sync[F, Throwable] { Sync[F].delay { actorError("has been stopped", none) } }
         val result = for {
           stopped        <- stopped.toResource
-          act            <- act.value.toSafe.pure[Resource[F, *]]
+          act            <- act.value.pure[Resource[F, *]]
           append         <- Append.adapter[F, Any](act, actor, stopped)
           deleteEventsTo <- DeleteEventsTo.of(actor, timeout)
         } yield {
