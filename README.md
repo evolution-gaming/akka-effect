@@ -2,7 +2,7 @@
 [![Build Status](https://github.com/evolution-gaming/akka-effect/workflows/CI/badge.svg)](https://github.com/evolution-gaming/akka-effect/actions?query=workflow%3ACI) 
 [![Coverage Status](https://coveralls.io/repos/evolution-gaming/akka-effect/badge.svg)](https://coveralls.io/r/evolution-gaming/akka-effect)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/bd019acfc1f04f7aae90beee7e59e15d)](https://www.codacy.com/app/evolution-gaming/akka-effect?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=evolution-gaming/akka-effect&amp;utm_campaign=Badge_Grade)
-[![Version](https://api.bintray.com/packages/evolutiongaming/maven/akka-effect-actor/images/download.svg)](https://bintray.com/evolutiongaming/maven/akka-effect/_latestVersion)
+[![Version](https://img.shields.io/badge/version-click-blue)](https://evolution.jfrog.io/artifactory/api/search/latestVersion?g=com.evolutiongaming&a=akka-effect-actor_2.13&repos=public)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellowgreen.svg)](https://opensource.org/licenses/MIT)
 
 This project aims to build a bridge between [akka](https://akka.io) and pure functional code based on [cats-effect](https://typelevel.org/cats-effect)
@@ -212,10 +212,11 @@ TODO
 
 ## Setup
 
+in [`build.sbt`](https://www.scala-sbt.org/1.x/docs/Basic-Def.html#What+is+a+build+definition%3F)
 ```scala
-resolvers += Resolver.bintrayRepo("evolutiongaming", "maven")
+addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")
 
-libraryDependencies += "com.evolutiongaming" %% "akka-effect-actor" % "0.0.1"
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-actor" % "0.1.0"
 
-libraryDependencies += "com.evolutiongaming" %% "akka-effect-persistence" % "0.0.1"
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-persistence" % "0.1.0"
 ```
