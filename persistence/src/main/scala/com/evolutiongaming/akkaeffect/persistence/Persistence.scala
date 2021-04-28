@@ -46,7 +46,7 @@ private[akkaeffect] object Persistence {
 
       def event(seqNr: SeqNr, event: E) = {
         val result = for {
-          recovering <- recoveryStarted(seqNr, none)
+          recovering <- recoveryStarted(seqNr - 1L, none)
           replay     <- Allocated.of(recovering.replay)
           _          <- replay.value(event, seqNr).toResource
         } yield {

@@ -48,7 +48,7 @@ object InstrumentEventSourced {
 
               for {
                 recovering <- recoveryStarted(seqNr, snapshotOffer)
-                _          <- resource(Action.RecoveryAllocated(snapshotOffer1), Action.RecoveryReleased)
+                _          <- resource(Action.RecoveryAllocated(seqNr, snapshotOffer1), Action.RecoveryReleased)
               } yield {
                 Recovering[S] {
                   for {
@@ -175,6 +175,7 @@ object InstrumentEventSourced {
 
 
     final case class RecoveryAllocated[S](
+      seqNr: SeqNr,
       snapshotOffer: Option[SnapshotOffer[S]],
     ) extends Action[S, Nothing, Nothing]
 
