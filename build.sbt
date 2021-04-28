@@ -7,11 +7,10 @@ lazy val commonSettings = Seq(
   startYear := Some(2019),
   organizationName := "Evolution Gaming",
   organizationHomepage := Some(url("http://evolutiongaming.com")),
-  bintrayOrganization := Some("evolutiongaming"),
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.3", "2.12.12"),
-  scalacOptions in(Compile, doc) ++= Seq("-groups", "-implicits", "-no-link-warnings"),
-  resolvers += Resolver.bintrayRepo("evolutiongaming", "maven"),
+  crossScalaVersions := Seq("2.13.5", "2.12.13"),
+  Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
+  publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
   scalacOptsFailOnWarn := Some(false),
@@ -22,7 +21,7 @@ lazy val commonSettings = Seq(
 lazy val root = (project in file(".")
   settings (name := "akka-effect")
   settings commonSettings
-  settings (skip in publish := true)
+  settings (publish / skip := true)
   aggregate(
     actor,
     `actor-tests`,
@@ -52,7 +51,7 @@ lazy val actor = (project in file("actor")
 lazy val `actor-tests` = (project in file("actor-tests")
   settings (name := "akka-effect-actor-tests")
   settings commonSettings
-  settings (skip in publish := true)
+  settings (publish / skip := true)
   dependsOn(actor % "test->test;compile->compile", testkit % "test->test;test->compile")
   settings (libraryDependencies ++= Seq(
     Akka.testkit % Test)))
