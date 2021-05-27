@@ -16,31 +16,40 @@ private[akkaeffect] object Serially {
     sealed abstract class S
 
     object S {
+
+      val active: S = Active(Nil)
+
+      def active(task: Task, tasks: List[Task]): S = S.Active(task :: tasks)
+
+      def idle(value: A): S = Idle(value)
+
       final case class Idle(value: A) extends S
+
       final case class Active(tasks: List[Task]) extends S
     }
 
     val ref = AtomicRef[S](S.Idle(value))
 
     val unitF = ().pure[F]
+    val unitR0 = ().asRight[(A, List[Task])]
+    val unitR1 = ().asRight[Throwable]
 
-    val unitR = ().asRight[Throwable]
-
-    def start(task: F[A]) = {
-      task.tailRecM { task =>
-        task.map { value =>
-          ref.modify {
-            case S.Active(tasks) if tasks.nonEmpty =>
-              val task = Sync[F].defer {
-                tasks
-                  .reverse
-                  .foldLeft(value.pure[F]) { _ flatMap _ }
-              }
-              (S.Active(Nil), task.asLeft[Unit])
-            case _                                 =>
-              (S.Idle(value), ().asRight[F[A]])
+    def start(value: A, tasks: List[Task]) = {
+      (value, tasks).tailRecM { case (value, tasks) =>
+        tasks
+          .reverse
+          .foldLeft(value.pure[F]) { _ flatMap _ }
+          .map { value =>
+            ref.modify {
+              case s: S.Active =>
+                s.tasks match {
+                  case Nil   => (S.idle(value), unitR0)
+                  case tasks => (S.active, (value, tasks).asLeft[Unit])
+                }
+              case _: S.Idle   =>
+                (S.idle(value), unitR0)
+            }
           }
-        }
       }
     }
 
@@ -48,11 +57,9 @@ private[akkaeffect] object Serially {
       Async[F].asyncF[Unit] { callback =>
         val task = (a: A) => {
           f(a)
-            .flatMap { a =>
-              Sync[F].delay {
-                callback(unitR)
-                a
-              }
+            .map { a =>
+              callback(unitR1)
+              a
             }
             .handleErrorWith { error =>
               Sync[F].delay {
@@ -62,8 +69,8 @@ private[akkaeffect] object Serially {
             }
         }
         ref.modify {
-          case S.Idle(value)   => (S.Active(Nil), start(task(value)))
-          case S.Active(tasks) => (S.Active(task :: tasks), unitF)
+          case S.Idle(value)   => (S.active, start(value, List(task)))
+          case S.Active(tasks) => (S.active(task, tasks), unitF)
         }
       }
     }

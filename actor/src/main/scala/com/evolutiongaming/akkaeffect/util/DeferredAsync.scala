@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.util
 
 import cats.effect.concurrent.Deferred
-import cats.effect.{Async, Sync}
+import cats.effect.Async
 import cats.syntax.all._
 
 import java.util.concurrent.atomic.AtomicReference

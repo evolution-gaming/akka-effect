@@ -84,34 +84,27 @@ object ActorVar {
       def receive(f: A => F[Directive[Releasable[F, A]]]) = {
         update {
           case Some(state) =>
-            f(state.value)
-              .flatMap {
-                case Directive.Update(a) =>
-                  val release1 = a.release match {
-                    case Some(release) => release *> state.release
-                    case None          => state.release
-                  }
-                  State(a.value, release1)
-                    .some
-                    .pure[F]
+            f(state.value).flatMap {
+              case Directive.Update(a) =>
+                val release1 = a.release match {
+                  case Some(release) => release *> state.release
+                  case None          => state.release
+                }
+                State(a.value, release1)
+                  .some
+                  .pure[F]
 
-                case Directive.Ignore =>
-                  state
-                    .some
-                    .pure[F]
+              case Directive.Ignore =>
+                state
+                  .some
+                  .pure[F]
 
-                case Directive.Stop =>
-                  state
-                    .release
-                    .handleError { _ => () }
-                    .as(none[State])
-              }
-              .handleErrorWith { error =>
-                for {
-                  _ <- state.release
-                  a <- error.raiseError[F, Option[State]]
-                } yield a
-              }
+              case Directive.Stop =>
+                state
+                  .release
+                  .handleError { _ => () }
+                  .as(none[State])
+            }
           case None        =>
             none[State].pure[F]
         }
@@ -119,8 +112,13 @@ object ActorVar {
 
       def postStop() = {
         serially {
-          case Some(state) => state.release.as(none[State]).handleError { _ => none[State] }
-          case None        => none[State].pure[F]
+          case Some(state) =>
+            state
+              .release
+              .as(none[State])
+              .handleError { _ => none[State] }
+          case None        =>
+            none[State].pure[F]
         }
       }
     }
