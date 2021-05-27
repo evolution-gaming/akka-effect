@@ -7,7 +7,7 @@ import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -18,7 +18,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
     actorVar[IO].run()
   }
 
-  def actorVar[F[_]: Concurrent: ContextShift: ToFuture: FromFuture: ToTry]: F[Unit] = {
+  def actorVar[F[_]: Concurrent: ContextShift: ToFuture: ToTry]: F[Unit] = {
 
     sealed trait Action
 

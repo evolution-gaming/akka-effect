@@ -12,10 +12,14 @@ object Dependencies {
   val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "0.1.2"
 
   object Cats {
-    private val version = "2.3.1"
+    private val version = "2.6.1"
     val core   = "org.typelevel" %% "cats-core"   % version
     val kernel = "org.typelevel" %% "cats-kernel" % version
     val macros = "org.typelevel" %% "cats-macros" % version
+  }
+
+  object CatsEffect {
+    private val version = "2.5.1"
     val effect = "org.typelevel" %% "cats-effect" % version
   }
 

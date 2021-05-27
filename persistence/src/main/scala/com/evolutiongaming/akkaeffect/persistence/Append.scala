@@ -64,7 +64,7 @@ object Append {
       .make {
         Sync[F].delay { AtomicRef(Queue.empty[Deferred[F, Either[Throwable, SeqNr]]]) }
       } { ref =>
-        Sync[F].suspend { fail(ref, stopped) }
+        Sync[F].defer { fail(ref, stopped) }
       }
       .map { ref =>
 
@@ -73,34 +73,32 @@ object Append {
           val value: Append[F, A] = {
             events => {
               val size = events.size
+              val eventsList = events.values.toList
               for {
                 deferred <- Deferred[F, Either[Throwable, SeqNr]]
                 _        <- act {
                   ref.update { _.enqueue(deferred) }
                   var left = size
-                  events
-                    .values
-                    .toList
-                    .foreach { events =>
-                      eventsourced.persistAllAsync(events.toList) { _ =>
-                        left = left - 1
-                        if (left <= 0) {
-                          val seqNr = eventsourced.lastSequenceNr
-                          ref
-                            .modify { queue =>
-                              queue.dequeueOption match {
-                                case Some((promise, queue)) => (queue, promise.some)
-                                case None                   => (Queue.empty, none)
-                              }
+                  eventsList.foreach { events =>
+                    eventsourced.persistAllAsync(events.toList) { _ =>
+                      left = left - 1
+                      if (left <= 0) {
+                        val seqNr = eventsourced.lastSequenceNr
+                        ref
+                          .modify { queue =>
+                            queue.dequeueOption match {
+                              case Some((promise, queue)) => (queue, promise.some)
+                              case None                   => (Queue.empty, none)
                             }
-                            .foreach { deferred =>
-                              deferred
-                                .complete(seqNr.asRight)
-                                .toFuture
-                            }
-                        }
+                          }
+                          .foreach { deferred =>
+                            deferred
+                              .complete(seqNr.asRight)
+                              .toFuture
+                          }
                       }
                     }
+                  }
                 }
               } yield {
                 deferred

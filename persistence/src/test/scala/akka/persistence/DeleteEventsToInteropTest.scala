@@ -10,7 +10,7 @@ import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.akkaeffect.persistence.DeleteEventsTo
 import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -20,13 +20,10 @@ import scala.util.control.NoStackTrace
 class DeleteEventsToInteropTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("deleteEventsToInterop") {
-    implicit val toTry = ToTryFromToFuture.syncOrError[IO]
     deleteEventsToInterop[IO](actorSystem).run()
   }
 
-  private def deleteEventsToInterop[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
-    actorSystem: ActorSystem
-  ): F[Unit] = {
+  private def deleteEventsToInterop[F[_]: Concurrent: ToFuture: FromFuture](actorSystem: ActorSystem): F[Unit] = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 

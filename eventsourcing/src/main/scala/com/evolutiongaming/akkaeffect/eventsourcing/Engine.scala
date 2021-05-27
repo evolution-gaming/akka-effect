@@ -175,7 +175,7 @@ object Engine {
             } { events =>
               append(Events(events)).redeem(_.some, _ => none)
             }
-            .map { error => Sync[F].suspend { eventsAndEffects.foldMapM { _.effect(error) } } }
+            .map { error => Sync[F].defer { eventsAndEffects.foldMapM { _.effect(error) } } }
             .toFuture
         }
         .buffer(bufferSize, OverflowStrategy.backpressure)

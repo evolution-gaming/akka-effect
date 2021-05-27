@@ -69,10 +69,7 @@ trait ActorCtx[F[_]] {
 object ActorCtx {
 
 
-  def apply[F[_]: Sync](
-    act: Act[F],
-    actorContext: ActorContext
-  ): ActorCtx[F] = {
+  def apply[F[_]: Sync](act: Act[F], actorContext: ActorContext): ActorCtx[F] = {
 
     new ActorCtx[F] {
 

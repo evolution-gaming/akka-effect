@@ -45,7 +45,7 @@ class TerminatedTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  def `already dead actors`[F[_]: Concurrent: Timer: ToFuture: FromFuture]: F[Unit] = {
+  def `already dead actors`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     val terminatedActor = Terminated(actorRefOf)

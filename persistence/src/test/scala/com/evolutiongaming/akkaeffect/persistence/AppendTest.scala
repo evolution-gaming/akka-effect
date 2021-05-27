@@ -7,7 +7,7 @@ import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -18,7 +18,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
 
   test("adapter") {
     val result = for {
-      act <- Act.of[IO]
+      act <- Act.serial[IO]
       _   <- {
         implicit val toTry = ToTryFromToFuture.syncOrError[IO]
         adapter(act)
@@ -27,7 +27,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
     result.run()
   }
 
-  private def adapter[F[_]: Concurrent: ToFuture: FromFuture: ToTry](act: Act[F]): F[Unit] = {
+  private def adapter[F[_]: Concurrent: ToFuture: ToTry](act: Act[F]): F[Unit] = {
 
     case class Event(fa: F[Unit])
 

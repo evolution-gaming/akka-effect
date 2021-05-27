@@ -31,7 +31,7 @@ private[akkaeffect] object Serially {
         task.map { value =>
           ref.modify {
             case S.Active(tasks) if tasks.nonEmpty =>
-              val task = Sync[F].suspend {
+              val task = Sync[F].defer {
                 tasks
                   .reverse
                   .foldLeft(value.pure[F]) { _ flatMap _ }

@@ -1,15 +1,15 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.persistence.{Snapshotter => _, SnapshotMetadata =>_, _}
+import akka.persistence.{SnapshotMetadata => _, Snapshotter => _, _}
 import cats.effect.concurrent.Deferred
 import cats.effect.{Concurrent, IO, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
-import com.evolutiongaming.akkaeffect.{ActorSuite, _}
 import com.evolutiongaming.akkaeffect.testkit.Probe
+import com.evolutiongaming.akkaeffect.{ActorSuite, _}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -19,13 +19,10 @@ import scala.util.control.NoStackTrace
 class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("snapshotter") {
-    implicit val toTry = ToTryFromToFuture.syncOrError[IO]
     snapshotter[IO](actorSystem).run()
   }
 
-  private def snapshotter[F[_] : Concurrent : ToFuture : FromFuture : ToTry](
-    actorSystem: ActorSystem
-  ): F[Unit] = {
+  private def snapshotter[F[_]: Concurrent: ToFuture: FromFuture](actorSystem: ActorSystem): F[Unit] = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 

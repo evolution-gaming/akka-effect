@@ -6,7 +6,7 @@ import cats.arrow.FunctionK
 import cats.effect.{Concurrent, IO, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
+import com.evolutiongaming.catshelper.FromFuture
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -23,7 +23,7 @@ class AskTest extends AsyncFunSuite with ActorSuite with Matchers {
     `apply`[IO](actorSystem).run()
   }
 
-  private def `toString`[F[_] : Sync : FromFuture](actorSystem: ActorSystem) = {
+  private def `toString`[F[_]: Sync: FromFuture](actorSystem: ActorSystem) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     actorRefOf(TestActors.echoActorProps).use { actorRef =>
       val ask = Ask.fromActorRef[F](actorRef)
@@ -33,7 +33,7 @@ class AskTest extends AsyncFunSuite with ActorSuite with Matchers {
     }
   }
 
-  private def `apply`[F[_] : Concurrent : ToFuture : FromFuture ](actorSystem: ActorSystem) = {
+  private def `apply`[F[_]: Concurrent: FromFuture](actorSystem: ActorSystem) = {
     val timeout = 1.second
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     actorRefOf(TestActors.echoActorProps).use { actorRef =>

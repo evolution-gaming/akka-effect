@@ -17,15 +17,20 @@ private[akkaeffect] trait Act[F[_]] {
 
 private[akkaeffect] object Act {
 
-  def now[F[_]: Sync]: Act[F] = new Act[F] {
+  private sealed abstract class Empty
+
+  def empty[F[_]: Sync]: Act[F] = new Empty with Act[F] {
     def apply[A](f: => A) = Sync[F].delay { f }
   }
 
-  def of[F[_]: Concurrent: ToTry]: F[Act[F]] = {
+
+  private sealed abstract class Serial1
+
+  def serial[F[_]: Concurrent: ToTry]: F[Act[F]] = {
     Serial
       .of[F]
       .map { serial =>
-        new Act[F] {
+        new Serial1 with Act[F] {
           def apply[A](f: => A) = {
             serial { Sync[F].delay { f } }
               .toTry
@@ -34,6 +39,9 @@ private[akkaeffect] object Act {
         }
       }
   }
+
+
+  private sealed abstract class Adapter1
 
   sealed trait AdapterLike
 
@@ -73,7 +81,7 @@ private[akkaeffect] object Act {
           def apply(a: Any) = sync { receive(a) }
         }
 
-        val value = new Act[F] {
+        val value = new Adapter1 with Act[F] {
           def apply[A](f: => A) = {
             if (threadLocal.get().contains(self: Adapter[F])) {
               Sync[F].delay { f }

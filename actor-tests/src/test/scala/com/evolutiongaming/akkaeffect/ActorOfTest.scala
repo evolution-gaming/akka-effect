@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, PoisonPill, Props}
 import akka.testkit.TestActors
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync, Timer}
+import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
@@ -237,7 +237,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `stop during start`[F[_]: Concurrent: ToFuture: FromFuture: Timer](
+  private def `stop during start`[F[_]: Concurrent: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -564,7 +564,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         actorEffect <- ActorEffect.of(actorRefOf, receiveOf)
         actorRef0   <- actorRefOf(TestActors.blackholeProps)
         actorRef1   <- actorRefOf(TestActors.blackholeProps)
-        result      <- Resource.liftF {
+        result      <- Resource.eval {
           for {
             _ <- actorEffect.ask(Msg.Watch(actorRef0), timeout)
             _ <- actorEffect.ask(Msg.Unwatch(actorRef0), timeout).flatten

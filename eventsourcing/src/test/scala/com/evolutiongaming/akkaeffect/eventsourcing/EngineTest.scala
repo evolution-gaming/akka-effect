@@ -206,7 +206,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
   }
 
 
-  private def `append error prevents further appends`[F[_]: Concurrent: ToFuture: FromFuture: Timer]: F[Unit] = {
+  private def `append error prevents further appends`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
 
     type S = Unit
     type E = Unit
@@ -262,7 +262,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
   }
 
 
-  private def `client errors do not have global impact`[F[_]: Concurrent: ToFuture: FromFuture: Timer]: F[Unit] = {
+  private def `client errors do not have global impact`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
 
     type S = Unit
     type E = Unit
@@ -327,7 +327,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
   }
 
 
-  private def `after stop engine finishes with inflight elements and releases`[F[_]: Concurrent: ToFuture: FromFuture: Timer]: F[Unit] = {
+  private def `after stop engine finishes with inflight elements and releases`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
 
     type S = Unit
     type E = Unit
@@ -377,7 +377,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
   }
 
 
-  private def `release finishes with inflight elements`[F[_]: Concurrent: ToFuture: FromFuture: Timer]: F[Unit] = {
+  private def `release finishes with inflight elements`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
 
     val error: Throwable = new RuntimeException with NoStackTrace
 

@@ -32,11 +32,13 @@ private[akkaeffect] trait Persistence[F[_], S, E, C] {
 
 private[akkaeffect] object Persistence {
 
+  private sealed abstract class Started
+
   def started[F[_]: Sync: Fail, S, E, C](
     recoveryStarted: RecoveryStarted[F, S, E, Receive[F, Envelope[C], Boolean]],
   ): Persistence[F, S, E, C] = {
 
-    new Persistence[F, S, E, C] {
+    new Started with Persistence[F, S, E, C] {
 
       def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]) = {
         recoveryStarted(seqNr, snapshotOffer.some)
@@ -80,12 +82,14 @@ private[akkaeffect] object Persistence {
   }
 
 
+  private sealed abstract class Recovering1
+
   def recovering[F[_]: Sync: Fail, S, E, C, R](
     replay: Option[Allocated[F, Replay[F, E]]],
     recovering: Recovering[F, S, E, Receive[F, Envelope[C], Boolean]]
   ): Persistence[F, S, E, C] = {
 
-    new Persistence[F, S, E, C] {
+    new Recovering1 with Persistence[F, S, E, C] {
 
       def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]) = {
         unexpected[F, Result](name = s"snapshotOffer $snapshotOffer", state = "receive")
@@ -142,11 +146,13 @@ private[akkaeffect] object Persistence {
   }
 
 
+  private sealed abstract class Receive1
+
   def receive[F[_]: Sync: Fail, S, E, C](
     receive: Receive[F, Envelope[C], Boolean]
   ): Persistence[F, S, E, C] = {
 
-    new Persistence[F, S, E, C] { self =>
+    new Receive1 with Persistence[F, S, E, C] { self =>
 
       def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]) = {
         unexpected[F, Result](name = s"snapshotOffer $snapshotOffer", state = "receive")

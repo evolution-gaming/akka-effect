@@ -28,7 +28,7 @@ object DeleteEventsTo {
   def const[F[_]](value: F[F[Unit]]): DeleteEventsTo[F] = (_: SeqNr) => value
 
 
-  private[akkaeffect] def of[F[_] : Sync : FromFuture : Fail, A](
+  private[akkaeffect] def of[F[_]: Sync: FromFuture: Fail, A](
     persistentActor: akka.persistence.PersistentActor,
     timeout: FiniteDuration
   ): Resource[F, DeleteEventsTo[F]] = {
