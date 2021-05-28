@@ -3,12 +3,11 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.ActorContext
 import cats.effect._
 import cats.syntax.all._
+import com.evolutiongaming.akkaeffect.util.Serially
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ToFuture
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
-import scala.util.{Failure, Success}
 
 
 trait ActorVar[F[_], A] {
@@ -36,43 +35,19 @@ object ActorVar {
     context: ActorContext
   ): ActorVar[F, A] = {
     val stop = () => context.stop(context.self)
-    apply(act, context.dispatcher, stop)
+    apply(act, stop)
   }
 
   def apply[F[_]: Async: ToFuture, A](
     act: Act[F],
-    executor: ExecutionContext,
-    stop: Stop,
+    stop: Stop
   ): ActorVar[F, A] = {
 
     val unit = ().pure[F]
 
     case class State(value: A, release: F[Unit])
 
-    def fromFuture[X](future: Future[X]) = {
-      future
-        .value
-        .fold(
-          Async[F].async[X] { f =>
-            future.onComplete {
-              case Success(a) => f(a.asRight)
-              case Failure(a) => f(a.asLeft)
-            }(executor)
-          }
-        ) {
-          case Success(a) => a.pure[F]
-          case Failure(a) => a.raiseError[F, X]
-        }
-    }
-
-    var future = Future.successful(none[State])
-
-    def serially(f: Option[State] => F[Option[State]]): Future[Option[State]] = {
-      future = fromFuture(future)
-        .flatMap(f)
-        .toFuture
-      future
-    }
+    val serially = Serially[F, Option[State]](none)
 
     def update(f: Option[State] => F[Option[State]]): Unit = {
       serially { state =>
@@ -136,7 +111,7 @@ object ActorVar {
       }
 
       def postStop() = {
-        val future = serially {
+        serially {
           case Some(state) =>
             state
               .release
@@ -145,7 +120,6 @@ object ActorVar {
           case None        =>
             none[State].pure[F]
         }
-        fromFuture(future).void
       }
     }
   }
