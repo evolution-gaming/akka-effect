@@ -1,15 +1,15 @@
 package com.evolutiongaming.akkaeffect.util
 
 import cats.effect.concurrent.Deferred
-import cats.effect.Async
+import cats.effect.Concurrent
 import cats.syntax.all._
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 
-private[akkaeffect] object DeferredAsync {
+private[akkaeffect] object DeferredUncancelable {
 
-  def apply[F[_], A](implicit F: Async[F]): F[Deferred[F, A]] = {
+  def apply[F[_], A](implicit F: Concurrent[F]): F[Deferred[F, A]] = {
 
     sealed abstract class S
 
@@ -53,7 +53,18 @@ private[akkaeffect] object DeferredAsync {
               case s: S.Unset =>
                 if (ref.compareAndSet(s, S.Set(a))) {
                   val fs = s.fs
-                  if (fs.nonEmpty) F.delay { fs.foreach { f => f(a) } } else F.unit
+                  if (fs.nonEmpty) {
+                    F.delay { fs.foreach { f => f(a) } }
+                    var result = F.unit
+                    fs.foreach { f =>
+                      val task = F.void(F.start(F.delay(f(a))))
+                      result = F.flatMap(result) { _ => task }
+                    }
+                    result
+                  } else {
+                    F.unit
+                  }
+
                 } else {
                   complete(a)
                 }

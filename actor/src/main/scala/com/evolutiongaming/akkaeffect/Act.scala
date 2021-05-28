@@ -108,7 +108,7 @@ private[akkaeffect] object Act {
 
         def sync[A](f: => A) = {
           threadLocal.set(selfOpt)
-          try f finally threadLocal.set(none)
+          try f finally threadLocal.set(None)
         }
       }
     }
