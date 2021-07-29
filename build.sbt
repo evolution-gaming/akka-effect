@@ -1,5 +1,6 @@
 import Dependencies._
 
+ThisBuild / versionScheme := Some("early-semver")
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
