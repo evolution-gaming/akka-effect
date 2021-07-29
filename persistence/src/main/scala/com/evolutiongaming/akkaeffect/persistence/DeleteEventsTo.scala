@@ -23,12 +23,12 @@ trait DeleteEventsTo[F[_]] {
 
 object DeleteEventsTo {
 
-  def empty[F[_] : Applicative]: DeleteEventsTo[F] = const(().pure[F].pure[F])
+  def empty[F[_]: Applicative]: DeleteEventsTo[F] = const(().pure[F].pure[F])
 
   def const[F[_]](value: F[F[Unit]]): DeleteEventsTo[F] = (_: SeqNr) => value
 
 
-  private[akkaeffect] def of[F[_]: Sync: FromFuture: Fail, A](
+  private[akkaeffect] def of[F[_]: Sync: FromFuture, A](
     persistentActor: akka.persistence.PersistentActor,
     timeout: FiniteDuration
   ): Resource[F, DeleteEventsTo[F]] = {

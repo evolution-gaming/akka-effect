@@ -33,7 +33,7 @@ object Receive {
   }
 
 
-  implicit def contravariantReceive[F[_]: Functor, B]: Contravariant[Receive[F, *, B]] = {
+  implicit def contravariantReceive[F[_], B]: Contravariant[Receive[F, *, B]] = {
     new Contravariant[Receive[F, *, B]] {
       def contramap[A, A1](fa: Receive[F, A, B])(f: A1 => A) = fa.contramap(f)
     }

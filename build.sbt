@@ -1,5 +1,6 @@
 import Dependencies._
 
+ThisBuild / versionScheme := Some("early-semver")
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
@@ -8,7 +9,7 @@ lazy val commonSettings = Seq(
   organizationName := "Evolution Gaming",
   organizationHomepage := Some(url("http://evolutiongaming.com")),
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.5", "2.12.13"),
+  crossScalaVersions := Seq("2.13.6", "2.12.14"),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
