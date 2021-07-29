@@ -216,7 +216,7 @@ in [`build.sbt`](https://www.scala-sbt.org/1.x/docs/Basic-Def.html#What+is+a+bui
 ```scala
 addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")
 
-libraryDependencies += "com.evolutiongaming" %% "akka-effect-actor" % "0.1.0"
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-actor" % "0.2.0"
 
-libraryDependencies += "com.evolutiongaming" %% "akka-effect-persistence" % "0.1.0"
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-persistence" % "0.2.0"
 ```
