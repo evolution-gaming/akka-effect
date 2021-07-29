@@ -73,7 +73,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     setReceiveTimeout[IO](actorSystem).run()
   }
 
-  private def `persistentActorOf`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `persistentActorOf`[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
 
@@ -216,7 +216,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover with empty state`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover with empty state`[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -273,7 +273,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover from snapshot`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover from snapshot`[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -361,7 +361,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover from snapshot with deleted events`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover from snapshot with deleted events`[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -463,7 +463,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover from events`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover from events`[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -550,7 +550,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover from events with deleted snapshot`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover from events with deleted snapshot`[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -657,7 +657,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recover from snapshot and events`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover from snapshot and events`[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -823,7 +823,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recoveryStarted stops`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recoveryStarted stops`[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -888,7 +888,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `recoveryCompleted stops`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recoveryCompleted stops`[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -949,7 +949,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `append many`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `append many`[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -1066,7 +1066,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def setReceiveTimeout[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](actorSystem: ActorSystem) = {
+  private def setReceiveTimeout[F[_]: Concurrent: ToFuture: FromFuture: ToTry](actorSystem: ActorSystem) = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 

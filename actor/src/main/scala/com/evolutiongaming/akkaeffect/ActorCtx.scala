@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorContext, ActorRef, ActorRefFactory}
-import cats.effect.Sync
 import cats.~>
 
 import scala.concurrent.ExecutionContextExecutor
@@ -69,7 +68,7 @@ trait ActorCtx[F[_]] {
 object ActorCtx {
 
 
-  def apply[F[_]: Sync](act: Act[F], actorContext: ActorContext): ActorCtx[F] = {
+  def apply[F[_]](act: Act[F], actorContext: ActorContext): ActorCtx[F] = {
 
     new ActorCtx[F] {
 

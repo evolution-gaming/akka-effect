@@ -6,7 +6,7 @@ import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect.Fail.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
+import com.evolutiongaming.catshelper.ToFuture
 
 /**
   * Creates instance of [[akka.actor.Actor]] out of [[ReceiveOf]]
@@ -16,7 +16,7 @@ object ActorOf {
   type Stop = Boolean
 
 
-  def apply[F[_]: Concurrent: ToFuture: FromFuture](
+  def apply[F[_]: Concurrent: ToFuture](
     receiveOf: ReceiveOf[F, Envelope[Any], Stop]
   ): Actor = {
 

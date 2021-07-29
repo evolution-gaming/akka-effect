@@ -44,11 +44,11 @@ object Directive {
     Directive(none[Change[S, E]], Effect.empty[F], stop = true)
   }
 
-  def stop[F[_]: Applicative, S, E, A](effect: Effect[F, A]): Directive[F, S, E, A] = {
+  def stop[F[_], S, E, A](effect: Effect[F, A]): Directive[F, S, E, A] = {
     Directive(none[Change[S, E]], effect, stop = true)
   }
 
-  def stop[F[_]: Applicative, S, E, A](f: Either[Throwable, SeqNr] => F[A]): Directive[F, S, E, A] = {
+  def stop[F[_], S, E, A](f: Either[Throwable, SeqNr] => F[A]): Directive[F, S, E, A] = {
     Directive(none[Change[S, E]], Effect(f), stop = true)
   }
 

@@ -435,7 +435,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `stop externally`[F[_]: Concurrent: ToFuture: FromFuture](
+  private def `stop externally`[F[_]: Concurrent: ToFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {

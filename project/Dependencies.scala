@@ -2,14 +2,14 @@ import sbt._
 
 object Dependencies {
   
-  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.3"
-  val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "2.1.4"
+  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.9"
+  val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "2.3.0"
   val `executor-tools`            = "com.evolutiongaming"   %% "executor-tools"            % "1.0.2"
-  val retry                       = "com.evolutiongaming"   %% "retry"                     % "2.1.0"
+  val retry                       = "com.evolutiongaming"   %% "retry"                     % "2.1.1"
   val `akka-persistence-inmemory` = "com.github.dnvriend"   %% "akka-persistence-inmemory" % "2.5.15.2"
   val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.0"
   val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.12.3"
-  val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "0.1.2"
+  val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "0.3.2"
 
   object Cats {
     private val version = "2.6.1"
@@ -19,12 +19,12 @@ object Dependencies {
   }
 
   object CatsEffect {
-    private val version = "2.5.1"
+    private val version = "2.5.2"
     val effect = "org.typelevel" %% "cats-effect" % version
   }
 
   object Akka {
-    private val version = "2.5.31"
+    private val version = "2.6.8"
     val actor               = "com.typesafe.akka" %% "akka-actor"             % version
     val testkit             = "com.typesafe.akka" %% "akka-testkit"           % version
     val stream              = "com.typesafe.akka" %% "akka-stream"            % version
@@ -46,13 +46,13 @@ object Dependencies {
   }
 
   object Logback {
-    private val version = "1.2.3"
+    private val version = "1.2.5"
     val core    = "ch.qos.logback" % "logback-core"    % version
     val classic = "ch.qos.logback" % "logback-classic" % version
   }
 
   object Slf4j {
-    private val version = "1.7.30"
+    private val version = "1.7.32"
     val api                = "org.slf4j" % "slf4j-api"        % version
     val `log4j-over-slf4j` = "org.slf4j" % "log4j-over-slf4j" % version
   }
