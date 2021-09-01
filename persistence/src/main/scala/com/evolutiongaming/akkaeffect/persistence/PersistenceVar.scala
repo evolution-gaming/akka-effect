@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import akka.actor.{ActorContext, ActorRef}
+import akka.actor.{ActorContext, ActorRef, SupervisorStrategy}
 import cats.effect.{Async, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorVar.Directive
@@ -72,9 +72,18 @@ private[akkaeffect] object PersistenceVar {
         snapshotter: Snapshotter[F, S]
       ) = {
         actorVar.receive { persistence =>
+          // WA for https://github.com/akka/akka/issues/30439. The actor is stopped manually in order not to create additional level in the path by supervision.
+          def onRecoveryFailed(error: Throwable): F[Directive[persistence.Result]] = Sync[F].delay {
+            actorVar.actorContext.foreach { actorContext =>
+              SupervisorStrategy.defaultStrategy.logFailure(actorContext, actorContext.self, error, SupervisorStrategy.Stop)
+            }
+            Directive.stop
+          }
+
           persistence
             .recoveryCompleted(seqNr, journaller, snapshotter)
             .map { result => Directive.update(result) }
+            .handleErrorWith(onRecoveryFailed)
         }
       }
 
