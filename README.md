@@ -209,7 +209,7 @@ trait Snapshotter[F[_], -A] {
 
 #### [Engine.scala](eventsourcing/src/main/scala/com/evolutiongaming/akkaeffect/eventsourcing/Engine.scala)
 
-This is the main runtime/queue where all actions against your state are processed in desired sequence:
+This is the main runtime/queue where all actions against your state are processed in desired eventsourcing sequence:
 1. validate and finalize events
 2. append events to journal
 3. publish changed state
