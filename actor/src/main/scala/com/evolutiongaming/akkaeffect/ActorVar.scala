@@ -10,7 +10,7 @@ import com.evolutiongaming.catshelper.ToFuture
 import scala.util.control.NoStackTrace
 
 
-trait ActorVar[F[_], A] {
+private[akkaeffect] trait ActorVar[F[_], A] {
   import ActorVar.Directive
 
   def preStart(resource: Resource[F, A]): Unit
@@ -23,7 +23,7 @@ trait ActorVar[F[_], A] {
   def postStop(): F[Unit]
 }
 
-object ActorVar {
+private[akkaeffect] object ActorVar {
 
   type Release = Boolean
 

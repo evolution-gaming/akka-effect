@@ -35,11 +35,12 @@ private[akkaeffect] object PersistenceVar {
     act: Act[F],
     context: ActorContext
   ): PersistenceVar[F, S, E, C] = {
-    apply(ActorVar[F, Persistence[F, S, E, C]](act, context))
+    apply(ActorVar[F, Persistence[F, S, E, C]](act, context), Some(context))
   }
 
   def apply[F[_]: Sync: Fail, S, E, C](
-    actorVar: ActorVar[F, Persistence[F, S, E, C]]
+    actorVar: ActorVar[F, Persistence[F, S, E, C]],
+    actorContext: Option[ActorContext] = None
   ): PersistenceVar[F, S, E, C] = {
 
     new PersistenceVar[F, S, E, C] {
@@ -72,9 +73,20 @@ private[akkaeffect] object PersistenceVar {
         snapshotter: Snapshotter[F, S]
       ) = {
         actorVar.receive { persistence =>
+          def onRecoveryFailed(error: Throwable): F[Directive[persistence.Result]] = {
+            Sync[F].delay {
+              actorContext.foreach { actorContext =>
+                val msg = s"${actorContext.self.path.toStringWithoutAddress} error recovering actor state: $error"
+                actorContext.system.log.error(error, msg)
+              }
+              Directive.stop
+            }
+          }
+
           persistence
             .recoveryCompleted(seqNr, journaller, snapshotter)
             .map { result => Directive.update(result) }
+            .handleErrorWith(onRecoveryFailed)
         }
       }
 
