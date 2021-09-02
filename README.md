@@ -215,6 +215,8 @@ This is the main runtime/queue where all actions against your state are processe
 3. publish changed state
 4. execute side effects
 
+It is optimised for maximum throughput hence different steps of different actions might be executed in parallel as well as events might be stored in batches
+
 ```scala
 trait Engine[F[_], S, E] {
 
