@@ -207,7 +207,26 @@ trait Snapshotter[F[_], -A] {
 
 ### `akka-effect-eventsourced` module
 
-TODO
+#### [Engine.scala](eventsourcing/src/main/scala/com/evolutiongaming/akkaeffect/eventsourcing/Engine.scala)
+
+This is the main runtime/queue where all actions against your state are processed in desired sequence:
+1. validate and finalize events
+2. append events to journal
+3. publish changed state
+4. execute side effects
+
+```scala
+trait Engine[F[_], S, E] {
+
+  def state: F[State[S]]
+
+  /**
+    * @return Outer F[_] is about `load` being enqueued, this immediately provides order guarantees
+    *         Inner F[_] is about `load` being completed
+    */
+  def apply[A](load: F[Validate[F, S, E, A]]): F[F[A]]
+}
+```
 
 
 ## Setup
@@ -216,7 +235,15 @@ in [`build.sbt`](https://www.scala-sbt.org/1.x/docs/Basic-Def.html#What+is+a+bui
 ```scala
 addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")
 
-libraryDependencies += "com.evolutiongaming" %% "akka-effect-actor" % "0.2.0"
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-actor" % "0.2.1"
 
-libraryDependencies += "com.evolutiongaming" %% "akka-effect-persistence" % "0.2.0"
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-actor-tests" % "0.2.1"
+
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-persistence" % "0.2.1"
+
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-eventsourcing" % "0.2.1"
+
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-cluster" % "0.2.1"
+
+libraryDependencies += "com.evolutiongaming" %% "akka-effect-cluster-sharding" % "0.2.1"
 ```
