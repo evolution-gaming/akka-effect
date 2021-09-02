@@ -10,7 +10,7 @@ import com.evolutiongaming.catshelper.ToFuture
 import scala.util.control.NoStackTrace
 
 
-private[akkaeffect] trait ActorVar[F[_], A] {
+trait ActorVar[F[_], A] {
   import ActorVar.Directive
 
   def preStart(resource: Resource[F, A]): Unit
@@ -21,8 +21,6 @@ private[akkaeffect] trait ActorVar[F[_], A] {
   def receive(f: A => F[Directive[Releasable[F, A]]]): Unit
 
   def postStop(): F[Unit]
-
-  def actorContext: Option[ActorContext]
 }
 
 object ActorVar {
@@ -37,13 +35,12 @@ object ActorVar {
     context: ActorContext
   ): ActorVar[F, A] = {
     val stop = () => context.stop(context.self)
-    apply(act, stop, Some(context))
+    apply(act, stop)
   }
 
   def apply[F[_]: Async: ToFuture, A](
     act: Act[F],
-    stop: Stop,
-    context: Option[ActorContext] = None
+    stop: Stop
   ): ActorVar[F, A] = {
 
     val unit = ().pure[F]
@@ -124,8 +121,6 @@ object ActorVar {
             none[State].pure[F]
         }
       }
-
-      override def actorContext: Option[ActorContext] = context
     }
   }
 
