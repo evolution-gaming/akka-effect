@@ -2,13 +2,13 @@ import sbt._
 
 object Dependencies {
   
-  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.9"
-  val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "2.3.0"
+  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.10"
+  val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "2.5.0"
   val `executor-tools`            = "com.evolutiongaming"   %% "executor-tools"            % "1.0.2"
   val retry                       = "com.evolutiongaming"   %% "retry"                     % "2.1.1"
   val `akka-persistence-inmemory` = "com.github.dnvriend"   %% "akka-persistence-inmemory" % "2.5.15.2"
-  val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.0"
-  val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.17.0"
+  val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.2"
+  val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.12.3"
   val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "0.3.2"
 
   object Cats {
@@ -19,7 +19,7 @@ object Dependencies {
   }
 
   object CatsEffect {
-    private val version = "2.5.2"
+    private val version = "2.5.4"
     val effect = "org.typelevel" %% "cats-effect" % version
   }
 
@@ -46,7 +46,7 @@ object Dependencies {
   }
 
   object Logback {
-    private val version = "1.2.5"
+    private val version = "1.2.6"
     val core    = "ch.qos.logback" % "logback-core"    % version
     val classic = "ch.qos.logback" % "logback-classic" % version
   }
