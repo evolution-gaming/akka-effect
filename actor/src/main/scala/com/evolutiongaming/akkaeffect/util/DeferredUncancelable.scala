@@ -1,11 +1,11 @@
 package com.evolutiongaming.akkaeffect.util
 
-import cats.effect.concurrent.Deferred
 import cats.effect.Concurrent
 import cats.syntax.all._
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
+import cats.effect.Deferred
 
 private[akkaeffect] object DeferredUncancelable {
 
@@ -26,7 +26,7 @@ private[akkaeffect] object DeferredUncancelable {
             ref.get match {
               case s: S.Set   => F.pure(s.a)
               case _: S.Unset =>
-                F.async[A] { callback =>
+                F.async_[A] { callback =>
                   @tailrec
                   def get(): Unit = {
                     ref.get match {

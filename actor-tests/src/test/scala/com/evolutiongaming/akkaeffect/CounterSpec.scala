@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorSystem
-import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
@@ -9,6 +8,7 @@ import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
+import cats.effect.Ref
 
 class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
   import CounterSpec._

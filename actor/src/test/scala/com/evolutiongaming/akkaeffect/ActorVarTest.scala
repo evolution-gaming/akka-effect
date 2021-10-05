@@ -1,8 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
-import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync}
+import cats.effect.{Concurrent, IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect.IOSuite._
@@ -10,6 +9,7 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
+import cats.effect.{ Deferred, Ref }
 
 
 class ActorVarTest extends AsyncFunSuite with Matchers {

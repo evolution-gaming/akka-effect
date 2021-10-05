@@ -4,8 +4,7 @@ import java.time.Instant
 
 import akka.persistence.SnapshotSelectionCriteria
 import cats.Monad
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Clock, Concurrent, IO, Sync, Timer}
+import cats.effect.{Clock, Concurrent, IO, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.{SeqNr, SnapshotMetadata, Snapshotter}
@@ -15,6 +14,7 @@ import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
+import cats.effect.{ Deferred, Ref, Temporal }
 
 class JournalKeeperTest extends AsyncFunSuite with Matchers {
   import JournalKeeperTest._
@@ -75,7 +75,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
     `delay the very first snapshot`.run()
   }
 
-  private def `save snapshot on startup`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `save snapshot on startup`[F[_] : Concurrent : Temporal]: F[Unit] = {
 
     type S = F[Unit]
 
@@ -97,7 +97,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `save snapshot every n events`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `save snapshot every n events`[F[_] : Concurrent : Temporal]: F[Unit] = {
 
     type S = F[Unit]
 
@@ -121,7 +121,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `not save snapshots in parallel`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `not save snapshots in parallel`[F[_] : Concurrent : Temporal]: F[Unit] = {
 
     type S = F[Unit]
 
@@ -149,7 +149,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `save snapshot after batch of events saved`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `save snapshot after batch of events saved`[F[_] : Concurrent : Temporal]: F[Unit] = {
 
     type S = F[Unit]
 
@@ -170,7 +170,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `save snapshot and delete previous`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `save snapshot and delete previous`[F[_] : Concurrent : Temporal]: F[Unit] = {
 
     type S = F[Unit]
 
@@ -194,7 +194,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `track snapshots saved externally`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `track snapshots saved externally`[F[_] : Concurrent : Temporal]: F[Unit] = {
     type S = F[Unit]
 
     val config = JournalKeeper.Config(
@@ -219,7 +219,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `not delete snapshot twice`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `not delete snapshot twice`[F[_] : Concurrent : Temporal]: F[Unit] = {
 
     type S = F[Unit]
 
@@ -245,7 +245,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `not delete snapshots twice`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `not delete snapshots twice`[F[_] : Concurrent : Temporal]: F[Unit] = {
 
     type S = F[Unit]
 
@@ -272,7 +272,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `delete old events`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `delete old events`[F[_] : Concurrent : Temporal]: F[Unit] = {
 
     type S = F[Unit]
 
@@ -299,7 +299,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `track events deleted externally`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `track events deleted externally`[F[_] : Concurrent : Temporal]: F[Unit] = {
     type S = F[Unit]
 
     val config = JournalKeeper.Config(
@@ -331,7 +331,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `ignore not yet saved previous snapshot if next is available`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `ignore not yet saved previous snapshot if next is available`[F[_] : Concurrent : Temporal]: F[Unit] = {
     type S = F[Unit]
 
     val config = JournalKeeper.Config(
@@ -357,7 +357,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `not all candidates are used for snapshots`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `not all candidates are used for snapshots`[F[_] : Concurrent : Temporal]: F[Unit] = {
     type S = F[Unit]
 
     val config = JournalKeeper.Config(
@@ -399,7 +399,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `maintain cooldown between snapshots`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `maintain cooldown between snapshots`[F[_] : Concurrent : Temporal]: F[Unit] = {
     type S = F[Unit]
 
     val config = JournalKeeper.Config(
@@ -414,10 +414,10 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       metadata       = SnapshotMetadata(seqNr = 2, timestamp = timestamp)
       journalKeeper <- journalKeeperOf(2, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.eventsSaved(4, ().pure[F])
-      _             <- Timer[F].sleep(config.saveSnapshotCooldown)
+      _             <- Temporal[F].sleep(config.saveSnapshotCooldown)
       _             <- journalKeeper.eventsSaved(6, ().pure[F])
       _             <- journalKeeper.eventsSaved(8, ().pure[F])
-      _             <- Timer[F].sleep(config.saveSnapshotCooldown)
+      _             <- Temporal[F].sleep(config.saveSnapshotCooldown)
       _             <- journalKeeper.eventsSaved(10, deferred.complete(()))
       _             <- deferred.get
       actions       <- actions.get
@@ -428,7 +428,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `delay the very first snapshot`[F[_] : Concurrent : Timer]: F[Unit] = {
+  private def `delay the very first snapshot`[F[_] : Concurrent : Temporal]: F[Unit] = {
     type S = F[Unit]
 
     val config = JournalKeeper.Config(
@@ -441,7 +441,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       actions       <- Actions.of[F, S]
       journalKeeper <- journalKeeperOf(0, ().pure[F], none, config, actions)
       _             <- journalKeeper.eventsSaved(2, ().pure[F])
-      _             <- Timer[F].sleep(config.saveSnapshotCooldown)
+      _             <- Temporal[F].sleep(config.saveSnapshotCooldown)
       _             <- journalKeeper.eventsSaved(4, deferred.complete(()))
       _             <- deferred.get
       actions       <- actions.get
@@ -523,7 +523,7 @@ object JournalKeeperTest {
     }
   }
 
-  def journalKeeperOf[F[_] : Concurrent : Timer](
+  def journalKeeperOf[F[_] : Concurrent : Temporal](
     seqNr: SeqNr,
     state: F[Unit],
     snapshotOffer: Option[SnapshotMetadata],

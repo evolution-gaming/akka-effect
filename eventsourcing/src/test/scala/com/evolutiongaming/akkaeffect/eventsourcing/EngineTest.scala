@@ -2,8 +2,7 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 import akka.actor.ActorSystem
 import akka.stream.SystemMaterializer
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
+import cats.effect.{Concurrent, IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorSuite
 import com.evolutiongaming.akkaeffect.IOSuite._
@@ -16,6 +15,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
+import cats.effect.{ Deferred, Ref, Temporal }
 
 
 class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
@@ -41,7 +41,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
   }
 
 
-  private def `order of stages`[F[_]: Concurrent: ToFuture: FromFuture: Timer](actorSystem: ActorSystem): F[Unit] = {
+  private def `order of stages`[F[_]: Concurrent: ToFuture: FromFuture: Temporal](actorSystem: ActorSystem): F[Unit] = {
 
     type E = SeqNr
 

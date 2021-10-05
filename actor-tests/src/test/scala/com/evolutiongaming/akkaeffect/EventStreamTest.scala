@@ -1,12 +1,12 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.concurrent.Deferred
 import cats.effect.{Concurrent, IO}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.ToFuture
 import com.evolutiongaming.akkaeffect.IOSuite._
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
+import cats.effect.Deferred
 
 class EventStreamTest extends AsyncFunSuite with ActorSuite with Matchers {
 

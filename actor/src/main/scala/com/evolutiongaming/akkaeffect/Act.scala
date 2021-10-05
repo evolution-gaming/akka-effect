@@ -86,7 +86,7 @@ private[akkaeffect] object Act {
             if (threadLocal.get().contains(self: Adapter[F])) {
               Sync[F].delay { f }
             } else {
-              Async[F].async[A] { callback =>
+              Async[F].async_[A] { callback =>
                 val f1 = () => {
                   val a = Either.catchNonFatal(f)
                   callback(a)

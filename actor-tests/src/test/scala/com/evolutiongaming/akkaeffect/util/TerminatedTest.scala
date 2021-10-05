@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.util
 
 import cats.effect.implicits._
-import cats.effect.{Concurrent, IO, Resource, Timer}
+import cats.effect.{Concurrent, IO, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf, ActorSuite, Call, Receive, ReceiveOf}
@@ -11,6 +11,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.TimeoutException
 import scala.concurrent.duration._
+import cats.effect.Temporal
 
 
 class TerminatedTest extends AsyncFunSuite with ActorSuite with Matchers {
@@ -24,7 +25,7 @@ class TerminatedTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  def `wait for termination`[F[_]: Concurrent: Timer: ToFuture: FromFuture]: F[Unit] = {
+  def `wait for termination`[F[_]: Concurrent: Temporal: ToFuture: FromFuture]: F[Unit] = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 

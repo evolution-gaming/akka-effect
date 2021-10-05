@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect.testkit
 
 import akka.actor.{ActorRef, Props}
-import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
@@ -10,6 +9,7 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
+import cats.effect.{ Deferred, Ref }
 
 
 trait Probe[F[_]] {

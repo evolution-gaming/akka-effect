@@ -4,7 +4,6 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream._
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
 import cats.effect.{Concurrent, Fiber, Resource, Sync}
 import cats.syntax.all._
@@ -15,6 +14,7 @@ import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
 import com.evolutiongaming.akkaeffect.util.CloseOnError
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, Runtime, ToFuture}
+import cats.effect.{ Deferred, Ref }
 
 
 trait Engine[F[_], S, E] {

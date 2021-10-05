@@ -4,10 +4,10 @@ import java.time.Instant
 
 import akka.actor.ActorRef
 import akka.persistence.{Recovery, SnapshotSelectionCriteria}
-import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
+import cats.effect.Ref
 
 object InstrumentEventSourced {
 

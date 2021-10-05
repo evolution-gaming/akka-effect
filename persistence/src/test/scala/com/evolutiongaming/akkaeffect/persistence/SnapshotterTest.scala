@@ -2,7 +2,6 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.persistence.{SnapshotMetadata => _, Snapshotter => _, _}
-import cats.effect.concurrent.Deferred
 import cats.effect.{Concurrent, IO, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
@@ -15,6 +14,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
+import cats.effect.Deferred
 
 class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 

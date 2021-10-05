@@ -2,7 +2,6 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 import akka.persistence.SnapshotSelectionCriteria
 import cats.Applicative
-import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.effect.{Clock, Concurrent}
 import cats.syntax.all._
@@ -15,6 +14,7 @@ import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
 import scala.concurrent.duration._
+import cats.effect.Ref
 
 
 trait JournalKeeper[F[_], Sn, St] {

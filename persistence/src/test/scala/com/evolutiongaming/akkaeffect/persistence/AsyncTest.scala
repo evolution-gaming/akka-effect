@@ -17,7 +17,7 @@ class AsyncTest extends AsyncFunSuite with Matchers {
     def threadId() = Thread.currentThread().getId
     for {
       a <- Sync[F].delay { threadId() }
-      b <- Async[F].async[Long] { callback => callback(threadId().asRight) }
+      b <- Async[F].async_[Long] { callback => callback(threadId().asRight) }
       c <- Sync[F].delay { threadId() }
       _ <- Sync[F].delay { a shouldEqual b }
       _ <- Sync[F].delay { b shouldEqual c }

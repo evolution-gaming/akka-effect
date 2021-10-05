@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.ActorRef
-import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorVar.Directive
@@ -9,6 +8,7 @@ import com.evolutiongaming.akkaeffect.Fail.implicits._
 import com.evolutiongaming.akkaeffect.Releasable.implicits._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
+import cats.effect.Ref
 
 
 private[akkaeffect] trait Persistence[F[_], S, E, C] {

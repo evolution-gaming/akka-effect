@@ -1,11 +1,11 @@
 package com.evolutiongaming.akkaeffect
 
 import cats.effect.IO
-import cats.effect.concurrent.Deferred
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.CatsHelper._
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
+import cats.effect.Deferred
 
 class DeferredTest extends AsyncFunSuite with Matchers {
 

@@ -2,8 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, PoisonPill, Props}
 import akka.testkit.TestActors
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync}
+import cats.effect.{Concurrent, IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
@@ -15,6 +14,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.control.NoStackTrace
+import cats.effect.{ Deferred, Ref }
 
 class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   import ActorOfTest._

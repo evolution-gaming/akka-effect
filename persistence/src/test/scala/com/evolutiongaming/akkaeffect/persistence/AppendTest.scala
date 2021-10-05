@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, IO, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
@@ -13,6 +12,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.collection.immutable.Queue
 import scala.util.control.NoStackTrace
+import cats.effect.Ref
 
 class AppendTest extends AsyncFunSuite with Matchers {
 

@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence._
-import cats.effect.concurrent.Deferred
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
@@ -12,6 +11,7 @@ import com.evolutiongaming.catshelper.{Log, MonadThrowable, ToFuture}
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.collection.immutable.Queue
+import cats.effect.Deferred
 
 
 /**

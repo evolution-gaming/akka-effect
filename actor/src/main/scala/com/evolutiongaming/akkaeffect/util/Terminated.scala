@@ -2,11 +2,11 @@ package com.evolutiongaming.akkaeffect.util
 
 import akka.actor.{Actor, ActorRef, Props}
 import cats.effect.Concurrent
-import cats.effect.concurrent.Deferred
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ToFuture
+import cats.effect.Deferred
 
 trait Terminated[F[_]] {
 

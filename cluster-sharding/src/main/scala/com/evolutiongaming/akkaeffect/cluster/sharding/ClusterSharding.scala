@@ -5,7 +5,7 @@ import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.GracefulShutdown
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
 import cats.effect.implicits._
-import cats.effect.{Concurrent, Resource, Sync, Timer}
+import cats.effect.{Concurrent, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorRefOf
 import com.evolutiongaming.akkaeffect.cluster.{DataCenter, Role}
@@ -17,6 +17,7 @@ import com.evolutiongaming.catshelper._
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration._
+import cats.effect.Temporal
 
 trait ClusterSharding[F[_]] {
 
@@ -48,7 +49,7 @@ trait ClusterSharding[F[_]] {
 
 object ClusterSharding {
 
-  def of[F[_]: Concurrent: Blocking: Timer: ToFuture](actorSystem: ActorSystem): Resource[F, ClusterSharding[F]] = {
+  def of[F[_]: Concurrent: Blocking: Temporal: ToFuture](actorSystem: ActorSystem): Resource[F, ClusterSharding[F]] = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory(actorSystem)
     val terminated = Terminated(actorRefOf)

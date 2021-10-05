@@ -6,8 +6,7 @@ import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify}
 import akka.persistence.Recovery
 import akka.testkit.TestActors
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
+import cats.effect.{Concurrent, IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.InstrumentEventSourced.Action
@@ -20,6 +19,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
+import cats.effect.{ Deferred, Ref, Temporal }
 
 class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
@@ -756,7 +756,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
   }
 
 
-  private def `start stops`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `start stops`[F[_]: Concurrent: Temporal: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -804,7 +804,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         for {
           _          <- d0.get
           terminated <- probe.watch(actorEffect.toUnsafe)
-          _          <- Timer[F].sleep(10.millis)
+          _          <- Temporal[F].sleep(10.millis)
           _          <- d1.complete(())
           _          <- terminated
         } yield {}
