@@ -20,7 +20,7 @@ class SeriallyTest extends AsyncFunSuite with Matchers {
       threadId1 <- threadId
       _         <- IO { threadId0 shouldEqual threadId1 }
       deferred  <- Deferred[IO, Int]
-      _         <- IO.suspend { serially { a => deferred.complete(a).as(a) } }
+      _         <- IO.defer { serially { a => deferred.complete(a).as(a) } }
       value     <- deferred.get
       _         <- IO { value shouldEqual 1 }
       deferred  <- Deferred[IO, Unit]
@@ -49,7 +49,7 @@ class SeriallyTest extends AsyncFunSuite with Matchers {
       threadId1 <- threadId1.get
       _         <- IO { threadId0 shouldEqual threadId1 }
       deferred  <- Deferred[IO, Int]
-      _         <- IO.suspend { serially { a => deferred.complete(a).as(a) } }
+      _         <- IO.defer { serially { a => deferred.complete(a).as(a) } }
       value     <- deferred.get
       _         <- IO { value shouldEqual 3 }
     } yield {}
@@ -60,10 +60,10 @@ class SeriallyTest extends AsyncFunSuite with Matchers {
     val result = for {
       error     <- IO { new RuntimeException with NoStackTrace }
       serially  <- IO { Serially[IO, Int](0) }
-      value     <- IO.suspend { serially { _ => error.raiseError[IO, Int] } }.attempt
+      value     <- IO.defer { serially { _ => error.raiseError[IO, Int] } }.attempt
       _         <- IO { value shouldEqual error.asLeft }
       deferred  <- Deferred[IO, Int]
-      _         <- IO.suspend { serially { a => deferred.complete(a).as(a) } }
+      _         <- IO.defer { serially { a => deferred.complete(a).as(a) } }
       value     <- deferred.get
       _         <- IO { value shouldEqual 0 }
     } yield {}
