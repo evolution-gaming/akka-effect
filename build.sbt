@@ -1,22 +1,21 @@
 import Dependencies._
 
-ThisBuild / versionScheme := Some("early-semver")
-
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
   homepage := Some(new URL("http://github.com/evolution-gaming/akka-effect")),
   startYear := Some(2019),
-  organizationName := "Evolution Gaming",
-  organizationHomepage := Some(url("http://evolutiongaming.com")),
+  organizationName := "Evolution",
+  organizationHomepage := Some(url("http://evolution.com")),
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.6", "2.12.14"),
+  crossScalaVersions := Seq("2.13.7", "2.12.15"),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
   scalacOptsFailOnWarn := Some(false),
   /*testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))*/
-  libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full))
+  libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
+  versionScheme := Some("semver-spec"))
 
 
 lazy val root = (project in file(".")
