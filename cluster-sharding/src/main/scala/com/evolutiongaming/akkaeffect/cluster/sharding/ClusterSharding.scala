@@ -2,15 +2,15 @@ package com.evolutiongaming.akkaeffect.cluster.sharding
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
-import akka.cluster.sharding.ShardRegion.GracefulShutdown
+import akka.cluster.sharding.ShardRegion._
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
 import cats.effect.implicits._
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.syntax.all._
-import com.evolutiongaming.akkaeffect.ActorRefOf
 import com.evolutiongaming.akkaeffect.cluster.{DataCenter, Role}
 import com.evolutiongaming.akkaeffect.persistence.TypeName
 import com.evolutiongaming.akkaeffect.util.Terminated
+import com.evolutiongaming.akkaeffect.{ActorRefOf, Ask}
 import com.evolutiongaming.catshelper.Blocking.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper._
@@ -45,11 +45,23 @@ trait ClusterSharding[F[_]] {
     extractEntityId: ShardRegion.ExtractEntityId,
     extractShardId: ShardRegion.ExtractShardId
   ): Resource[F, ActorRef]
+
+  def regions: F[Set[TypeName]]
+
+  def shards(typeName: TypeName): F[Set[ShardState]]
 }
 
 object ClusterSharding {
 
-  def of[F[_]: Concurrent: Blocking: Temporal: ToFuture](actorSystem: ActorSystem): Resource[F, ClusterSharding[F]] = {
+  final case class Config(terminateTimeout: FiniteDuration, askTimeout: FiniteDuration)
+  object Config {
+    val default = Config(1.minute, 30.seconds)
+  }
+
+  def of[F[_]: Concurrent: Blocking: Timer: ToFuture: FromFuture](
+    actorSystem: ActorSystem,
+    config: Config = Config.default
+  ): Resource[F, ClusterSharding[F]] = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory(actorSystem)
     val terminated = Terminated(actorRefOf)
@@ -62,7 +74,7 @@ object ClusterSharding {
       } { actorRef =>
         for {
           _ <- Sync[F].delay { actorRef.tell(GracefulShutdown, ActorRef.noSender) }
-          _ <- terminated(actorRef).timeout(1.minute)
+          _ <- terminated(actorRef).timeout(config.terminateTimeout)
         } yield {}
       }
     }
@@ -109,6 +121,19 @@ object ClusterSharding {
               extractEntityId = extractEntityId,
               extractShardId = extractShardId)
           }
+        }
+
+        def regions: F[Set[TypeName]] =
+          clusterSharding.shardTypeNames.map(TypeName(_)).pure[F]
+
+        def shards(typeName: TypeName): F[Set[ShardState]] = {
+          val ref = clusterSharding.shardRegion(typeName.value)
+          val ask = Ask.fromActorRef[F](ref)
+          for {
+            send <- ask(GetShardRegionState, config.askTimeout)
+            resp <- send
+            stat <- resp.castM[F, CurrentShardRegionState]
+          } yield stat.shards
         }
       }
     }
@@ -191,6 +216,16 @@ object ClusterSharding {
             d => s"$typeName proxy release in ${ d.toMillis }ms, role: $role, dataCenter: $dataCenter",
             self.startProxy(typeName, role, dataCenter, extractEntityId, extractShardId))
         }
+
+        def regions: F[Set[TypeName]] = self.regions
+
+        def shards(typeName: TypeName): F[Set[ShardState]] =
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.shards(typeName)
+            d <- d
+            _ <- log.info(s"get local shards in ${ d.toMillis }ms")
+          } yield r
       }
     }
   }
