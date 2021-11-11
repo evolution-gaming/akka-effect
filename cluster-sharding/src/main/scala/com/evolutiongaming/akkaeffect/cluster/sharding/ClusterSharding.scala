@@ -47,10 +47,10 @@ trait ClusterSharding[F[_]] {
   ): Resource[F, ActorRef]
 
   /**
-   * Return IDs of local shards. Local shard is one assigned to locally managed shard region.
+   * Return shards per shard regions.
    * Carefully: the implementation based on sending messages to all local shard regions and could be slow.
    */
-  def localShards: F[List[String]]
+  def localShards: F[Map[String, Set[ShardState]]]
 }
 
 object ClusterSharding {
@@ -117,17 +117,16 @@ object ClusterSharding {
           }
         }
 
-        def localShards: F[List[ShardId]] =
-          clusterSharding.shardTypeNames.toList.parFlatTraverse { typeName =>
+        def localShards: F[Map[String, Set[ShardState]]] =
+          clusterSharding.shardTypeNames.toList.parTraverse { typeName =>
             val ref = clusterSharding.shardRegion(typeName)
             val ask = Ask.fromActorRef[F](ref)
             for {
               send <- ask(GetShardRegionState, 30.seconds)
               resp <- send
-            } yield resp match {
-              case CurrentShardRegionState(shards) => shards.toList.map(_.shardId)
-            }
-          }
+              stat <- resp.castM[F, CurrentShardRegionState]
+            } yield typeName -> stat.shards
+          }.map(_.toMap)
 
       }
     }
@@ -211,7 +210,7 @@ object ClusterSharding {
             self.startProxy(typeName, role, dataCenter, extractEntityId, extractShardId))
         }
 
-        def localShards: F[List[String]] =
+        def localShards: F[Map[String, Set[ShardState]]] =
           for {
             d <- MeasureDuration[F].start
             r <- self.localShards

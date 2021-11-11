@@ -4,8 +4,9 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import akka.actor.{Actor, ActorContext, ActorRef, ActorSystem, Props, Status}
 import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
-import akka.cluster.sharding.ShardRegion.ShardId
+import akka.cluster.sharding.ShardRegion.{ShardId, ShardState}
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
+import cats.Parallel
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.{ActorRefOf, Ask}
@@ -29,7 +30,7 @@ trait ClusterShardingLocal[F[_]] {
 
 object ClusterShardingLocal {
 
-  def of[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
+  def of[F[_]: Concurrent: Parallel: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): Resource[F, ClusterShardingLocal[F]] = {
 
@@ -203,15 +204,17 @@ object ClusterShardingLocal {
               actorOf(regionProxyName, Props(regionProxyActor()))
             }
 
-            def localShards: F[List[String]] =
+            def localShards: F[Map[String, Set[ShardState]]] =
               for {
                 regions <- withActorContext(_.children.filterNot(_.path.name.endsWith("Proxy")))
-                shards <- regions.toList
-                  .map(Ask.fromActorRef[F])
-                  .traverse { ask =>
-                    ask(RegionMsg.State, 1.second).flatten
-                  }
-              } yield shards.collect { case shards: List[String] => shards }.flatten
+                shards <- regions.toList.parTraverse { region =>
+                  val ask = Ask.fromActorRef[F](region)
+                  for {
+                    r <- ask(RegionMsg.State, 1.second).flatten
+                    s <- r.castM[F, List[ShardId]]
+                  } yield region.path.name -> s.map(ShardState(_, Set.empty)).toSet
+                }
+              } yield shards.toMap
           }
 
           def rebalance = {

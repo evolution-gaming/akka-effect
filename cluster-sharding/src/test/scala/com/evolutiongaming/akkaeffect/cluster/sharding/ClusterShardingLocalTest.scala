@@ -3,6 +3,7 @@ package com.evolutiongaming.akkaeffect.cluster.sharding
 
 import akka.actor.{Actor, ActorRef, Props}
 import akka.cluster.sharding.ShardCoordinator.LeastShardAllocationStrategy
+import akka.cluster.sharding.ShardRegion.ShardState
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
 import cats.effect.IO
 import com.evolutiongaming.akkaeffect.IOSuite._
@@ -78,7 +79,7 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
       a <- a
       _ <- IO { a.msg shouldEqual HandOffStopMsg }
       l <- clusterShardingLocal.clusterSharding.localShards
-      _ <- IO { l shouldEqual List("1") }
+      _ <- IO { l shouldEqual Map("typeName" -> Set(ShardState("1", Set.empty))) }
     } yield {}
 
     result
