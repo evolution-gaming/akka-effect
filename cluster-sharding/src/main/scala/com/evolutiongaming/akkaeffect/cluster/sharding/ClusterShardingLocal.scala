@@ -2,14 +2,14 @@ package com.evolutiongaming.akkaeffect.cluster.sharding
 
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-
 import akka.actor.{Actor, ActorContext, ActorRef, ActorSystem, Props, Status}
 import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
-import akka.cluster.sharding.ShardRegion.ShardId
+import akka.cluster.sharding.ShardRegion.{ShardId, ShardState}
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
+import cats.Parallel
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
-import com.evolutiongaming.akkaeffect.ActorRefOf
+import com.evolutiongaming.akkaeffect.{ActorRefOf, Ask}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.akkaeffect.cluster.{DataCenter, Role}
 import com.evolutiongaming.akkaeffect.persistence.TypeName
@@ -17,6 +17,7 @@ import com.evolutiongaming.akkaeffect.util.Terminated
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
 import scala.concurrent.Promise
+import scala.concurrent.duration._
 import scala.util.Try
 
 
@@ -29,7 +30,7 @@ trait ClusterShardingLocal[F[_]] {
 
 object ClusterShardingLocal {
 
-  def of[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
+  def of[F[_]: Concurrent: Parallel: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): Resource[F, ClusterShardingLocal[F]] = {
 
@@ -43,6 +44,7 @@ object ClusterShardingLocal {
     object RegionMsg {
 
       final case object Rebalance extends RegionMsg
+      final case object State extends RegionMsg
     }
 
 
@@ -134,15 +136,18 @@ object ClusterShardingLocal {
                 }
 
                 def receive: Receive = {
-                  case msg: RegionMsg => msg match {
-                    case RegionMsg.Rebalance => allocationStrategy
-                      .rebalance(allocation(), Set.empty)
-                      .onComplete { _ =>
-                        context
-                          .actorSelection("*/*")
-                          .tell(handOffStopMessage, self)
-                      }
-                  }
+
+                  case RegionMsg.Rebalance => allocationStrategy
+                    .rebalance(allocation(), Set.empty)
+                    .onComplete { _ =>
+                      context
+                        .actorSelection("*/*")
+                        .tell(handOffStopMessage, self)
+                    }
+
+                  case RegionMsg.State =>
+                    val shards = allocation().values.flatten.toList
+                    context.sender().tell(shards, context.self)
 
                   case msg: ShardRegion.Msg =>
                     val sender = context.sender()
@@ -198,6 +203,39 @@ object ClusterShardingLocal {
               val regionProxyName = s"${ regionName }Proxy"
               actorOf(regionProxyName, Props(regionProxyActor()))
             }
+
+            def localShards: F[Map[String, Set[ShardState]]] =
+              for {
+                regions <- withActorContext(_.children.filterNot(_.path.name.endsWith("Proxy")))
+                shards <- regions.toList.parTraverse { region =>
+                  val ask = Ask.fromActorRef[F](region)
+                  for {
+                    r <- ask(RegionMsg.State, 1.second).flatten
+                    s <- r.castM[F, List[ShardId]]
+                  } yield region.path.name -> s.map(ShardState(_, Set.empty)).toSet
+                }
+              } yield shards.toMap
+
+            def regions: F[Set[TypeName]] =
+              withActorContext { ref =>
+                ref
+                  .children
+                  .map(_.path.name)
+                  .filterNot(_.endsWith("Proxy"))
+                  .map(TypeName(_)).toSet
+              }
+
+            def shards(typeName: TypeName): F[Set[ShardState]] =
+              for {
+                region <- withActorContext { ref => ref.children.find(_.path.name == typeName.value) }
+                shards <- region.toList.parTraverse { region =>
+                  val ask = Ask.fromActorRef[F](region)
+                  for {
+                    r <- ask(RegionMsg.State, 1.second).flatten
+                    s <- r.castM[F, List[ShardId]]
+                  } yield s.map(ShardState(_, Set.empty)).toSet
+                }
+              } yield shards.toSet.flatten
           }
 
           def rebalance = {
