@@ -78,8 +78,10 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
       _ <- clusterShardingLocal.rebalance
       a <- a
       _ <- IO { a.msg shouldEqual HandOffStopMsg }
-      l <- clusterShardingLocal.clusterSharding.localShards
-      _ <- IO { l shouldEqual Map("typeName" -> Set(ShardState("1", Set.empty))) }
+      r <- clusterShardingLocal.clusterSharding.regions
+      _ <- IO { r shouldEqual Set(TypeName("typeName")) }
+      s <- clusterShardingLocal.clusterSharding.shards(r.head)
+      _ <- IO { s shouldEqual Set(ShardState("1", Set.empty)) }
     } yield {}
 
     result

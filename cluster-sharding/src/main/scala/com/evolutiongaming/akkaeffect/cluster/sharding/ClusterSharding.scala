@@ -4,7 +4,6 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion._
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
-import cats.Parallel
 import cats.effect.implicits._
 import cats.effect.{Concurrent, Resource, Sync, Timer}
 import cats.syntax.all._
@@ -46,11 +45,9 @@ trait ClusterSharding[F[_]] {
     extractShardId: ShardRegion.ExtractShardId
   ): Resource[F, ActorRef]
 
-  /**
-   * Return shards per shard regions.
-   * Carefully: the implementation based on sending messages to all local shard regions and could be slow.
-   */
-  def localShards: F[Map[String, Set[ShardState]]]
+  def regions: F[Set[TypeName]]
+
+  def shards(typeName: TypeName): F[Set[ShardState]]
 }
 
 object ClusterSharding {
@@ -60,7 +57,7 @@ object ClusterSharding {
     val default = Config(1.minute, 30.seconds)
   }
 
-  def of[F[_]: Concurrent: Parallel: Blocking: Timer: ToFuture: FromFuture](
+  def of[F[_]: Concurrent: Blocking: Timer: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     config: Config = Config.default
   ): Resource[F, ClusterSharding[F]] = {
@@ -125,17 +122,18 @@ object ClusterSharding {
           }
         }
 
-        def localShards: F[Map[String, Set[ShardState]]] =
-          clusterSharding.shardTypeNames.toList.parTraverse { typeName =>
-            val ref = clusterSharding.shardRegion(typeName)
-            val ask = Ask.fromActorRef[F](ref)
-            for {
-              send <- ask(GetShardRegionState, config.askTimeout)
-              resp <- send
-              stat <- resp.castM[F, CurrentShardRegionState]
-            } yield typeName -> stat.shards
-          }.map(_.toMap)
+        def regions: F[Set[TypeName]] =
+          clusterSharding.shardTypeNames.map(TypeName(_)).pure[F]
 
+        def shards(typeName: TypeName): F[Set[ShardState]] = {
+          val ref = clusterSharding.shardRegion(typeName.value)
+          val ask = Ask.fromActorRef[F](ref)
+          for {
+            send <- ask(GetShardRegionState, config.askTimeout)
+            resp <- send
+            stat <- resp.castM[F, CurrentShardRegionState]
+          } yield stat.shards
+        }
       }
     }
   }
@@ -218,10 +216,12 @@ object ClusterSharding {
             self.startProxy(typeName, role, dataCenter, extractEntityId, extractShardId))
         }
 
-        def localShards: F[Map[String, Set[ShardState]]] =
+        def regions: F[Set[TypeName]] = self.regions
+
+        def shards(typeName: TypeName): F[Set[ShardState]] =
           for {
             d <- MeasureDuration[F].start
-            r <- self.localShards
+            r <- self.shards(typeName)
             d <- d
             _ <- log.info(s"get local shards in ${ d.toMillis }ms")
           } yield r

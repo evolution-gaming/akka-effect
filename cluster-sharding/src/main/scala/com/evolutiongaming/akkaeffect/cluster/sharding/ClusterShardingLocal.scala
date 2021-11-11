@@ -215,6 +215,27 @@ object ClusterShardingLocal {
                   } yield region.path.name -> s.map(ShardState(_, Set.empty)).toSet
                 }
               } yield shards.toMap
+
+            def regions: F[Set[TypeName]] =
+              withActorContext { ref =>
+                ref
+                  .children
+                  .map(_.path.name)
+                  .filterNot(_.endsWith("Proxy"))
+                  .map(TypeName(_)).toSet
+              }
+
+            def shards(typeName: TypeName): F[Set[ShardState]] =
+              for {
+                region <- withActorContext { ref => ref.children.find(_.path.name == typeName.value) }
+                shards <- region.toList.parTraverse { region =>
+                  val ask = Ask.fromActorRef[F](region)
+                  for {
+                    r <- ask(RegionMsg.State, 1.second).flatten
+                    s <- r.castM[F, List[ShardId]]
+                  } yield s.map(ShardState(_, Set.empty)).toSet
+                }
+              } yield shards.toSet.flatten
           }
 
           def rebalance = {
