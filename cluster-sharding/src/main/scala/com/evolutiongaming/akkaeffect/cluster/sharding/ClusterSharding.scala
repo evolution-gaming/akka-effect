@@ -55,7 +55,15 @@ trait ClusterSharding[F[_]] {
 
 object ClusterSharding {
 
-  def of[F[_]: Concurrent: Parallel: Blocking: Timer: ToFuture: FromFuture](actorSystem: ActorSystem): Resource[F, ClusterSharding[F]] = {
+  final case class Config(terminateTimeout: FiniteDuration, askTimeout: FiniteDuration)
+  object Config {
+    val default = Config(1.minute, 30.seconds)
+  }
+
+  def of[F[_]: Concurrent: Parallel: Blocking: Timer: ToFuture: FromFuture](
+    actorSystem: ActorSystem,
+    config: Config = Config.default
+  ): Resource[F, ClusterSharding[F]] = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory(actorSystem)
     val terminated = Terminated(actorRefOf)
@@ -68,7 +76,7 @@ object ClusterSharding {
       } { actorRef =>
         for {
           _ <- Sync[F].delay { actorRef.tell(GracefulShutdown, ActorRef.noSender) }
-          _ <- terminated(actorRef).timeout(1.minute)
+          _ <- terminated(actorRef).timeout(config.terminateTimeout)
         } yield {}
       }
     }
@@ -122,7 +130,7 @@ object ClusterSharding {
             val ref = clusterSharding.shardRegion(typeName)
             val ask = Ask.fromActorRef[F](ref)
             for {
-              send <- ask(GetShardRegionState, 30.seconds)
+              send <- ask(GetShardRegionState, config.askTimeout)
               resp <- send
               stat <- resp.castM[F, CurrentShardRegionState]
             } yield typeName -> stat.shards
