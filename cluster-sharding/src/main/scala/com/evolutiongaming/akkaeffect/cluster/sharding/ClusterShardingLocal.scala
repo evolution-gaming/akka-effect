@@ -1,21 +1,20 @@
 package com.evolutiongaming.akkaeffect.cluster.sharding
 
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import akka.actor.{Actor, ActorContext, ActorRef, ActorSystem, Props, Status}
 import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.{ShardId, ShardState}
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
-import cats.Parallel
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
-import com.evolutiongaming.akkaeffect.{ActorRefOf, Ask}
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.akkaeffect.cluster.{DataCenter, Role}
 import com.evolutiongaming.akkaeffect.persistence.TypeName
 import com.evolutiongaming.akkaeffect.util.Terminated
+import com.evolutiongaming.akkaeffect.{ActorRefOf, Ask}
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import scala.concurrent.Promise
 import scala.concurrent.duration._
 import scala.util.Try
@@ -30,7 +29,7 @@ trait ClusterShardingLocal[F[_]] {
 
 object ClusterShardingLocal {
 
-  def of[F[_]: Concurrent: Parallel: ToFuture: FromFuture: ToTry](
+  def of[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): Resource[F, ClusterShardingLocal[F]] = {
 
@@ -204,18 +203,6 @@ object ClusterShardingLocal {
               actorOf(regionProxyName, Props(regionProxyActor()))
             }
 
-            def localShards: F[Map[String, Set[ShardState]]] =
-              for {
-                regions <- withActorContext(_.children.filterNot(_.path.name.endsWith("Proxy")))
-                shards <- regions.toList.parTraverse { region =>
-                  val ask = Ask.fromActorRef[F](region)
-                  for {
-                    r <- ask(RegionMsg.State, 1.second).flatten
-                    s <- r.castM[F, List[ShardId]]
-                  } yield region.path.name -> s.map(ShardState(_, Set.empty)).toSet
-                }
-              } yield shards.toMap
-
             def regions: F[Set[TypeName]] =
               withActorContext { ref =>
                 ref
@@ -228,7 +215,7 @@ object ClusterShardingLocal {
             def shards(typeName: TypeName): F[Set[ShardState]] =
               for {
                 region <- withActorContext { ref => ref.children.find(_.path.name == typeName.value) }
-                shards <- region.toList.parTraverse { region =>
+                shards <- region.toList.traverse { region =>
                   val ask = Ask.fromActorRef[F](region)
                   for {
                     r <- ask(RegionMsg.State, 1.second).flatten
