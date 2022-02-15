@@ -31,7 +31,7 @@ object PersistentActorOf {
     */
   type Type[F[_], S, E, C] = EventSourcedOf[F, Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], ActorOf.Stop]]]]
 
-  def apply[F[_]: Async: ToFuture: FromFuture](
+  def apply[F[_]: Async: ToFuture: FromFuture: ToTry](
     eventSourcedOf: Type[F, Any, Any, Any],
     timeout: FiniteDuration = 1.minute
   ): PersistentActor = {

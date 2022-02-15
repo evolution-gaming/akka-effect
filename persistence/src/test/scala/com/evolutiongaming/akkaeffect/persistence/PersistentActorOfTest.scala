@@ -74,7 +74,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     setReceiveTimeout[IO](actorSystem).run()
   }
 
-  private def `persistentActorOf`[F[_]: Async: ToFuture: FromFuture](
+  private def `persistentActorOf`[F[_]: Async: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): F[Unit] = {
 
@@ -980,7 +980,9 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                       state  <- stateRef.get
                       result <- if (state) {
                         events
-                          .traverse { event => journaller.append(Events.of(event)) }
+                          .traverse { event =>
+                            journaller.append(Events.of(event))
+                          }
                           .flatMap { _.foldMapM { _.void } }
                       } else {
                         ().pure[F]

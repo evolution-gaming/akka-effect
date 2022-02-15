@@ -1,11 +1,9 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import java.time.Instant
-
 import akka.actor.ActorRef
 import akka.persistence.{Recovery, SnapshotSelectionCriteria}
-import cats.effect.concurrent.Ref
-import cats.effect.{Resource, Sync}
+import cats.effect.{Ref, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
 
