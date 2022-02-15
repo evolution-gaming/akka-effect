@@ -2,8 +2,10 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify, PoisonPill, Props}
 import akka.testkit.TestActors
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync}
+import cats.effect.implicits.effectResourceOps
+import cats.effect.kernel.{Deferred, Ref}
+import cats.effect.unsafe.implicits.global
+import cats.effect.{Async, IO, Resource, Spawn, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
@@ -24,7 +26,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   } yield {
 
     val prefix = if (async) "async" else "sync"
-    val shift = if (async) ContextShift[IO].shift else ().pure[IO]
+    val shift = if (async) Spawn[IO].cede else ().pure[IO]
 
     test(s"$prefix all") {
       all[IO](actorSystem, shift).run()
@@ -67,7 +69,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     }
   }
 
-  private def all[F[_]: Concurrent: ToFuture: FromFuture](
+  private def all[F[_]: Async: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ): F[Unit] = {
@@ -157,7 +159,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     for {
       receiveTimeout <- Deferred[F, Unit]
-      receive         = receiveOf(receiveTimeout.complete(()))
+      receive         = receiveOf(receiveTimeout.complete(()).void)
       actorRefOf      = ActorRefOf.fromActorRefFactory[F](actorSystem)
       actorEffect     = ActorEffect.of[F](actorRefOf, receive)
       probe           = Probe.of[F](actorRefOf)
@@ -167,7 +169,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def receive[F[_]: Concurrent: ToFuture: FromFuture](
+  private def receive[F[_]: Async: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ): F[Unit] = {
@@ -237,7 +239,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `stop during start`[F[_]: Concurrent: ToFuture: FromFuture](
+  private def `stop during start`[F[_]: Async: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -266,7 +268,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `fail actor`[F[_]: Concurrent: ToFuture: FromFuture](
+  private def `fail actor`[F[_]: Async: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -304,7 +306,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       started   <- Deferred[F, Unit]
       ref       <- Ref[F].of(started)
-      receiveOf <- receiveOf(ref.get.flatMap(_.complete(()))).pure[F]
+      receiveOf <- receiveOf(ref.get.flatMap(_.complete(()).void)).pure[F]
       actor      = () => ActorOf[F](receiveOf.toReceiveOfEnvelope)
       props      = Props(actor())
       result    <- actorRefOf(props).use { actorRef =>
@@ -324,7 +326,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `fail during start`[F[_]: Concurrent: ToFuture: FromFuture](
+  private def `fail during start`[F[_]: Async: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -343,7 +345,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def stop[F[_]: Concurrent: ToFuture: FromFuture](
+  private def stop[F[_]: Async: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -375,7 +377,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     for {
       stopped <- Deferred[F, Unit]
-      receive  = receiveOf(stopped.complete(()))
+      receive  = receiveOf(stopped.complete(()).void)
       actor    = () => ActorOf[F](receive.toReceiveOfEnvelope)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
@@ -389,7 +391,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `ctx.stop`[F[_]: Concurrent: ToFuture: FromFuture](
+  private def `ctx.stop`[F[_]: Async: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -421,7 +423,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     for {
       stopped <- Deferred[F, Unit]
-      receive  = receiveOf(stopped.complete(()))
+      receive  = receiveOf(stopped.complete(()).void)
       actor    = () => ActorOf[F](receive.toReceiveOfEnvelope)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
@@ -435,7 +437,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `stop externally`[F[_]: Concurrent: ToFuture](
+  private def `stop externally`[F[_]: Async: ToFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -454,7 +456,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     for {
       stopped <- Deferred[F, Unit]
-      receive  = receiveOf(stopped.complete(()))
+      receive  = receiveOf(stopped.complete(()).void)
       actor    = () => ActorOf[F](receive.toReceiveOfEnvelope)
       props    = Props(actor())
       result  <- actorRefOf(props).use { actorRef =>
@@ -468,7 +470,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def setReceiveTimeout[F[_]: Concurrent: ToFuture: FromFuture](
+  private def setReceiveTimeout[F[_]: Async: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -505,7 +507,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  private def `watch & unwatch`[F[_]: Concurrent: ToFuture: FromFuture](
+  private def `watch & unwatch`[F[_]: Async: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     shift: F[Unit]
   ) = {
@@ -557,7 +559,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       stopped    <- Deferred[F, Unit]
       terminated <- Deferred[F, ActorRef]
-      receiveOf  <- receiveOf(terminated, stopped.complete(()))
+      receiveOf  <- receiveOf(terminated, stopped.complete(()).void)
         .convert[Any, Any, Boolean](_.castM[F, Msg], (_: Any).pure[F], _.pure[F])
         .pure[F]
       result  = for {

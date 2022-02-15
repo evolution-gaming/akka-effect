@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import cats.effect.IO
-import com.evolutiongaming.akkaeffect.IOSuite._
+import cats.effect.unsafe.implicits.global
 import com.evolutiongaming.catshelper.CatsHelper._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

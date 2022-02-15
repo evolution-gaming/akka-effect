@@ -5,7 +5,7 @@ import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion._
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
 import cats.effect.implicits._
-import cats.effect.{Concurrent, Resource, Sync, Timer}
+import cats.effect.{Async, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.cluster.{DataCenter, Role}
 import com.evolutiongaming.akkaeffect.persistence.TypeName
@@ -57,13 +57,13 @@ object ClusterSharding {
     val default = Config(1.minute, 30.seconds)
   }
 
-  def of[F[_]: Concurrent: Blocking: Timer: ToFuture: FromFuture](
+  def of[F[_]: Async: Blocking: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     config: Config = Config.default
   ): Resource[F, ClusterSharding[F]] = {
 
-    val actorRefOf = ActorRefOf.fromActorRefFactory(actorSystem)
-    val terminated = Terminated(actorRefOf)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
+    val terminated = Terminated[F](actorRefOf)
 
     def shardRegion(actorRef: => ActorRef) = {
       Resource.make {

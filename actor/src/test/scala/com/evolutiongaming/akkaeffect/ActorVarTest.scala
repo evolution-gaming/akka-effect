@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
-import cats.effect.{Concurrent, ContextShift, IO, Resource, Sync}
+import cats.effect.kernel.Deferred
+import cats.effect.{Async, GenSpawn, IO, Ref, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect.IOSuite._
@@ -10,7 +10,7 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
-
+import cats.effect.unsafe.implicits.global
 
 class ActorVarTest extends AsyncFunSuite with Matchers {
 
@@ -18,7 +18,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
     actorVar[IO].run()
   }
 
-  def actorVar[F[_]: Concurrent: ContextShift: ToFuture: ToTry]: F[Unit] = {
+  def actorVar[F[_]: Async: ToFuture: ToTry]: F[Unit] = {
 
     sealed trait Action
 
@@ -61,7 +61,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
 
     for {
       stopped  <- Deferred[F, Unit]
-      actorVar <- actorVar(stopped.complete(()))
+      actorVar <- actorVar(stopped.complete(()).void)
       deferred <- Deferred[F, Unit]
       actions  <- Actions()
       resource  = Resource.make {
@@ -85,15 +85,15 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
           }
         }
       }
-      _       <- ContextShift[F].shift
+      _       <- GenSpawn[F].cede
       _       <- set(Directive.update(1))
-      _       <- ContextShift[F].shift
+      _       <- GenSpawn[F].cede
       _       <- set(Directive.update(2))
-      _       <- ContextShift[F].shift
+      _       <- GenSpawn[F].cede
       _       <- set(Directive.ignore)
-      _       <- ContextShift[F].shift
+      _       <- GenSpawn[F].cede
       _       <- set(Directive.stop)
-      _       <- ContextShift[F].shift
+      _       <- GenSpawn[F].cede
       _       <- set(Directive.update(3))
       _       <- actorVar.postStop().start
       _       <- deferred.complete(())

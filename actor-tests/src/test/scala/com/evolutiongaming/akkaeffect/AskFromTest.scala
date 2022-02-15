@@ -1,12 +1,12 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorRef
-import cats.effect.{Concurrent, IO, Resource, Sync}
+import cats.effect.unsafe.implicits.global
+import cats.effect.{Async, IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
-
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -18,7 +18,7 @@ class AskFromTest extends AsyncFunSuite with ActorSuite with Matchers {
     askFrom[IO].run()
   }
 
-  private def askFrom[F[_] : Concurrent : ToFuture : FromFuture] = {
+  private def askFrom[F[_] : Async : ToFuture : FromFuture] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     val result = for {
       from     <- Probe.of(actorRefOf)

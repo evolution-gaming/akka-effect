@@ -2,6 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef, ReceiveTimeout}
 import cats.effect._
+import cats.effect.implicits.effectResourceOps
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect.Fail.implicits._
@@ -16,7 +17,7 @@ object ActorOf {
   type Stop = Boolean
 
 
-  def apply[F[_]: Concurrent: ToFuture](
+  def apply[F[_]: Async: ToFuture](
     receiveOf: ReceiveOf[F, Envelope[Any], Stop]
   ): Actor = {
 
@@ -24,7 +25,7 @@ object ActorOf {
 
     def onPreStart(actorCtx: ActorCtx[F])(implicit fail: Fail[F]) = {
       receiveOf(actorCtx)
-        .handleErrorWith { error =>
+        .handleErrorWith { (error: Throwable) =>
           s"failed to allocate receive".fail[F, State](error).toResource
         }
     }

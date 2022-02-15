@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, IO, Sync}
+import cats.effect.{Async, IO, Ref, Sync}
+import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
@@ -27,7 +27,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
     result.run()
   }
 
-  private def adapter[F[_]: Concurrent: ToFuture: ToTry](act: Act[F]): F[Unit] = {
+  private def adapter[F[_]: Async: ToFuture: ToTry](act: Act[F]): F[Unit] = {
 
     case class Event(fa: F[Unit])
 

@@ -54,7 +54,7 @@ private[akkaeffect] object Serially {
     }
 
     f => {
-      Async[F].asyncF[Unit] { callback =>
+      Async[F].async[Unit] { callback =>
         val task = (a: A) => {
           f(a)
             .map { a =>
@@ -69,8 +69,8 @@ private[akkaeffect] object Serially {
             }
         }
         ref.modify {
-          case S.Idle(value)   => (S.active, start(value, List(task)))
-          case S.Active(tasks) => (S.active(task, tasks), unitF)
+          case S.Idle(value)   => (S.active, start(value, List(task)).as(None))
+          case S.Active(tasks) => (S.active(task, tasks), unitF.as(None))
         }
       }
     }

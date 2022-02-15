@@ -2,6 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import cats.effect.IO
 import cats.syntax.all._
+import cats.effect.unsafe.implicits.global
 import com.evolutiongaming.catshelper.CatsHelper._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect.util
 
-import cats.effect.concurrent.Deferred
-import cats.effect.Concurrent
+import cats.effect.{Async, Deferred}
 import cats.syntax.all._
 
 import java.util.concurrent.atomic.AtomicReference
@@ -9,7 +8,7 @@ import scala.annotation.tailrec
 
 private[akkaeffect] object DeferredUncancelable {
 
-  def apply[F[_], A](implicit F: Concurrent[F]): F[Deferred[F, A]] = {
+  def apply[F[_], A](implicit F: Async[F]): F[Deferred[F, A]] = {
 
     sealed abstract class S
 
@@ -26,7 +25,7 @@ private[akkaeffect] object DeferredUncancelable {
             ref.get match {
               case s: S.Set   => F.pure(s.a)
               case _: S.Unset =>
-                F.async[A] { callback =>
+                F.async_[A] { callback =>
                   @tailrec
                   def get(): Unit = {
                     ref.get match {
@@ -47,9 +46,9 @@ private[akkaeffect] object DeferredUncancelable {
         def complete(a: A) = {
 
           @tailrec
-          def complete(a: A): F[Unit] = {
+          def complete(a: A): F[Boolean] = {
             ref.get match {
-              case _: S.Set   => throw new IllegalStateException("Attempting to complete a Deferred that has already been completed")
+              case _: S.Set   => false.pure
               case s: S.Unset =>
                 if (ref.compareAndSet(s, S.Set(a))) {
                   val fs = s.fs
@@ -60,9 +59,9 @@ private[akkaeffect] object DeferredUncancelable {
                       val task = F.void(F.start(F.delay(f(a))))
                       result = F.flatMap(result) { _ => task }
                     }
-                    result
+                    result.as(true)
                   } else {
-                    F.unit
+                    true.pure
                   }
 
                 } else {
@@ -72,6 +71,11 @@ private[akkaeffect] object DeferredUncancelable {
           }
 
           F.defer { complete(a) }
+        }
+
+        override def tryGet: F[Option[A]] = ref.get() match {
+          case S.Set(a) => a.some.pure
+          case S.Unset(_) => Option.empty[A].pure
         }
       }
     }

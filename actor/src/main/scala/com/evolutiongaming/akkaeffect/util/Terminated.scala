@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.util
 
 import akka.actor.{Actor, ActorRef, Props}
 import cats.effect.Concurrent
-import cats.effect.concurrent.Deferred
+import cats.effect.kernel.Deferred
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf}
 import com.evolutiongaming.catshelper.CatsHelper._
