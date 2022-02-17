@@ -249,11 +249,11 @@ object Engine {
 
         new Engine[F, S, E] {
 
-          val state = stateRef.get.map { _.value }
+          def state = stateRef.get.map { _.value }
 
           def apply[A](load: F[Validate[F, S, E, A]]) = {
             for {
-              d <- Deferred.uncancelable[F, Either[Throwable, A]]
+              d <- Deferred[F, Either[Throwable, A]]
               f <- loadOf(load, d).start
               _ <- offer(f)
             } yield for {

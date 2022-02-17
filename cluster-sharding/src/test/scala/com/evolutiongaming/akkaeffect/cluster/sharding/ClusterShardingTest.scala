@@ -1,6 +1,6 @@
 package com.evolutiongaming.akkaeffect.cluster.sharding
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, Props}
 import akka.cluster.sharding.ShardCoordinator.LeastShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.Msg
 import akka.cluster.sharding.ClusterShardingSettings
