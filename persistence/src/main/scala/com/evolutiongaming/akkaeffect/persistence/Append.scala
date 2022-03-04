@@ -5,7 +5,7 @@ import cats.effect.kernel.Async
 import cats.effect.{Deferred, Resource, Sync}
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
-import com.evolutiongaming.akkaeffect.util.{AtomicRef, DeferredUncancelable}
+import com.evolutiongaming.akkaeffect.util.AtomicRef
 import com.evolutiongaming.akkaeffect.{Act, Fail}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{Log, MonadThrowable, ToFuture}
@@ -75,7 +75,7 @@ object Append {
               val size = events.size
               val eventsList = events.values.toList
               for {
-                deferred <- DeferredUncancelable[F, Either[Throwable, SeqNr]]
+                deferred <- Deferred[F, Either[Throwable, SeqNr]]
                 _        <- act {
                   ref.update { _.enqueue(deferred) }
                   var left = size

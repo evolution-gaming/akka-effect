@@ -19,10 +19,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
   test("adapter") {
     val result = for {
       act <- Act.serial[IO]
-      _   <- {
-        implicit val toTry = ToTryFromToFuture.syncOrError[IO]
-        adapter(act)
-      }
+      _   <- adapter(act)
     } yield {}
     result.run()
   }

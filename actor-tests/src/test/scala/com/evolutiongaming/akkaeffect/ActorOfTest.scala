@@ -5,7 +5,7 @@ import akka.testkit.TestActors
 import cats.effect.implicits.effectResourceOps
 import cats.effect.kernel.{Deferred, Ref}
 import cats.effect.unsafe.implicits.global
-import cats.effect.{Async, IO, Resource, Spawn, Sync}
+import cats.effect.{Async, IO, Resource, Spawn, Sync, Temporal}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
@@ -22,11 +22,11 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
   import ActorOfTest._
 
   for {
-    async <- List(false, true)
+    async <- List(true)
   } yield {
 
     val prefix = if (async) "async" else "sync"
-    val shift = if (async) Spawn[IO].cede else ().pure[IO]
+    val shift = if (async) Temporal[IO].sleep(1.millis) else ().pure[IO]
 
     test(s"$prefix all") {
       all[IO](actorSystem, shift).run()
@@ -80,7 +80,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       receiveTimeout: F[Unit]
     ): F[Unit] = {
 
-      val timeout = 1.second
+      val timeout = 3.seconds
 
       def withCtx[A : ClassTag](f: ActorCtx[F] => F[A]): F[A] = {
         for {
@@ -204,7 +204,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     ActorEffect
       .of[F](actorRefOf, receiveOf)
       .use { actorRef =>
-        val timeout = 1.second
+        val timeout = 3.seconds
 
         def getAndInc(delay: F[Unit]) = {
           actorRef.ask(GetAndInc(delay), timeout)
@@ -554,7 +554,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       }
     }
 
-    val timeout = 1.second
+    val timeout = 3.seconds
 
     for {
       stopped    <- Deferred[F, Unit]
