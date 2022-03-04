@@ -26,44 +26,47 @@ private[akkaeffect] object Serially {
 
     val unit = ().asRight[(A, Task)]
 
-    def start(value: A, task: Task) = {
-      (value, task).tailRecM { case (value, task) =>
+    def start(a: A, task: Task) = {
+      (a, task).tailRecM { case (a, task) =>
         for {
-          value  <- task(value)
-          result <- ref.modify {
-            case s: S.Active => (S.Active, (value, s.task).asLeft[Unit])
-            case S.Active    => (S.Idle(value), unit)
-            case _: S.Idle   => (S.Idle(value), unit)
+          a <- task(a)
+          a <- ref.modify {
+            case s: S.Active => (S.Active, (a, s.task).asLeft[Unit])
+            case S.Active    => (S.Idle(a), unit)
+            case _: S.Idle   => (S.Idle(a), unit)
           }
-        } yield result
+        } yield a
       }
     }
 
-    f => {
-      for {
-        d <- Deferred[F, Either[Throwable, Unit]]
-        t  = (a: A) => {
-          for {
-            b <- f(a).attempt
-            _ <- d.complete(b.void)
-          } yield {
-            b.getOrElse(a)
+    class Main
+    new Main with Serially[F, A] {
+      def apply(f: A => F[A]) = {
+        for {
+          d <- Deferred[F, Either[Throwable, Unit]]
+          t  = (a: A) => {
+            for {
+              b <- f(a).attempt
+              _ <- d.complete(b.void)
+            } yield {
+              b.getOrElse(a)
+            }
           }
-        }
-        a <- ref.modify {
-          case s: S.Idle   => (S.Active, start(s.value, t))
-          case s: S.Active =>
-            val task = (a: A) => for {
-              a <- s.task(a)
-              a <- t(a)
-            } yield a
-            (S.Active(task), Concurrent[F].unit)
-          case S.Active    => (S.Active(t), Concurrent[F].unit)
-        }
-        _ <- a
-        a <- d.get
-        a <- a.liftTo[F]
-      } yield a
+          a <- ref.modify {
+            case s: S.Idle   => (S.Active, start(s.value, t))
+            case s: S.Active =>
+              val task = (a: A) => for {
+                a <- s.task(a)
+                a <- t(a)
+              } yield a
+              (S.Active(task), Concurrent[F].unit)
+            case S.Active    => (S.Active(t), Concurrent[F].unit)
+          }
+          _ <- a
+          a <- d.get
+          a <- a.liftTo[F]
+        } yield a
+      }
     }
   }
 }

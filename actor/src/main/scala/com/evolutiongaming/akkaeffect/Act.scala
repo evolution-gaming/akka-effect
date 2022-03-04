@@ -17,20 +17,19 @@ private[akkaeffect] trait Act[F[_]] {
 
 private[akkaeffect] object Act {
 
-  private sealed abstract class Empty
-
-  def empty[F[_]: Sync]: Act[F] = new Empty with Act[F] {
-    def apply[A](f: => A) = Sync[F].delay { f }
+  def empty[F[_]: Sync]: Act[F] = {
+    class Empty
+    new Empty with Act[F] {
+      def apply[A](f: => A) = Sync[F].delay { f }
+    }
   }
-
-
-  private sealed abstract class Serial1
 
   def serial[F[_]: Concurrent: ToTry]: F[Act[F]] = {
     Serial
       .of[F]
       .map { serial =>
-        new Serial1 with Act[F] {
+        class Serial
+        new Serial with Act[F] {
           def apply[A](f: => A) = {
             serial { Sync[F].delay { f } }
               .toTry
@@ -40,8 +39,6 @@ private[akkaeffect] object Act {
       }
   }
 
-
-  private sealed abstract class Adapter1
 
   sealed trait AdapterLike
 
@@ -81,22 +78,30 @@ private[akkaeffect] object Act {
           def apply(a: Any) = sync { receive(a) }
         }
 
-        val value = new Adapter1 with Act[F] {
-          def apply[A](f: => A) = {
-            if (threadLocal.get().contains(self: Adapter[F])) {
-              Sync[F].delay { f }
-            } else {
-              Async[F].async[A] { callback =>
-                val f1 = () => {
-                  val a = Either.catchNonFatal(f)
-                  callback(a)
-                  a match {
-                    case Right(_) =>
-                    case Left(a) => throw a
+        val value = {
+          class Main
+          new Main with Act[F] {
+            def apply[A](f: => A) = {
+              for {
+                adapter <- Sync[F].delay { threadLocal.get() }
+                result  <- {
+                  if (adapter.contains(self: Adapter[F])) {
+                    Sync[F].delay { f }
+                  } else {
+                    Async[F].async[A] { callback =>
+                      val f1 = () => {
+                        val a = Either.catchNonFatal(f)
+                        callback(a)
+                        a match {
+                          case Right(_) =>
+                          case Left(a)  => throw a
+                        }
+                      }
+                      tell(Msg(f1))
+                    }
                   }
                 }
-                tell(Msg(f1))
-              }
+              } yield result
             }
           }
         }

@@ -28,10 +28,13 @@ class ActTest extends AsyncFunSuite with Matchers {
       }
       act       = Act.Adapter[IO](tell)
       _        <- IO {
-        act
-          .sync { act.value { 0 } }
-          .toFuture
-          .value shouldEqual 0.pure[Try].some
+        act.sync {
+          act
+            .value
+            .apply { 0 }
+            .toFuture
+            .value shouldEqual 0.pure[Try].some
+        }
       }
       future   <- IO { act.value { 1 }.toFuture }
       _        <- IO { future.value shouldEqual none }

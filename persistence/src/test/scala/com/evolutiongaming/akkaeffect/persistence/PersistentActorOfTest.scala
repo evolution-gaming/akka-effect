@@ -113,8 +113,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                           _      <- stateRef.update { _ + 1 }
                           state  <- stateRef.get
                           result <- snapshotter.save(seqNr, state)
-                          seqNr  <- journaller.append(Events.batched(Nel.of("b"), Nel.of("c", "d")))
-                          seqNr  <- seqNr
+                          seqNr  <- journaller.append(Events.batched(Nel.of("b"), Nel.of("c", "d"))).flatten
                           _      <- result
                           _      <- stateRef.update { _ + 1 }
                           _      <- reply(seqNr)
