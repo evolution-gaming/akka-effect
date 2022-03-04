@@ -7,7 +7,7 @@ import akka.testkit.TestActors
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.kernel.Ref
 import cats.effect.{Async, Deferred, IO, Resource, Sync, Temporal}
-import cats.effect.implicits.effectResourceOps
+import cats.effect.syntax.all._
 import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
@@ -114,8 +114,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                           _      <- stateRef.update { _ + 1 }
                           state  <- stateRef.get
                           result <- snapshotter.save(seqNr, state)
-                          seqNr  <- journaller.append(Events.batched(Nel.of("b"), Nel.of("c", "d")))
-                          seqNr  <- seqNr
+                          seqNr  <- journaller.append(Events.batched(Nel.of("b"), Nel.of("c", "d"))).flatten
                           _      <- result
                           _      <- stateRef.update { _ + 1 }
                           _      <- reply(seqNr)

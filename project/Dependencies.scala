@@ -3,7 +3,7 @@ import sbt._
 object Dependencies {
   
   val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.10"
-  val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "3.0.1"
+  val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "3.0.2"
   val `executor-tools`            = "com.evolutiongaming"   %% "executor-tools"            % "1.0.3"
   val retry                       = "com.evolutiongaming"   %% "retry"                     % "3.0.1"
   val `akka-persistence-inmemory` = "com.github.dnvriend"   %% "akka-persistence-inmemory" % "2.5.15.2"
@@ -19,7 +19,7 @@ object Dependencies {
   }
 
   object CatsEffect {
-    private val version = "3.3.4"
+    private val version = "3.3.6"
     val effect = "org.typelevel" %% "cats-effect" % version
   }
 

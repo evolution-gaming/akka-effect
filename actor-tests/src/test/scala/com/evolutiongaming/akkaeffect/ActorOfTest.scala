@@ -5,7 +5,7 @@ import akka.testkit.TestActors
 import cats.effect.implicits.effectResourceOps
 import cats.effect.kernel.{Deferred, Ref}
 import cats.effect.unsafe.implicits.global
-import cats.effect.{Async, IO, Resource, Spawn, Sync, Temporal}
+import cats.effect.{Async, IO, Resource, Sync, Temporal}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
