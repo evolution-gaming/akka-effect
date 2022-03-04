@@ -23,8 +23,6 @@ import scala.reflect.ClassTag
 
 class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
-  private implicit val toTry = ToTryFromToFuture.syncOrError[IO]
-
   test("all") {
     `persistentActorOf`[IO](actorSystem).run()
   }
