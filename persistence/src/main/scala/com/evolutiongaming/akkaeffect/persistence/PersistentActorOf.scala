@@ -7,6 +7,7 @@ import cats.effect.implicits.effectResourceOps
 import cats.effect.{Async, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
+import com.evolutiongaming.akkaeffect.util.AtomicRef
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, Memoize, ToFuture, ToTry}
 
@@ -38,22 +39,20 @@ object PersistentActorOf {
 
     new PersistentActor { actor =>
 
-      lazy val (act, eventSourced) = {
-        val act = Act.Adapter(self)
-        val eventSourced = {
-          val actorCtx = ActorCtx[F](act.value, context)
-          act.sync {
-            eventSourcedOf(actorCtx)
-              .adaptError { case error =>
-                val path = self.path.toStringWithoutAddress
-                ActorError(s"$path failed to allocate eventSourced: $error", error)
-              }
-              .toTry
-              .get
-          }
+      lazy val (actorCtx, act, eventSourced) = {
+        val actorCtxRef = AtomicRef(ActorCtx[F](context))
+        val actorCtx = ActorCtx.flatten(context, Sync[F].delay { actorCtxRef.get() })
+        val act = Act.Adapter(context.self)
+        val eventSourced = act.sync {
+          eventSourcedOf(actorCtx)
+            .adaptError { case error =>
+              val path = self.path.toStringWithoutAddress
+              ActorError(s"$path failed to allocate eventSourced: $error", error)
+            }
+            .toTry
+            .get
         }
-
-        (act, eventSourced)
+        (actorCtxRef, act, eventSourced)
       }
 
       private def actorError(msg: String, cause: Option[Throwable]): Throwable = {
@@ -88,10 +87,11 @@ object PersistentActorOf {
           .get
       }
 
-      val persistence = PersistenceVar[F, Any, Any, Any](act.value, context)
+      val persistence: PersistenceVar[F, Any, Any, Any] = PersistenceVar[F, Any, Any, Any](act.value, context)
 
       override def preStart(): Unit = {
         super.preStart()
+        actorCtx.set(ActorCtx[F](act.value, context))
         act.sync {
           persistence.preStart(eventSourced.value)
         }

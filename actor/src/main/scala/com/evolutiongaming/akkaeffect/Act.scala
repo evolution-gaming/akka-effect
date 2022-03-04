@@ -60,7 +60,7 @@ private[akkaeffect] object Act {
       override def initialValue() = none[AdapterLike]
     }
 
-    def apply[F[_]: Async](actorRef: ActorRef): Adapter[F] = {
+    def apply[F[_]: Async](actorRef: => ActorRef): Adapter[F] = {
       val tell = actorRef.tell(_, ActorRef.noSender)
       apply(tell)
     }

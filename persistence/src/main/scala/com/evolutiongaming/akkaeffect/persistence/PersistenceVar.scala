@@ -33,9 +33,9 @@ private[akkaeffect] object PersistenceVar {
 
   def apply[F[_]: Async: ToFuture: Fail, S, E, C](
     act: Act[F],
-    context: ActorContext
+    actorContext: ActorContext
   ): PersistenceVar[F, S, E, C] = {
-    apply(ActorVar[F, Persistence[F, S, E, C]](act, context), Some(context))
+    apply(ActorVar[F, Persistence[F, S, E, C]](act, actorContext), Some(actorContext))
   }
 
   def apply[F[_]: Sync: Fail, S, E, C](
