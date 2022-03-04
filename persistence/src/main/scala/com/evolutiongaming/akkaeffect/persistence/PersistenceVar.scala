@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.{ActorContext, ActorRef}
-import cats.effect.{Async, Resource, Sync}
+import cats.effect.{Concurrent, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect._
@@ -31,7 +31,7 @@ private[akkaeffect] trait PersistenceVar[F[_], S, E, C] {
 
 private[akkaeffect] object PersistenceVar {
 
-  def apply[F[_]: Async: ToFuture: Fail, S, E, C](
+  def apply[F[_]: Concurrent: ToFuture: Fail, S, E, C](
     act: Act[F],
     actorContext: ActorContext
   ): PersistenceVar[F, S, E, C] = {
