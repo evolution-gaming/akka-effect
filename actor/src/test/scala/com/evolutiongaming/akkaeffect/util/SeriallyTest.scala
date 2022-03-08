@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect.util
 
 import cats.effect.IO
+import cats.effect.kernel.Deferred
 import org.scalatest.funsuite.AsyncFunSuite
-import cats.effect.concurrent.Deferred
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import org.scalatest.matchers.should.Matchers

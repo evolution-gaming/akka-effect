@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect
 
 import cats.effect.{Resource, Sync}
 import cats.syntax.all._
-import cats.{Applicative, Monad}
+import cats.Monad
 
 trait ReceiveOf[F[_], -A, B] {
 
@@ -32,10 +32,7 @@ object ReceiveOf {
       ReceiveOf[F] { actorCtx => self(actorCtx).flatMap(f) }
     }
 
-    def map[A1, B1](
-      f: Receive[F, A, B] => Receive[F, A1, B1])(implicit
-      F: Applicative[F]
-    ): ReceiveOf[F, A1, B1] = {
+    def map[A1, B1](f: Receive[F, A, B] => Receive[F, A1, B1]): ReceiveOf[F, A1, B1] = {
       ReceiveOf[F] { actorCtx => self(actorCtx).map(f) }
     }
   }

@@ -1,7 +1,8 @@
 package com.evolutiongaming.akkaeffect.util
 
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.Concurrent
+import cats.effect.Async
+import cats.effect.syntax.all._
+import cats.effect.kernel.Ref
 import cats.syntax.all._
 
 private[akkaeffect] trait Serially[F[_], A] {
@@ -43,7 +44,7 @@ private[akkaeffect] object Serially {
     new Main with Serially[F, A] {
       def apply(f: A => F[A]) = {
         for {
-          d <- Deferred[F, Either[Throwable, Unit]]
+          d <- Async[F].deferred[Either[Throwable, Unit]]
           t  = (a: A) => {
             for {
               b <- f(a).attempt
@@ -59,8 +60,8 @@ private[akkaeffect] object Serially {
                 a <- s.task(a)
                 a <- t(a)
               } yield a
-              (S.Active(task), Concurrent[F].unit)
-            case S.Active    => (S.Active(t), Concurrent[F].unit)
+              (S.Active(task), Async[F].unit)
+            case S.Active    => (S.Active(t), Async[F].unit)
           }
           _ <- a
           a <- d.get

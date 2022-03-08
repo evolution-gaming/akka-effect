@@ -3,7 +3,8 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.{ActorSystem, Status}
 import akka.testkit.TestActors
 import cats.arrow.FunctionK
-import cats.effect.{Concurrent, IO, Sync}
+import cats.effect.{Async, IO, Sync}
+import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
@@ -23,7 +24,7 @@ class ReplyStatusTest extends AsyncFunSuite with ActorSuite with Matchers {
     `fromActorRef`[IO](actorSystem).run()
   }
 
-  private def `toString`[F[_] : Concurrent](actorSystem: ActorSystem) = {
+  private def `toString`[F[_] : Async](actorSystem: ActorSystem) = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     val actorRef = actorRefOf(TestActors.blackholeProps)
@@ -35,7 +36,7 @@ class ReplyStatusTest extends AsyncFunSuite with ActorSuite with Matchers {
     }
   }
 
-  private def `fromActorRef`[F[_] : Concurrent : ToFuture : FromFuture](actorSystem: ActorSystem) = {
+  private def `fromActorRef`[F[_] : Async : ToFuture : FromFuture](actorSystem: ActorSystem) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     val resources = for {
       probe <- Probe.of[F](actorRefOf)

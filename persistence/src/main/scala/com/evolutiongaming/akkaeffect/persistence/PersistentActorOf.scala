@@ -3,7 +3,8 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.actor.ReceiveTimeout
 import akka.persistence.{PersistentActor, RecoveryCompleted}
 import akka.{persistence => ap}
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.implicits.effectResourceOps
+import cats.effect.{Async, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.akkaeffect.util.AtomicRef
@@ -31,7 +32,7 @@ object PersistentActorOf {
     */
   type Type[F[_], S, E, C] = EventSourcedOf[F, Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], ActorOf.Stop]]]]
 
-  def apply[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
+  def apply[F[_]: Async: ToFuture: FromFuture: ToTry](
     eventSourcedOf: Type[F, Any, Any, Any],
     timeout: FiniteDuration = 1.minute
   ): PersistentActor = {

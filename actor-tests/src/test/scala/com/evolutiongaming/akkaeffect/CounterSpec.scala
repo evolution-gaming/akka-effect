@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorSystem
-import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, IO, Resource, Sync}
+import cats.effect.unsafe.implicits.global
+import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
@@ -66,7 +66,7 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
       }
   }
 
-  private def testCounterActor[F[_]: Concurrent: ToFuture: FromFuture](actorSystem: ActorSystem) = {
+  private def testCounterActor[F[_]: Async: ToFuture: FromFuture](actorSystem: ActorSystem) = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 

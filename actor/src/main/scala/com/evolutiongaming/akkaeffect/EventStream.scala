@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorRef, ActorRefFactory, ActorSystem, Props}
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.{Async, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.ToFuture
 
@@ -16,11 +16,11 @@ trait EventStream[F[_]] {
 
 object EventStream {
 
-  def apply[F[_]: Concurrent: ToFuture](actorSystem: ActorSystem): EventStream[F] = {
+  def apply[F[_]: Async: ToFuture](actorSystem: ActorSystem): EventStream[F] = {
     apply(actorSystem.eventStream, actorSystem)
   }
 
-  def apply[F[_]: Concurrent: ToFuture](
+  def apply[F[_]: Async: ToFuture](
     eventStream: akka.event.EventStream,
     refFactory: ActorRefFactory,
   ): EventStream[F] = {

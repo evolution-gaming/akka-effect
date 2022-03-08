@@ -1,10 +1,10 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import cats.Monad
 import cats.effect.Resource
+import cats.effect.implicits.effectResourceOps
 import cats.syntax.all._
-import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.{Envelope, Receive}
-import com.evolutiongaming.catshelper.CatsHelper._
 
 /**
   * Describes start of recovery phase
@@ -76,14 +76,14 @@ object RecoveryStarted {
     }
 
 
-    def map[A1](f: A => A1)(implicit F: Applicative[F]): RecoveryStarted[F, S, E, A1] = {
+    def map[A1](f: A => A1): RecoveryStarted[F, S, E, A1] = {
       (seqNr, snapshotOffer) => {
         self(seqNr, snapshotOffer).map { _.map(f) }
       }
     }
 
 
-    def mapM[A1](f: A => Resource[F, A1])(implicit F: Applicative[F]): RecoveryStarted[F, S, E, A1] = {
+    def mapM[A1](f: A => Resource[F, A1]): RecoveryStarted[F, S, E, A1] = {
       (seqNr, snapshotOffer) => {
         self(seqNr, snapshotOffer).map { _.mapM(f) }
       }

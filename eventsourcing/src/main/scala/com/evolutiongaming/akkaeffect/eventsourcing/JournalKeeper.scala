@@ -2,9 +2,8 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 import akka.persistence.SnapshotSelectionCriteria
 import cats.Applicative
-import cats.effect.concurrent.Ref
 import cats.effect.implicits._
-import cats.effect.{Clock, Concurrent}
+import cats.effect.{Clock, Concurrent, Ref}
 import cats.syntax.all._
 import cats.kernel.Order
 import com.evolutiongaming.akkaeffect.ActorStoppedError
@@ -286,7 +285,7 @@ object JournalKeeper {
                 result
                   .productL { deletedTo.update {  _.fold(seqNr.some) { _.max(seqNr).some } } }
                   .start
-                  .map { _.join }
+                  .map { _.joinWithNever }
               }
           }
         }
@@ -307,7 +306,7 @@ object JournalKeeper {
                     }
                   }
                   .start
-                  .map { _.join }
+                  .map { _.joinWithNever }
               }
           }
 
@@ -323,7 +322,7 @@ object JournalKeeper {
                     }
                   }
                   .start
-                  .map { _.join }
+                  .map { _.joinWithNever }
               }
           }
 
@@ -344,14 +343,13 @@ object JournalKeeper {
                     }
                   }
                   .start
-                  .map { _.join }
+                  .map { _.joinWithNever }
               }
           }
         }
       }
     }
   }
-
 
   final case class Candidate[+A](seqNr: SeqNr, value: A)
 

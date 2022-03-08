@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import cats.Monad
 import cats.effect.Resource
 import cats.implicits.catsSyntaxApplicativeId
-import cats.{Applicative, Monad}
 import com.evolutiongaming.akkaeffect.{Envelope, Receive}
 
 /**
@@ -107,9 +107,7 @@ object Recovering {
     }
 
 
-    def map[A1](
-      f: A => A1)(implicit F: Applicative[F]
-    ): Recovering[F, S, E, A1] = new Recovering[F, S, E, A1] {
+    def map[A1](f: A => A1): Recovering[F, S, E, A1] = new Recovering[F, S, E, A1] {
 
       def replay = self.replay
 
