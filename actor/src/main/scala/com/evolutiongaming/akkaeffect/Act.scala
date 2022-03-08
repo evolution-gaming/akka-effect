@@ -1,7 +1,7 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{Actor, ActorRef}
-import cats.effect.{Async, Concurrent, Sync}
+import cats.effect.{Async, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{Serial, ToTry}
@@ -24,7 +24,7 @@ private[akkaeffect] object Act {
     }
   }
 
-  def serial[F[_]: Concurrent: ToTry]: F[Act[F]] = {
+  def serial[F[_]: Async: ToTry]: F[Act[F]] = {
     Serial
       .of[F]
       .map { serial =>
@@ -88,7 +88,7 @@ private[akkaeffect] object Act {
                   if (adapter.contains(self: Adapter[F])) {
                     Sync[F].delay { f }
                   } else {
-                    Async[F].async[A] { callback =>
+                    Async[F].async_[A] { callback =>
                       val f1 = () => {
                         val a = Either.catchNonFatal(f)
                         callback(a)

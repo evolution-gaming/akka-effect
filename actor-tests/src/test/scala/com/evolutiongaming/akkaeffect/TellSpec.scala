@@ -3,7 +3,8 @@ package com.evolutiongaming.akkaeffect
 import akka.actor.ActorSystem
 import akka.testkit.TestActors
 import cats.arrow.FunctionK
-import cats.effect.{Concurrent, IO, Sync}
+import cats.effect.unsafe.implicits.global
+import cats.effect.{Async, IO, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
@@ -33,7 +34,7 @@ class TellSpec extends AsyncFunSuite with ActorSuite with Matchers {
     }
   }
 
-  private def `fromActorRef`[F[_] : Concurrent : ToFuture : FromFuture ](actorSystem: ActorSystem) = {
+  private def `fromActorRef`[F[_] : Async : ToFuture : FromFuture ](actorSystem: ActorSystem) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     val resources = for {
       actorRef <- actorRefOf(TestActors.blackholeProps)

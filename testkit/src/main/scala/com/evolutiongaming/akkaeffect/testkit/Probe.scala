@@ -1,8 +1,9 @@
 package com.evolutiongaming.akkaeffect.testkit
 
 import akka.actor.{ActorRef, Props}
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.implicits.effectResourceOps
+import cats.effect.kernel.Deferred
+import cats.effect.{Async, Ref, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -25,7 +26,7 @@ trait Probe[F[_]] {
 
 object Probe {
 
-  def of[F[_] : Concurrent : ToFuture : FromFuture](
+  def of[F[_] : Async : ToFuture : FromFuture](
     actorRefOf: ActorRefOf[F]
   ): Resource[F, Probe[F]] = {
 

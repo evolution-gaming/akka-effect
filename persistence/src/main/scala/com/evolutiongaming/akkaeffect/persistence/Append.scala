@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence._
-import cats.effect.concurrent.Deferred
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.kernel.Async
+import cats.effect.{Deferred, Resource, Sync}
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.akkaeffect.util.AtomicRef
@@ -38,7 +38,7 @@ object Append {
   def empty[F[_]: Applicative, A]: Append[F, A] = const(SeqNr.Min.pure[F].pure[F])
 
 
-  private[akkaeffect] def adapter[F[_]: Concurrent: ToFuture, A](
+  private[akkaeffect] def adapter[F[_]: Async: ToFuture, A](
     act: Act[F],
     actor: PersistentActor,
     stopped: F[Throwable]
@@ -46,7 +46,7 @@ object Append {
     adapter(act, Eventsourced(actor), stopped)
   }
 
-  private[akkaeffect] def adapter[F[_]: Concurrent: ToFuture, A](
+  private[akkaeffect] def adapter[F[_]: Async: ToFuture, A](
     act: Act[F],
     eventsourced: Eventsourced,
     stopped: F[Throwable]
@@ -62,7 +62,7 @@ object Append {
         .foldMapM { queue =>
           for {
             error  <- error
-            result <- queue.foldMapM { _.complete(error.asLeft) }
+            result <- queue.foldMapM { _.complete(error.asLeft).void }
           } yield result
         }
     }

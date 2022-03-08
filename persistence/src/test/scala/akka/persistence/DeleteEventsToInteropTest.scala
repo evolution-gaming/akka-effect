@@ -2,8 +2,9 @@ package akka.persistence
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.persistence.JournalProtocol.DeleteMessagesTo
-import cats.effect.concurrent.Deferred
-import cats.effect.{Concurrent, IO, Sync}
+import cats.effect.implicits.effectResourceOps
+import cats.effect.{Async, Deferred, IO, Sync}
+import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect._
@@ -23,7 +24,7 @@ class DeleteEventsToInteropTest extends AsyncFunSuite with ActorSuite with Match
     deleteEventsToInterop[IO](actorSystem).run()
   }
 
-  private def deleteEventsToInterop[F[_]: Concurrent: ToFuture: FromFuture](actorSystem: ActorSystem): F[Unit] = {
+  private def deleteEventsToInterop[F[_]: Async: ToFuture: FromFuture](actorSystem: ActorSystem): F[Unit] = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 

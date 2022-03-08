@@ -2,8 +2,9 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.persistence.{SnapshotMetadata => _, Snapshotter => _, _}
-import cats.effect.concurrent.Deferred
-import cats.effect.{Concurrent, IO, Sync}
+import cats.effect.implicits.effectResourceOps
+import cats.effect.{Async, Deferred, IO, Sync}
+import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.testkit.Probe
@@ -22,7 +23,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
     snapshotter[IO](actorSystem).run()
   }
 
-  private def snapshotter[F[_]: Concurrent: ToFuture: FromFuture](actorSystem: ActorSystem): F[Unit] = {
+  private def snapshotter[F[_]: Async: ToFuture: FromFuture](actorSystem: ActorSystem): F[Unit] = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 

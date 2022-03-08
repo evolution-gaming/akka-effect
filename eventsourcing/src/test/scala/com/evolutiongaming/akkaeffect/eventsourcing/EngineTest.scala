@@ -2,13 +2,14 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 
 import akka.actor.ActorSystem
 import akka.stream.SystemMaterializer
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, IO, Resource, Sync, Timer}
+import cats.effect.implicits.effectResourceOps
+import cats.effect.kernel.Ref
+import cats.effect.unsafe.implicits.global
+import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorSuite
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import com.evolutiongaming.retry.{Retry, Strategy}
 import org.scalatest.funsuite.AsyncFunSuite
@@ -17,7 +18,6 @@ import org.scalatest.matchers.should.Matchers
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
-
 class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
 
   test("order of stages") {
@@ -25,23 +25,23 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
   }
 
   test("append error prevents further appends") {
-    `append error prevents further appends`.run()
+    `append error prevents further appends`[IO].run()
   }
 
   test("client errors do not have global impact") {
-    `client errors do not have global impact`.run()
+    `client errors do not have global impact`[IO].run()
   }
 
   test("after stop engine finishes with inflight elements and releases") {
-    `after stop engine finishes with inflight elements and releases`.run()
+    `after stop engine finishes with inflight elements and releases`[IO].run()
   }
 
   test("release finishes with inflight elements") {
-    `release finishes with inflight elements`.run()
+    `release finishes with inflight elements`[IO].run()
   }
 
 
-  private def `order of stages`[F[_]: Concurrent: ToFuture: FromFuture: Timer](actorSystem: ActorSystem): F[Unit] = {
+  private def `order of stages`[F[_]: Async: ToFuture: FromFuture](actorSystem: ActorSystem): F[Unit] = {
 
     type E = SeqNr
 
@@ -206,7 +206,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
   }
 
 
-  private def `append error prevents further appends`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
+  private def `append error prevents further appends`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
 
     type S = Unit
     type E = Unit
@@ -262,7 +262,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
   }
 
 
-  private def `client errors do not have global impact`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
+  private def `client errors do not have global impact`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
 
     type S = Unit
     type E = Unit
@@ -327,7 +327,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
   }
 
 
-  private def `after stop engine finishes with inflight elements and releases`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
+  private def `after stop engine finishes with inflight elements and releases`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
 
     type S = Unit
     type E = Unit
@@ -377,7 +377,7 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
   }
 
 
-  private def `release finishes with inflight elements`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
+  private def `release finishes with inflight elements`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
 
     val error: Throwable = new RuntimeException with NoStackTrace
 

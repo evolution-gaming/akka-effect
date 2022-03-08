@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorContext, ActorRef, ActorSystem, Props, Status}
 import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.{ShardId, ShardState}
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
-import cats.effect.{Concurrent, Resource}
+import cats.effect.{Async, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.cluster.{DataCenter, Role}
 import com.evolutiongaming.akkaeffect.persistence.TypeName
@@ -29,7 +29,7 @@ trait ClusterShardingLocal[F[_]] {
 
 object ClusterShardingLocal {
 
-  def of[F[_]: Concurrent: ToFuture: FromFuture: ToTry](
+  def of[F[_]: Async: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
   ): Resource[F, ClusterShardingLocal[F]] = {
 

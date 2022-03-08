@@ -2,6 +2,8 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorSystem
 import cats.effect.IO
+import cats.effect.implicits.effectResourceOps
+import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
 import com.evolutiongaming.catshelper.CatsHelper._

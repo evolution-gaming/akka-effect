@@ -1,16 +1,16 @@
 package com.evolutiongaming.akkaeffect.cluster.sharding
 
-
 import akka.actor.{Actor, ActorRef, Props}
 import akka.cluster.sharding.ShardCoordinator.LeastShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.ShardState
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
 import cats.effect.IO
+import cats.effect.implicits.effectResourceOps
+import cats.effect.unsafe.implicits.global
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.TypeName
 import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf, ActorSuite}
-import com.evolutiongaming.catshelper.CatsHelper._
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -25,7 +25,7 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
 
     case class ShardedMsg(id: String, msg: Int)
 
-    val actorRefOf = ActorRefOf.fromActorRefFactory(actorSystem)
+    val actorRefOf = ActorRefOf.fromActorRefFactory[IO](actorSystem)
 
     val extractEntityId: ShardRegion.ExtractEntityId = {
       case ShardedMsg(entityId, msg) => (entityId, msg)
@@ -43,7 +43,7 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
     }
 
     val result = for {
-      probe                   <- Probe.of(actorRefOf)
+      probe                   <- Probe.of[IO](actorRefOf)
       actor                    = () => new Actor {
         def receive = {
           case msg =>

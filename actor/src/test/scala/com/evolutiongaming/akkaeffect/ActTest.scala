@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.IO
-import cats.effect.concurrent.Deferred
+import cats.effect.{Deferred, IO}
 import cats.syntax.all._
+import cats.effect.unsafe.implicits.global
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.catshelper.FromFuture
@@ -30,8 +30,7 @@ class ActTest extends AsyncFunSuite with Matchers {
       _        <- IO {
         act.sync {
           act
-            .value
-            .apply { 0 }
+            .value { 0 }
             .toFuture
             .value shouldEqual 0.pure[Try].some
         }

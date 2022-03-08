@@ -2,10 +2,11 @@ package com.evolutiongaming.akkaeffect.util
 
 import akka.actor.ActorSystem
 import cats.effect.implicits._
-import cats.effect.{Concurrent, IO, Resource, Timer}
+import cats.effect.unsafe.implicits.global
+import cats.effect.{Async, IO, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
-import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf, ActorSuite, Call, Receive, ReceiveOf}
+import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -29,7 +30,7 @@ class TerminatedTest extends AsyncFunSuite with ActorSuite with Matchers {
   }
 
 
-  def `wait for termination`[F[_]: Concurrent: Timer: ToFuture: FromFuture]: F[Unit] = {
+  def `wait for termination`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
@@ -40,17 +41,17 @@ class TerminatedTest extends AsyncFunSuite with ActorSuite with Matchers {
       .use { actorEffect =>
         for {
           fiber <- terminatedActor(actorEffect).start
-          a     <- fiber.join.timeout(10.millis).attempt
+          a     <- fiber.joinWithNever.timeout(10.millis).attempt
           _       = a should matchPattern { case Left(_: TimeoutException) => }
         } yield {
-          fiber.join
+          fiber.joinWithNever
         }
       }
       .flatten
   }
 
 
-  def `already dead actors`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
+  def `already dead actors`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
     val terminatedActor = Terminated(actorRefOf)
@@ -61,7 +62,7 @@ class TerminatedTest extends AsyncFunSuite with ActorSuite with Matchers {
       .flatten
   }
 
-  def `already dead actor system`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
+  def `already dead actor system`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
     val actorSystem = ActorSystem()
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 

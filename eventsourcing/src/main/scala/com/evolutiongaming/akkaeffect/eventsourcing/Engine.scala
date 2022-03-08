@@ -4,9 +4,8 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream._
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
-import cats.effect.{Concurrent, Fiber, Resource, Sync}
+import cats.effect.{Async, Deferred, Fiber, Ref, Resource, Sync}
 import cats.syntax.all._
 import cats.{Applicative, FlatMap, Functor, Monad}
 import com.evolutiongaming.akkaeffect
@@ -74,7 +73,7 @@ object Engine {
     * As soon as A done with validation, it will proceed with Append stage, meanwhile B can be moved
     * to Validation stage seeing already updated state by A
     */
-  def of[F[_]: Concurrent: ToFuture: FromFuture, S, E](
+  def of[F[_]: Async: ToFuture: FromFuture, S, E](
     initial: State[S],
     actorSystem: ActorSystem,
     append: akkaeffect.persistence.Append[F, E],
@@ -86,7 +85,7 @@ object Engine {
   }
 
 
-  def of[F[_]: Concurrent: Runtime: ToFuture: FromFuture, S, E](
+  def of[F[_]: Async: Runtime: ToFuture: FromFuture, S, E](
     initial: State[S],
     materializer: Materializer,
     append: Append[F, E],
@@ -210,7 +209,7 @@ object Engine {
                           directive
                             .effect(seqNr)
                             .attempt
-                            .flatMap { a => deferred.complete(a) }
+                            .flatMap { a => deferred.complete(a).void }
                         }
 
                         directive
@@ -234,10 +233,10 @@ object Engine {
 
         val void = ().pure[F]
 
-        def offer(fiber: Fiber[F, Validate[F, S, E, Unit]]) = {
+        def offer(fiber: Fiber[F, Throwable, Validate[F, S, E, Unit]]) = {
           FromFuture
             .summon[F]
-            .apply { queue.offer(fiber.join) }
+            .apply { queue.offer(fiber.joinWithNever) }
             .adaptError { case e => EngineError(s"queue offer failed: $e", e) }
             .flatMap {
               case QueueOfferResult.Enqueued    => void

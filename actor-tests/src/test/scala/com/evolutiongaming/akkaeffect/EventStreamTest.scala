@@ -1,7 +1,8 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.concurrent.Deferred
-import cats.effect.{Concurrent, IO}
+import cats.effect.kernel.Deferred
+import cats.effect.{Async, IO}
+import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.ToFuture
 import com.evolutiongaming.akkaeffect.IOSuite._
@@ -14,14 +15,14 @@ class EventStreamTest extends AsyncFunSuite with ActorSuite with Matchers {
     publishAndSubscribe[IO].run()
   }
 
-  private def publishAndSubscribe[F[_]: Concurrent: ToFuture] = {
+  private def publishAndSubscribe[F[_]: Async: ToFuture] = {
 
     case class Event(n: Int)
 
     val eventStream = EventStream[F](actorSystem)
     for {
       deferred <- Deferred[F, Event]
-      onEvent   = (event: Event) => deferred.complete(event)
+      onEvent   = (event: Event) => deferred.complete(event).void
       actual   <- eventStream.subscribe(onEvent).use { _ =>
         eventStream
           .publish(Event(0))
