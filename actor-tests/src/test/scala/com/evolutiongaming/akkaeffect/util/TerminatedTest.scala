@@ -1,5 +1,6 @@
 package com.evolutiongaming.akkaeffect.util
 
+import akka.actor.ActorSystem
 import cats.effect.implicits._
 import cats.effect.{Concurrent, IO, Resource, Timer}
 import cats.syntax.all._
@@ -21,6 +22,10 @@ class TerminatedTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("already dead actors") {
     `already dead actors`[IO].run()
+  }
+
+  test("already dead actor system") {
+    `already dead actor system`[IO].run()
   }
 
 
@@ -53,6 +58,18 @@ class TerminatedTest extends AsyncFunSuite with ActorSuite with Matchers {
     ActorEffect
       .of(actorRefOf, ReceiveOf.const(Receive.const[Call[F, Any, Any]](false.pure[F]).pure[Resource[F, *]]))
       .use { actorEffect => terminatedActor(actorEffect).pure[F] }
+      .flatten
+  }
+
+  def `already dead actor system`[F[_]: Concurrent: ToFuture: FromFuture]: F[Unit] = {
+    val actorSystem = ActorSystem()
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
+
+    val terminatedActor = Terminated(actorRefOf)
+
+    ActorEffect
+      .of(actorRefOf, ReceiveOf.const(Receive.const[Call[F, Any, Any]](false.pure[F]).pure[Resource[F, *]]))
+      .use { actorEffect => FromFuture[F].apply(actorSystem.terminate()) *> terminatedActor(actorEffect).pure[F] }
       .flatten
   }
 }

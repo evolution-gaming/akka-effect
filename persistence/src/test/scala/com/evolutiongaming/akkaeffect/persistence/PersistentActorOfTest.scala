@@ -23,8 +23,6 @@ import scala.reflect.ClassTag
 
 class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
-  private implicit val toTry = ToTryFromToFuture.syncOrError[IO]
-
   test("all") {
     `persistentActorOf`[IO](actorSystem).run()
   }
@@ -115,8 +113,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                           _      <- stateRef.update { _ + 1 }
                           state  <- stateRef.get
                           result <- snapshotter.save(seqNr, state)
-                          seqNr  <- journaller.append(Events.batched(Nel.of("b"), Nel.of("c", "d")))
-                          seqNr  <- seqNr
+                          seqNr  <- journaller.append(Events.batched(Nel.of("b"), Nel.of("c", "d"))).flatten
                           _      <- result
                           _      <- stateRef.update { _ + 1 }
                           _      <- reply(seqNr)

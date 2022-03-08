@@ -2,15 +2,25 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorSystem
 import cats.effect.IO
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
 import com.evolutiongaming.catshelper.CatsHelper._
+import com.typesafe.config.Config
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
 trait ActorSuite extends BeforeAndAfterAll { self: Suite =>
 
+  def config: IO[Option[Config]] = none[Config].pure[IO]
+
   lazy val (actorSystem: ActorSystem, actorSystemRelease: IO[Unit]) = {
-    val actorSystem = TestActorSystem[IO](getClass.getSimpleName)
-    actorSystem.allocated.toTry.get
+    val result = for {
+      config      <- config.toResource
+      actorSystem <- TestActorSystem[IO](getClass.getSimpleName, config)
+    } yield actorSystem
+    result
+      .allocated
+      .toTry
+      .get
   }
 
   override def beforeAll(): Unit = {

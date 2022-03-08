@@ -11,9 +11,12 @@ import scala.concurrent.ExecutionContext
 
 object TestActorSystem {
 
-  def apply[F[_]: Async](name: String): Resource[F, ActorSystem] = {
+  def apply[F[_]: Async](name: String, config: Option[Config]): Resource[F, ActorSystem] = {
     for {
-      config      <- Sync[F].delay { ConfigFactory.load("test.conf") }.toResource
+      config      <- config match {
+        case Some(a) => a.pure[Resource[F, *]]
+        case None    => Sync[F].delay { ConfigFactory.load("test.conf") }.toResource
+      }
       actorSystem <- apply(name, config)
     } yield actorSystem
   }
@@ -36,7 +39,7 @@ object TestActorSystem {
     }
 
     for {
-      executor    <- Sync[F].delay { ExecutionContext.global }.toResource
+      executor <- Sync[F].delay { ExecutionContext.global }.toResource
       actorSystem <- actorSystem(executor)
     } yield actorSystem
   }

@@ -40,7 +40,8 @@ object Journaller {
 
     val append1 = append
 
-    new Journaller[F, A] {
+    class Main
+    new Main with Journaller[F, A] {
 
       def append = append1
 

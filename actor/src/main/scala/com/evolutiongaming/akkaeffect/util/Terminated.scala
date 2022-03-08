@@ -42,7 +42,12 @@ object Terminated {
             }
           }
 
-          actorRefOf(Props(actor())).use { _ => deferred.get }
+          actorRefOf(Props(actor()))
+            .use(_ => deferred.get)
+            .recover {
+              case e: IllegalStateException
+                if e.getMessage == "cannot create children while terminating or terminated" =>
+            }
         }
       }
 

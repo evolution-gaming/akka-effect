@@ -5,7 +5,7 @@ import cats.effect.concurrent.Deferred
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
-import com.evolutiongaming.akkaeffect.util.{AtomicRef, DeferredUncancelable}
+import com.evolutiongaming.akkaeffect.util.AtomicRef
 import com.evolutiongaming.akkaeffect.{Act, Fail}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{Log, MonadThrowable, ToFuture}
@@ -28,7 +28,12 @@ trait Append[F[_], -A] {
 
 object Append {
 
-  def const[F[_], A](seqNr: F[F[SeqNr]]): Append[F, A] = _ => seqNr
+  def const[F[_], A](seqNr: F[F[SeqNr]]): Append[F, A] = {
+    class Const
+    new Const with Append[F, A] {
+      def apply(events: Events[A]) = seqNr
+    }
+  }
 
   def empty[F[_]: Applicative, A]: Append[F, A] = const(SeqNr.Min.pure[F].pure[F])
 
@@ -46,6 +51,8 @@ object Append {
     eventsourced: Eventsourced,
     stopped: F[Throwable]
   ): Resource[F, Adapter[F, A]] = {
+
+    class Main
 
     def fail(ref: AtomicRef[Queue[Deferred[F, Either[Throwable, SeqNr]]]], error: F[Throwable]) = {
       ref
@@ -68,14 +75,15 @@ object Append {
       }
       .map { ref =>
 
-        new Adapter[F, A] {
+        new Main with Adapter[F, A] {
 
-          val value: Append[F, A] = {
-            events => {
+          val value = new Main with Append[F, A] {
+
+            def apply(events: Events[A]) = {
               val size = events.size
               val eventsList = events.values.toList
               for {
-                deferred <- DeferredUncancelable[F, Either[Throwable, SeqNr]]
+                deferred <- Deferred[F, Either[Throwable, SeqNr]]
                 _        <- act {
                   ref.update { _.enqueue(deferred) }
                   var left = size

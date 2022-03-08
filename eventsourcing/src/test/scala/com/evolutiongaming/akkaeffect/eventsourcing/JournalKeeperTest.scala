@@ -414,10 +414,10 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       metadata       = SnapshotMetadata(seqNr = 2, timestamp = timestamp)
       journalKeeper <- journalKeeperOf(2, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.eventsSaved(4, ().pure[F])
-      _             <- Timer[F].sleep(config.saveSnapshotCooldown)
+      _             <- Timer[F].sleep((config.saveSnapshotCooldown * 1.1).asInstanceOf[FiniteDuration])
       _             <- journalKeeper.eventsSaved(6, ().pure[F])
       _             <- journalKeeper.eventsSaved(8, ().pure[F])
-      _             <- Timer[F].sleep(config.saveSnapshotCooldown)
+      _             <- Timer[F].sleep((config.saveSnapshotCooldown * 1.1).asInstanceOf[FiniteDuration])
       _             <- journalKeeper.eventsSaved(10, deferred.complete(()))
       _             <- deferred.get
       actions       <- actions.get

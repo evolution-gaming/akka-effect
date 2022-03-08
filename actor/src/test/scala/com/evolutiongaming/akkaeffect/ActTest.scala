@@ -1,35 +1,52 @@
 package com.evolutiongaming.akkaeffect
 
 import cats.effect.IO
+import cats.effect.concurrent.Deferred
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
-import org.scalatest.funsuite.AnyFunSuite
+import com.evolutiongaming.akkaeffect.IOSuite._
+import com.evolutiongaming.catshelper.FromFuture
+import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-class ActTest extends AnyFunSuite with Matchers {
+class ActTest extends AsyncFunSuite with Matchers {
 
   test("adapter") {
-    var msg = none[Any]
-    val tell = (a: Any) => msg = a.some
-    val act = Act.Adapter[IO](tell)
-    act
-      .sync { act.value { 0 } }
-      .toFuture
-      .value shouldEqual 0.pure[Try].some
-
-    val future = act.value { 0 }.toFuture
-    future.value shouldEqual none
-
-    val receive = act.receive(PartialFunction.empty)
-
-    msg.foreach { receive.lift }
-
-    future.value shouldEqual 0.pure[Try].some
 
     case object Error extends RuntimeException with NoStackTrace
-    intercept[Error.type] { act.sync { act.value { throw Error }.toTry.get } }
+
+    val result = for {
+      deferred <- Deferred[IO, Any]
+      tell      = (a: Any) => {
+        deferred
+          .complete(a)
+          .toFuture
+        ()
+      }
+      act       = Act.Adapter[IO](tell)
+      _        <- IO {
+        act.sync {
+          act
+            .value
+            .apply { 0 }
+            .toFuture
+            .value shouldEqual 0.pure[Try].some
+        }
+      }
+      future   <- IO { act.value { 1 }.toFuture }
+      _        <- IO { future.value shouldEqual none }
+      msg      <- deferred.get
+      receive   = act.receive(PartialFunction.empty)
+      _        <- IO { receive.lift(msg) }
+      a        <- FromFuture.defer[IO] { future }
+      _        <- IO { a shouldEqual 1 }
+      a        <- IO { act.sync { act.value { throw Error }.toTry.get } }.attempt
+      _        <- IO { a shouldEqual Error.asLeft }
+    } yield {}
+
+    result.run()
   }
 }

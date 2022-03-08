@@ -1,7 +1,9 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorContext, ActorRef, ActorRefFactory}
-import cats.~>
+import cats.effect.Sync
+import cats.syntax.all._
+import cats.{Monad, ~>}
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
@@ -67,22 +69,21 @@ trait ActorCtx[F[_]] {
 
 object ActorCtx {
 
-
   def apply[F[_]](act: Act[F], actorContext: ActorContext): ActorCtx[F] = {
-
-    new ActorCtx[F] {
+    class Main
+    new Main with ActorCtx[F] {
 
       val self = actorContext.self
 
       val parent = actorContext.parent
 
-      val executor = actorContext.dispatcher
+      def executor = actorContext.dispatcher
 
       def setReceiveTimeout(timeout: Duration) = act { actorContext.setReceiveTimeout(timeout) }
 
       def child(name: String) = act { actorContext.child(name) }
 
-      val children = act { actorContext.children.toList }
+      def children = act { actorContext.children.toList }
 
       def actorRefFactory = actorContext
 
@@ -90,7 +91,59 @@ object ActorCtx {
 
       def unwatch(actorRef: ActorRef) = act { actorContext.unwatch(actorRef); () }
 
-      val stop = act { actorContext.stop(actorContext.self) }
+      def stop = act { actorContext.stop(actorContext.self) }
+    }
+  }
+
+  def apply[F[_]: Sync](actorContext: ActorContext): ActorCtx[F] = {
+    class Main
+    new Main with ActorCtx[F] {
+
+      val self = actorContext.self
+
+      val parent = actorContext.parent
+
+      def executor = actorContext.dispatcher
+
+      def setReceiveTimeout(timeout: Duration) = Sync[F].delay { actorContext.setReceiveTimeout(timeout) }
+
+      def child(name: String) = none[ActorRef].pure[F]
+
+      def children = List.empty[ActorRef].pure[F]
+
+      def actorRefFactory = actorContext
+
+      def watch[A](actorRef: ActorRef, msg: A) = Sync[F].delay { actorContext.watchWith(actorRef, msg); () }
+
+      def unwatch(actorRef: ActorRef) = Sync[F].delay { actorContext.unwatch(actorRef); () }
+
+      def stop = Sync[F].delay { actorContext.stop(actorContext.self) }
+    }
+  }
+
+  def flatten[F[_]: Monad](actorContext: ActorContext, actorCtx: F[ActorCtx[F]]): ActorCtx[F] = {
+    class Flatten
+    new Flatten with ActorCtx[F] {
+
+      def self = actorContext.self
+
+      def parent = actorContext.parent
+
+      def executor = actorContext.dispatcher
+
+      def setReceiveTimeout(timeout: Duration) = actorCtx.flatMap { _.setReceiveTimeout(timeout) }
+
+      def child(name: String) = actorCtx.flatMap { _.child(name) }
+
+      def children = actorCtx.flatMap { _.children }
+
+      def actorRefFactory = actorContext
+
+      def watch[A](actorRef: ActorRef, msg: A) = actorCtx.flatMap { _.watch(actorRef, msg) }
+
+      def unwatch(actorRef: ActorRef) = actorCtx.flatMap { _.unwatch(actorRef) }
+
+      def stop = actorCtx.flatMap { _.stop }
     }
   }
 
@@ -99,9 +152,9 @@ object ActorCtx {
 
     def mapK[G[_]](f: F ~> G): ActorCtx[G] = new ActorCtx[G] {
 
-      val self = actorCtx.self
+      def self = actorCtx.self
 
-      val parent = actorCtx.parent
+      def parent = actorCtx.parent
 
       def executor = actorCtx.executor
 
