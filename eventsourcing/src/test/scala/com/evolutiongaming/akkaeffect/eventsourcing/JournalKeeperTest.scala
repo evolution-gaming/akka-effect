@@ -416,7 +416,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       _             <- journalKeeper.eventsSaved(6, ().pure[F])
       _             <- journalKeeper.eventsSaved(8, ().pure[F])
       _             <- Temporal[F].sleep((config.saveSnapshotCooldown * 1.1).asInstanceOf[FiniteDuration])
-      _             <- journalKeeper.eventsSaved(10, deferred.complete(()))
+      _             <- journalKeeper.eventsSaved(10, deferred.complete(()).void)
       _             <- deferred.get
       actions       <- actions.get
       _              = actions shouldEqual List(
