@@ -12,7 +12,7 @@ import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.TypeName
 import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.akkaeffect.{ActorRefOf, ActorSuite}
-import com.evolutiongaming.catshelper.{Blocking, LogOf}
+import com.evolutiongaming.catshelper.LogOf
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -29,8 +29,6 @@ class ClusterShardingTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("start") {
     case object HandOffStopMessage
-
-    implicit val blocking = Blocking.fromExecutionContext[IO](executor)
 
     val result = for {
       logOf                   <- LogOf.slf4j[IO].toResource

@@ -11,7 +11,6 @@ import com.evolutiongaming.akkaeffect.cluster.{DataCenter, Role}
 import com.evolutiongaming.akkaeffect.persistence.TypeName
 import com.evolutiongaming.akkaeffect.util.Terminated
 import com.evolutiongaming.akkaeffect.{ActorRefOf, Ask}
-import com.evolutiongaming.catshelper.Blocking.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -57,7 +56,7 @@ object ClusterSharding {
     val default = Config(1.minute, 30.seconds)
   }
 
-  def of[F[_]: Async: Blocking: ToFuture: FromFuture](
+  def of[F[_]: Async: ToFuture: FromFuture](
     actorSystem: ActorSystem,
     config: Config = Config.default
   ): Resource[F, ClusterSharding[F]] = {
@@ -67,9 +66,7 @@ object ClusterSharding {
 
     def shardRegion(actorRef: => ActorRef) = {
       Resource.make {
-        Sync[F]
-          .delay { actorRef }
-          .blocking
+        Sync[F].blocking { actorRef }
       } { actorRef =>
         for {
           _ <- Sync[F].delay { actorRef.tell(GracefulShutdown, ActorRef.noSender) }
