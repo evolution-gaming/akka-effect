@@ -56,6 +56,7 @@ private[akkaeffect] object PersistenceVar {
           persistence
             .snapshotOffer(seqNr, snapshotOffer)
             .map { result => Directive.update(result) }
+            .handleErrorWith(onRecoveryFailed("snapshotOffer"))
         }
       }
 
@@ -64,6 +65,7 @@ private[akkaeffect] object PersistenceVar {
           persistence
             .event(seqNr, event)
             .map { result => Directive.update(result) }
+            .handleErrorWith(onRecoveryFailed("event"))
         }
       }
 
@@ -73,20 +75,20 @@ private[akkaeffect] object PersistenceVar {
         snapshotter: Snapshotter[F, S]
       ) = {
         actorVar.receive { persistence =>
-          def onRecoveryFailed(error: Throwable): F[Directive[persistence.Result]] = {
-            Sync[F].delay {
-              actorContext.foreach { actorContext =>
-                val msg = s"${actorContext.self.path.toStringWithoutAddress} error recovering actor state: $error"
-                actorContext.system.log.error(error, msg)
-              }
-              Directive.stop
-            }
-          }
-
           persistence
             .recoveryCompleted(seqNr, journaller, snapshotter)
             .map { result => Directive.update(result) }
-            .handleErrorWith(onRecoveryFailed)
+            .handleErrorWith(onRecoveryFailed("recoveryCompleted"))
+        }
+      }
+
+      def onRecoveryFailed[A](scope: String)(error: Throwable): F[Directive[A]] = {
+        Sync[F].delay {
+          actorContext.foreach { actorContext =>
+            val msg = s"$scope failed: ${actorContext.self.path.toStringWithoutAddress} error recovering actor state: $error"
+            actorContext.system.log.error(error, msg)
+          }
+          Directive.stop
         }
       }
 
