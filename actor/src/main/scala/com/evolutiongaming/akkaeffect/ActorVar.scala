@@ -30,7 +30,7 @@ private[akkaeffect] object ActorVar {
   type Stop = () => Unit
 
 
-  def apply[F[_]: Concurrent: ToFuture, A](
+  def apply[F[_]: Async: ToFuture, A](
     act: Act[F],
     context: ActorContext
   ): ActorVar[F, A] = {
@@ -38,7 +38,7 @@ private[akkaeffect] object ActorVar {
     apply(act, stop)
   }
 
-  def apply[F[_]: Concurrent: ToFuture, A](
+  def apply[F[_]: Async: ToFuture, A](
     act: Act[F],
     stop: Stop
   ): ActorVar[F, A] = {
@@ -67,7 +67,8 @@ private[akkaeffect] object ActorVar {
         }
       }
         .toFuture
-      ()
+        .value
+        .foreach { _.get }
     }
 
     new ActorVar[F, A] {
