@@ -55,10 +55,10 @@ private[akkaeffect] object Serially {
           a <- ref.modify {
             case s: S.Idle   => (S.Active, start(s.value, t))
             case s: S.Active =>
-              val task = (a: A) => for {
-                a <- Concurrent[F].defer(s.task(a))
+              val task = (a: A) => Concurrent[F].defer(for {
+                a <- s.task(a)
                 a <- t(a)
-              } yield a
+              } yield a)
               (S.Active(task), Concurrent[F].unit)
             case S.Active    => (S.Active(t), Concurrent[F].unit)
           }
