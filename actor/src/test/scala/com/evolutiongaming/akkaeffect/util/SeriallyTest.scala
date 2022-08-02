@@ -69,4 +69,21 @@ class SeriallyTest extends AsyncFunSuite with Matchers {
     } yield {}
     result.run()
   }
+
+  test("handles many concurrent tasks") {
+    var i = 0
+
+    val result = for {
+      serially <- IO {
+        Serially[IO, Int](0)
+      }
+      _ <- serially.apply(s => IO {
+        i = i + 1
+      }.as(s + 1)).parReplicateA(100000)
+      _ <- IO {
+        i shouldEqual 100000
+      }
+    } yield ()
+    result.run()
+  }
 }
