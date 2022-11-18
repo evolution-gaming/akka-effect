@@ -16,6 +16,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.collection.immutable.IndexedSeq
 
 
 class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matchers {
