@@ -873,6 +873,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         } yield {}
       }
       _              <- stopped.get
+      _              <- Async[F].sleep(10.millis) // Make sure all actions are performed first
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
         Action.Created(EventSourcedId("4"), akka.persistence.Recovery(), PluginIds.Empty),
@@ -934,6 +935,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         } yield {}
       }
       _              <- stopped.get
+      _              <- Async[F].sleep(10.millis) // Make sure all actions are performed first
       actions        <- actions.get
       _               = actions.reverse shouldEqual List(
         Action.Created(EventSourcedId("5"), akka.persistence.Recovery(), PluginIds.Empty),
