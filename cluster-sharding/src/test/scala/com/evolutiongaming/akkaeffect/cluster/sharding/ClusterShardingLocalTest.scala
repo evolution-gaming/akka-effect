@@ -46,13 +46,17 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
 
     // Allocation strategy that doesn't use ActorSystem and Cluster extension (as opposed to Akka built-in strategies)
     val noopAllocationStrategy = new ShardAllocationStrategy {
-      override def allocateShard(requester: ActorRef,
-                                 shardId: ShardId,
-                                 currentShardAllocations: Map[ActorRef, IndexedSeq[ShardId]]): Future[ActorRef] =
+      override def allocateShard(
+        requester: ActorRef,
+        shardId: ShardId,
+        currentShardAllocations: Map[ActorRef, IndexedSeq[ShardId]]
+      ): Future[ActorRef] =
         Future.successful(requester)
 
-      override def rebalance(currentShardAllocations: Map[ActorRef, IndexedSeq[ShardId]],
-                             rebalanceInProgress: Set[ShardId]): Future[Set[ShardId]] =
+      override def rebalance(
+        currentShardAllocations: Map[ActorRef, IndexedSeq[ShardId]],
+        rebalanceInProgress: Set[ShardId]
+      ): Future[Set[ShardId]] =
         Future.successful(Set.empty)
     }
 
