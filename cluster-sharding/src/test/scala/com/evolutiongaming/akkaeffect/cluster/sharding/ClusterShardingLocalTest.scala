@@ -1,8 +1,8 @@
 package com.evolutiongaming.akkaeffect.cluster.sharding
 
 import akka.actor.{Actor, ActorRef, Props}
-import akka.cluster.sharding.ShardCoordinator.LeastShardAllocationStrategy
-import akka.cluster.sharding.ShardRegion.ShardState
+import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
+import akka.cluster.sharding.ShardRegion.{ShardId, ShardState}
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
 import cats.effect.IO
 import cats.effect.implicits.effectResourceOps
@@ -14,7 +14,9 @@ import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf, ActorSuite}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.collection.immutable.IndexedSeq
 
 
 class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matchers {
@@ -42,6 +44,22 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
       }
     }
 
+    // Allocation strategy that doesn't use ActorSystem and Cluster extension (as opposed to Akka built-in strategies)
+    val noopAllocationStrategy = new ShardAllocationStrategy {
+      override def allocateShard(
+        requester: ActorRef,
+        shardId: ShardId,
+        currentShardAllocations: Map[ActorRef, IndexedSeq[ShardId]]
+      ): Future[ActorRef] =
+        Future.successful(requester)
+
+      override def rebalance(
+        currentShardAllocations: Map[ActorRef, IndexedSeq[ShardId]],
+        rebalanceInProgress: Set[ShardId]
+      ): Future[Set[ShardId]] =
+        Future.successful(Set.empty)
+    }
+
     val result = for {
       probe                   <- Probe.of[IO](actorRefOf)
       actor                    = () => new Actor {
@@ -62,7 +80,7 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
         clusterShardingSettings,
         extractEntityId,
         uniform(2),
-        new LeastShardAllocationStrategy(1, 1),
+        noopAllocationStrategy,
         HandOffStopMsg)
 
       actorEffect              = ActorEffect.fromActor[IO](actorRef)

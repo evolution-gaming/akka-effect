@@ -111,6 +111,8 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       _             <- journalKeeper.eventsSaved(1, ().pure[F])
       _             <- journalKeeper.eventsSaved(2, ().pure[F])
       _             <- journalKeeper.eventsSaved(3, ().pure[F])
+                    // Prevent race condition when 1st snapshot is written later than 2nd one is attempted and get discarded
+      _             <- Async[F].sleep(10.millis)
       _             <- journalKeeper.eventsSaved(4, deferred.complete(()).void)
       _             <- deferred.get
       actions       <- actions.get
