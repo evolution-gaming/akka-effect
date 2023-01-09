@@ -282,7 +282,7 @@ object Engine {
     for {
       ref   <- Ref.of[F, Engine.State[S]](initial).toResource
       queue <- Queue.unbounded[F, F[Unit]].toResource
-      _     <- queue.take.flatten.attempt.foreverM.background
+      _     <- queue.take.flatten.attempt.foreverM[Unit].background
     } yield new Engine[F, S, E] {
 
         override def state: F[Engine.State[S]] = ref.get
