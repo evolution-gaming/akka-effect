@@ -5,6 +5,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import akka.stream._
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.implicits._
+import cats.effect.std.Queue
 import cats.effect.{Async, Deferred, Fiber, Ref, Resource, Sync}
 import cats.syntax.all._
 import cats.{Applicative, FlatMap, Functor, Monad}
@@ -34,7 +35,6 @@ object Engine {
 
   val released: EngineError = EngineError("released")
 
-
   def const[F[_]: Monad, S, E](
     initial: State[S],
     result: Either[Throwable, SeqNr]
@@ -52,7 +52,6 @@ object Engine {
       }
     }
   }
-
 
   /**
     * Executes following stages
@@ -266,6 +265,80 @@ object Engine {
     } yield engine
   }
 
+  /**
+   * Cats-effect based implementation, expected to be used '''only in tests'''
+   */
+  def of[F[_]: Async, S, E](
+    initial: State[S],
+    append: Append[F, E],
+  ): Resource[F, Engine[F, S, E]] = {
+
+    case class Updated[A](
+      state: Engine.State[S],
+      effect: Effect[F, A],
+      events: Option[Events[E]] = None,
+    )
+
+    for {
+      ref   <- Ref.of[F, Engine.State[S]](initial).toResource
+      queue <- Queue.unbounded[F, F[Unit]].toResource
+      _     <- queue.take.flatten.attempt.foreverM.background
+    } yield new Engine[F, S, E] {
+
+        override def state: F[Engine.State[S]] = ref.get
+
+        override def apply[A](load: F[Validate[F, S, E, A]]): F[F[A]] = {
+          for {
+            done <- Deferred[F, A]
+            fv   <- load.start
+            fu    = for {
+                      v <- fv.joinWithNever
+                      a <- execute(v)
+                      _ <- done.complete(a)
+                    } yield {}
+            _    <- queue.offer(fu)
+          } yield done.get
+        }
+
+        def execute[A](validate: Validate[F, S, E, A]): F[A] = {
+
+          val updated = 0.tailRecM { _ =>
+            ref.access.flatMap {
+              case (state0, update) =>
+                for {
+                  directive <- validate(state0.value, state0.seqNr)
+                  continue  <- directive.change match {
+                    case None =>
+                      Updated(state0, directive.effect).asRight[Int].widen[Updated[A]].pure[F]
+
+                    case Some(change) =>
+                      val state1 = Engine.State(change.state, state0.seqNr + change.events.size)
+                      for {
+                        updated <- update(state1)
+                      } yield
+                        if (updated)
+                          Updated(state1, directive.effect, change.events.some).asRight[Int].widen[Updated[A]]
+                        else
+                          0.asLeft[Updated[A]]
+                  }
+                } yield continue
+            }
+          }
+
+          val executed = for {
+            updated <- updated
+            e       <- updated.events match {
+                         case Some(events) => append.apply(events).attempt
+                         case None         => updated.state.seqNr.asRight[Throwable].pure[F]
+                       }
+            a       <- updated.effect(e)
+          } yield a
+
+          executed.uncancelable
+        }
+
+    }
+  }
 
   def fenced[F[_]: Sync, S, E](engine: Engine[F, S, E]): Resource[F, Engine[F, S, E]] = {
     Resource
@@ -289,7 +362,6 @@ object Engine {
         }
       }
   }
-
 
   final case class State[A](value: A, seqNr: SeqNr)
 
@@ -333,5 +405,26 @@ object Engine {
           }
         }
     }
+
+
+    trait Mock[F[_], A] {
+      def events: F[List[A]]
+    }
+
+
+    def mock[F[_]: Sync, A](initial: SeqNr): F[Append[F, A] with Mock[F, A]] =
+      for {
+        ref <- Ref.of[F, List[A]](List.empty)
+      } yield new Append[F, A] with Mock[F, A] {
+
+        override def apply(events: Events[A]): F[SeqNr] =
+          ref.modify { persisted =>
+            val applied = persisted ++ events.toList
+            val seqNr   = initial + applied.length
+            applied -> seqNr
+          }
+
+        override def events: F[List[A]] = ref.get
+      }
   }
 }
