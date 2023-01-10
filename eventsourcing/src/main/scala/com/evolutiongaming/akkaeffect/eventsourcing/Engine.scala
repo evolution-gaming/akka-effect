@@ -487,24 +487,12 @@ object Engine {
     }
 
 
-    trait Mock[F[_], A] {
-      def events: F[List[A]]
-    }
-
-
-    def mock[F[_]: Sync, A](initial: SeqNr): F[Append[F, A] with Mock[F, A]] =
-      for {
-        ref <- Ref.of[F, List[A]](List.empty)
-      } yield new Append[F, A] with Mock[F, A] {
-
-        override def apply(events: Events[A]): F[SeqNr] =
-          ref.modify { persisted =>
-            val applied = persisted ++ events.toList
-            val seqNr   = initial + applied.length
-            applied -> seqNr
-          }
-
-        override def events: F[List[A]] = ref.get
-      }
+    def of[F[_] : Sync, A](initial: SeqNr, appended: Ref[F, List[A]]): Append[F, A] =
+      events =>
+        appended.modify { persisted =>
+          val applied = persisted ++ events.toList
+          val seqNr = initial + applied.length
+          applied -> seqNr
+        }
   }
 }
