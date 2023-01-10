@@ -1,12 +1,11 @@
 package com.evolutiongaming.akkaeffect.eventsourcing
 
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Sink, Source}
 import akka.stream._
+import akka.stream.scaladsl.{Sink, Source}
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.implicits._
-import cats.effect.std.Queue
-import cats.effect.{Async, Deferred, Fiber, Ref, Resource, Sync}
+import cats.effect._
 import cats.syntax.all._
 import cats.{Applicative, FlatMap, Functor, Monad}
 import com.evolutiongaming.akkaeffect
@@ -14,7 +13,7 @@ import com.evolutiongaming.akkaeffect.eventsourcing.util.ResourceFromQueue
 import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
 import com.evolutiongaming.akkaeffect.util.CloseOnError
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, Runtime, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, Runtime, SerParQueue, ToFuture}
 
 
 trait Engine[F[_], S, E] {
@@ -273,71 +272,115 @@ object Engine {
     append: Append[F, E],
   ): Resource[F, Engine[F, S, E]] = {
 
-    case class Updated[A](
-      state: Engine.State[S],
-      effect: Effect[F, A],
-      events: Option[Events[E]] = None,
-    )
+    sealed trait Key
+    object Key {
+      case object validate extends Key
+      case object persist  extends Key
+      case object effect   extends Key
+    }
 
-    for {
-      ref   <- Ref.of[F, Engine.State[S]](initial).toResource
-      queue <- Queue.unbounded[F, F[Unit]].toResource
-      _     <- queue.take.flatten.attempt.foreverM[Unit].background
+    case class Wrapped(state: State[S], stopped: Boolean = false)
+
+    val engine: F[Engine[F, S, E]] = for {
+      ref   <- Ref.of[F, Wrapped](Wrapped(initial))
+      queue <- SerParQueue.of[F, Key]
+      close <- CloseOnError.of[F]
     } yield new Engine[F, S, E] {
 
-        override def state: F[Engine.State[S]] = ref.get
+      override def state: F[State[S]] = ref.get.map(_.state)
 
-        override def apply[A](load: F[Validate[F, S, E, A]]): F[F[A]] = {
-          for {
-            done <- Deferred[F, A]
-            fv   <- load.start
-            fu    = for {
-                      v <- fv.joinWithNever
-                      a <- execute(v)
-                      _ <- done.complete(a)
-                    } yield {}
-            _    <- queue.offer(fu)
-          } yield done.get
-        }
+      override def apply[A](load: F[Validate[F, S, E, A]]): F[F[A]] = {
+        for {
+          d  <- Deferred[F, Either[Throwable, A]]
+          fv <- load.start
+          fu =  execute(fv.joinWithNever, d)
+          _  <- queue(Key.validate.some)(fu)
+        } yield for {
+          e <- d.get
+          a <- e.liftTo[F]
+        } yield a
+      }
 
-        def execute[A](validate: Validate[F, S, E, A]): F[A] = {
+      def execute[A](
+        load: F[Validate[F, S, E, A]],
+        reply: Deferred[F, Either[Throwable, A]]
+      ): F[Unit] = {
 
-          val updated = 0.tailRecM { _ =>
-            ref.access.flatMap {
-              case (state0, update) =>
+        0.tailRecM { _ =>
+          ref.access.flatMap {
+            case (Wrapped(state0, stopped), update) =>
+
+              val directive =
                 for {
+                  validate  <- load
                   directive <- validate(state0.value, state0.seqNr)
-                  continue  <- directive.change match {
+                } yield directive
+
+              directive.attempt.flatMap {
+
+                case Left(error)      =>
+                  for {
+                    _ <- reply.complete(error.asLeft[A])
+                  } yield ().asRight[Int]
+
+                case Right(directive) =>
+
+                  if (stopped) {
+                    val effect = {
+                      for {
+                        e <- close.error
+                        e <- e.getOrElse(Engine.stopped).pure[F]
+                        a <- directive.effect(e.asLeft[SeqNr]).attempt
+                        _ <- reply.complete(a)
+                      } yield {}
+                    }
+                    queue(Key.effect.some)(effect) as ().asRight[Int]
+                  } else directive.change match {
+
                     case None =>
-                      Updated(state0, directive.effect).asRight[Int].widen[Updated[A]].pure[F]
+                      val effect = {
+                        for {
+                          e <- close.error
+                          a <- directive.effect(e.toLeft(state0.seqNr)).attempt
+                          _ <- reply.complete(a)
+                        } yield {}
+                      }
+                      for {
+                        _ <- update(Wrapped(state0, directive.stop))
+                        _ <- queue(Key.effect.some)(effect)
+                      } yield ().asRight[Int]
 
                     case Some(change) =>
-                      val state1 = Engine.State(change.state, state0.seqNr + change.events.size)
-                      for {
-                        updated <- update(state1)
-                      } yield
-                        if (updated)
-                          Updated(state1, directive.effect, change.events.some).asRight[Int].widen[Updated[A]]
-                        else
-                          0.asLeft[Updated[A]]
+                      val state1 = State(change.state, state0.seqNr + change.events.size)
+                      update(Wrapped(state1, stopped)).flatMap { updated =>
+                        if (updated) {
+                          val persist =
+                            for {
+                              seqNr <- close { append(change.events) }.attempt
+                              effect = for {
+                                         a <- directive.effect(seqNr).attempt
+                                         _ <- reply.complete(a)
+                                       } yield {}
+                              _     <- queue(Key.effect.some)(effect)
+                            } yield {}
+                          for {
+                            _ <- queue(Key.persist.some)(persist)
+                          } yield ().asRight[Int]
+                        } else
+                          0.asLeft[Unit].pure[F]
+                      }
+
                   }
-                } yield continue
-            }
+              }
           }
-
-          val executed = for {
-            updated <- updated
-            e       <- updated.events match {
-                         case Some(events) => append.apply(events).attempt
-                         case None         => updated.state.seqNr.asRight[Throwable].pure[F]
-                       }
-            a       <- updated.effect(e)
-          } yield a
-
-          executed.uncancelable
-        }
-
+        }.uncancelable
+      }
     }
+
+    for {
+      engine <- engine.toResource
+      engine <- fenced(engine)
+    } yield engine
   }
 
   def fenced[F[_]: Sync, S, E](engine: Engine[F, S, E]): Resource[F, Engine[F, S, E]] = {
