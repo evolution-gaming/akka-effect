@@ -3,42 +3,24 @@ package com.evolutiongaming.akkaeffect.eventsourcing
 import cats.effect._
 import cats.effect.implicits.effectResourceOps
 import cats.effect.kernel.Ref
-import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
-import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import com.evolutiongaming.retry.{Retry, Strategy}
-import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
-class EngineTest2 extends AsyncFunSuite with Matchers {
+trait EngineTestCases extends Matchers {
 
-  test("order of stages") {
-    `order of stages`[IO].run()
-  }
-
-  test("append error prevents further appends") {
-    `append error prevents further appends`[IO].run()
-  }
-
-  test("client errors do not have global impact") {
-    `client errors do not have global impact`[IO].run()
-  }
-
-  test("after stop engine finishes with inflight elements and releases") {
-    `after stop engine finishes with inflight elements and releases`[IO].run()
-  }
-
-  test("release finishes with inflight elements") {
-    `release finishes with inflight elements`[IO].run()
-  }
+  def engine[F[_]: Async: ToFuture: FromFuture, S, E](
+    initial: Engine.State[S],
+    append: Engine.Append[F, E]
+  ): Resource[F, Engine[F, S, E]]
 
 
-  private def `order of stages`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
+  def `order of stages`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
 
     type E = SeqNr
 
@@ -91,11 +73,12 @@ class EngineTest2 extends AsyncFunSuite with Matchers {
         }
     }
 
+    val initial = Engine.State(S(List.empty), 0L)
+
     val result = for {
-      initial      <- Engine.State(S(List.empty), 0L).pure[Resource[F, *]]
       actions      <- Actions().toResource
       append       <- appendOf(actions).toResource
-      engine       <- Engine.of[F, S, E](initial, append)
+      engine       <- engine(initial, append)
       result        = {
         def load(name: String, delay: F[F[F[F[Unit]]]]): F[Validate[F, S, E, Unit]] = {
           for {
@@ -202,15 +185,15 @@ class EngineTest2 extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `append error prevents further appends`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
+  def `append error prevents further appends`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
 
     type S = Unit
     type E = Unit
 
     val error: Throwable = new RuntimeException with NoStackTrace
 
+    val initial = Engine.State((), SeqNr.Min)
     val result = for {
-      initial      <- Engine.State((), SeqNr.Min).pure[Resource[F, *]]
       seqNrRef     <- Ref[F].of(SeqNr.Min).toResource
       append        = new Engine.Append[F, E] {
         def apply(events: Events[E]) = {
@@ -224,7 +207,7 @@ class EngineTest2 extends AsyncFunSuite with Matchers {
           } yield seqNr
         }
       }
-      engine       <- Engine.of[F, S, E](initial, append)
+      engine       <- engine(initial, append)
       result        = {
         def load = {
           Validate
@@ -257,17 +240,17 @@ class EngineTest2 extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `client errors do not have global impact`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
+  def `client errors do not have global impact`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
 
     type S = Unit
     type E = Unit
 
     val error: Throwable = new RuntimeException with NoStackTrace
 
+    val initial = Engine.State((), SeqNr.Min)
     val result = for {
-      initial      <- Engine.State((), SeqNr.Min).pure[Resource[F, *]]
       append       <- Engine.Append.const[F, E](error.raiseError[F, SeqNr]).pure[Resource[F, *]]
-      engine       <- Engine.of[F, S, E](initial, append)
+      engine       <- engine(initial, append)
       result        = {
         for {
           _        <- ().pure[F]
@@ -321,15 +304,15 @@ class EngineTest2 extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `after stop engine finishes with inflight elements and releases`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
+  def `after stop engine finishes with inflight elements and releases`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
 
     type S = Unit
     type E = Unit
 
+    val initial = Engine.State((), SeqNr.Min)
     val result = for {
-      initial      <- Engine.State((), SeqNr.Min).pure[Resource[F, *]]
       append       <- Engine.Append.of[F, E](initial.seqNr).toResource
-      engine       <- Engine.of[F, S, E](initial, append)
+      engine       <- engine(initial, append)
       result        = {
         for {
           d0a   <- Deferred[F, Unit]
@@ -370,17 +353,17 @@ class EngineTest2 extends AsyncFunSuite with Matchers {
   }
 
 
-  private def `release finishes with inflight elements`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
+  def `release finishes with inflight elements`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
 
     val error: Throwable = new RuntimeException with NoStackTrace
 
     type S = Unit
     type E = Unit
 
+    val initial = Engine.State((), SeqNr.Min)
     for {
-      initial      <- Engine.State((), SeqNr.Min).pure[F]
       append       <- Engine.Append.of[F, E](initial.seqNr)
-      ab           <- Engine.of[F, S, E](initial, append).allocated
+      ab           <- engine(initial, append).allocated
       (engine, release) = ab
 
       d0a          <- Deferred[F, Unit]
