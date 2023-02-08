@@ -50,29 +50,44 @@ object Journaller {
   }
 
 
+  private sealed abstract class Narrow
+
+  private sealed abstract class Convert
+
+  private sealed abstract class MapK
+
+  private sealed abstract class WithFail
+
+
   implicit class JournallerOps[F[_], A](val self: Journaller[F, A]) extends AnyVal {
 
-    def mapK[G[_]: Applicative](f: F ~> G): Journaller[G, A] = new Journaller[G, A] {
+    def mapK[G[_]: Applicative](f: F ~> G): Journaller[G, A] = {
+      new MapK with Journaller[G, A] {
 
-      def append = self.append.mapK(f)
+        def append = self.append.mapK(f)
 
-      def deleteTo = self.deleteTo.mapK(f)
+        def deleteTo = self.deleteTo.mapK(f)
+      }
     }
 
 
-    def convert[B](f: B => F[A])(implicit F: Monad[F]): Journaller[F, B] = new Journaller[F, B] {
+    def convert[B](f: B => F[A])(implicit F: Monad[F]): Journaller[F, B] = {
+      new Convert with Journaller[F, B] {
 
-      val append = self.append.convert(f)
+        val append = self.append.convert(f)
 
-      def deleteTo = self.deleteTo
+        def deleteTo = self.deleteTo
+      }
     }
 
 
-    def narrow[B <: A]: Journaller[F, B] = new Journaller[F, B] {
+    def narrow[B <: A]: Journaller[F, B] = {
+      new Narrow with Journaller[F, B] {
 
-      val append = self.append.narrow[B]
+        val append = self.append.narrow[B]
 
-      def deleteTo = self.deleteTo
+        def deleteTo = self.deleteTo
+      }
     }
 
 
@@ -87,11 +102,13 @@ object Journaller {
     }
 
 
-    def withFail(fail: Fail[F])(implicit F: MonadThrowable[F]): Journaller[F, A] = new Journaller[F, A] {
+    def withFail(fail: Fail[F])(implicit F: MonadThrowable[F]): Journaller[F, A] = {
+      new WithFail with Journaller[F, A] {
 
-      val append = self.append.withFail(fail)
+        val append = self.append.withFail(fail)
 
-      val deleteTo = self.deleteTo.withFail(fail)
+        val deleteTo = self.deleteTo.withFail(fail)
+      }
     }
   }
 }
