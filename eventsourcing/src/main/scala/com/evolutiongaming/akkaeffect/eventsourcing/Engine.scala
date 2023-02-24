@@ -246,7 +246,13 @@ object Engine {
 
         new Engine[F, S, E] {
 
-          def state = stateRef.get.map { _.value }
+          def state = {
+            for {
+              error <- append.error
+              _     <- error.toLeft({}).liftTo[F]
+              state <- stateRef.get
+            } yield state.value
+          }
 
           def apply[A](load: F[Validate[F, S, E, A]]) = {
             for {
@@ -308,7 +314,13 @@ object Engine {
       close <- CloseOnError.of[F]
     } yield new Engine[F, S, E] {
 
-      override def state: F[State[S]] = ref.get.map(_.state)
+      override def state: F[State[S]] = {
+        for {
+          error <- close.error
+          _     <- error.toLeft({}).liftTo[F]
+          state <- ref.get
+        } yield state.state
+      }
 
       override def apply[A](load: F[Validate[F, S, E, A]]): F[F[A]] = {
         for {

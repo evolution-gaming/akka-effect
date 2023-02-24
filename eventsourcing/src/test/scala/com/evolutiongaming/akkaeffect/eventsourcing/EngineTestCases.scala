@@ -37,6 +37,10 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
     `release finishes with inflight elements`[IO].run()
   }
 
+  test("""don't expose state if "closed on error"""") {
+    `don't expose state if "closed on error"`[IO].run()
+  }
+
   def engine[F[_]: Async: ToFuture: FromFuture, S, E](
     initial: Engine.State[S],
     append: Engine.Append[F, E]
@@ -459,6 +463,34 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
       _ = a shouldEqual 0L.asRight
       a <- a2
       _ = a shouldEqual 0L.asRight
+    } yield {}
+  }
+
+  def `don't expose state if "closed on error"`[F[_]: Async: ToFuture: FromFuture]: F[Unit] = {
+
+    val error = new RuntimeException()
+
+    type S = Unit
+    type E = Unit
+
+    val directive = Directive.change({}, Events.of({})) { _.liftTo[F].void }
+    val load = Validate.const { directive.pure[F] }
+
+    val initial = Engine.State((), SeqNr.Min)
+    val append = new Engine.Append[F, E] {
+      override def apply(events: Events[E]): F[SeqNr] = error.raiseError[F, SeqNr]
+    }
+    for {
+      ab <- engine(initial, append).allocated
+      (engine, release) = ab
+
+      res1 <- engine(load.pure[F]).flatten.attempt
+      _ = res1 shouldEqual error.asLeft[Unit]
+
+      res2 <- engine.state.attempt
+      _ = res2 shouldEqual error.asLeft[Unit]
+
+      _ <- release
     } yield {}
   }
 }
