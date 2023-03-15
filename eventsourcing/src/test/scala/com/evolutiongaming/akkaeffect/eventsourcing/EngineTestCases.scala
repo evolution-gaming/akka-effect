@@ -37,6 +37,10 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
     `release finishes with inflight elements`[IO].run()
   }
 
+  test("effective state should not change after persistence failed") {
+    `release finishes with inflight elements`[IO].run()
+  }
+
   def engine[F[_]: Async: ToFuture: FromFuture, S, E](
     initial: Engine.State[S],
     append: Engine.Append[F, E]
@@ -403,6 +407,49 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
     } yield {}
 
     result.use { _.pure[F] }
+  }
+
+  def `effective state should not change after persistence failed`[F[_]: Async: ToFuture: FromFuture]
+    : F[Unit] = {
+    val error = new RuntimeException()
+
+    type E = Unit
+
+    val directive = Directive.change({}, Events.of({})) {
+      _.liftTo[F].void
+    }
+    val load = Validate.const {
+      directive.pure[F]
+    }
+
+    val initial = Engine.State((), SeqNr.Min)
+
+    for {
+      appendRef <- Ref.of[F, Either[Throwable, SeqNr]](initial.seqNr.asRight)
+      append = new Engine.Append[F, E] {
+        override def apply(events: Events[E]): F[SeqNr] =
+          for {
+            v <- appendRef.get
+            n <- v.liftTo[F]
+          } yield n
+      }
+
+      _ <- engine(initial, append).use { engine =>
+        for {
+          _ <- engine(load.pure[F]).flatten.attempt
+          eff0 <- engine.effective
+          opt0 <- engine.optimistic
+          _ = eff0 shouldEqual opt0
+
+          _ <- appendRef.set(error.asLeft)
+          _ <- engine(load.pure[F]).flatten.attempt
+          eff1 <- engine.effective
+          opt1 <- engine.optimistic
+          _ = eff1.seqNr shouldEqual 1
+          _ = opt1.seqNr shouldEqual 2
+        } yield {}
+      }
+    } yield {}
   }
 
   def `release finishes with inflight elements`[F[_]: Async: ToFuture: FromFuture]
