@@ -136,17 +136,17 @@ object Engine {
     }
 
     def queue(
-       parallelism: Int,
-       optimisticRef: Ref[F, State],
-       effectiveRef: Ref[F, Engine.State[S]],
-       append: Append
+      parallelism: Int,
+      stateRef: Ref[F, State],
+      effectiveRef: Ref[F, Engine.State[S]],
+      append: Append
     ) = {
       val graph = Source
         .queue[F[Validate[F, S, E, Unit]]](bufferSize, OverflowStrategy.backpressure)
         .mapAsync(parallelism) { _.toFuture }
         .mapAsync(1) { validate =>
           val result = for {
-            state     <- optimisticRef.get
+            state     <- stateRef.get
             directive <- validate(state.value.value, state.value.seqNr)
             result    <- {
               if (state.stopped) {
@@ -168,13 +168,13 @@ object Engine {
                         value = change.state,
                         seqNr = state.value.seqNr + change.events.size),
                       stopped = directive.stop)
-                    optimisticRef
+                    stateRef
                       .set(state1)
                       .as(EventsAndEffect(change.events.values.toList, effect(state1.value)))
 
                   case None =>
                     val state1 = state.copy(stopped = directive.stop)
-                    optimisticRef
+                    stateRef
                       .set(state1)
                       .as(EventsAndEffect(List.empty, effect(state1.value)))
                 }
@@ -205,12 +205,12 @@ object Engine {
     }
 
     for {
-      optimisticRef <- Ref[F].of(State(initial, stopped = false)).toResource
+      stateRef      <- Ref[F].of(State(initial, stopped = false)).toResource
       effectiveRef  <- Ref[F].of(initial).toResource
       append        <- Append.of(append).toResource
       cores         <- Runtime.summon[F].availableCores.toResource
       parallelism    = (cores max 2) * 10
-      queue         <- queue(parallelism, optimisticRef, effectiveRef, append)
+      queue         <- queue(parallelism, stateRef, effectiveRef, append)
       engine         = {
         def loadOf[A](
           load: F[Validate[F, S, E, A]],
@@ -269,11 +269,11 @@ object Engine {
 
         new Engine[F, S, E] {
 
-          def state = optimisticRef.get.map { _.value }
+          def state = stateRef.get.map { _.value }
 
           def effective: F[Engine.State[S]] = effectiveRef.get
 
-          def optimistic: F[Engine.State[S]] = optimisticRef.get.map { _.value }
+          def optimistic: F[Engine.State[S]] = stateRef.get.map { _.value }
 
           def apply[A](load: F[Validate[F, S, E, A]]) = {
             for {
@@ -337,7 +337,7 @@ object Engine {
       close <- CloseOnError.of[F]
     } yield new Engine[F, S, E] {
 
-      override def state: F[State[S]] = ref.get.map(_.state)
+      override def state: F[State[S]] = optimistic
 
       override def effective: F[State[S]] = eff.get
 
@@ -424,18 +424,22 @@ object Engine {
                       val state1 = State(change.state, state0.seqNr + change.events.size)
                       update(Wrapped(state1, directive.stop)).flatMap { updated =>
                         if (updated) {
-                          val persist =                                        // create {{{ persist: F[Unit] }}} job
+                          // create {{{ persist: F[Unit] }}} job
+                          val persist =
                             for {
-                              seqNr <- close { append(change.events) }.attempt // persist events if [[close]] allow
-                              _     <- eff.set(state1)                         // update effective state
-                              effect = for {                                   // create {{{ effect: F[Unit] }}} job
+                              // persist events if [[close]] allow
+                              seqNr <- close { append(change.events) <* eff.set(state1) }.attempt
+                              // create {{{ effect: F[Unit] }}} job
+                              effect = for {
                                          a <- directive.effect(seqNr).attempt
                                          _ <- reply.complete(a)
                                        } yield {}
-                              _     <- queue(Key.effect.some)(effect)          // enqueue {{{ effect: F[Unit] }}} as `Key.effect`
+                              // enqueue {{{ effect: F[Unit] }}} as `Key.effect`
+                              _     <- queue(Key.effect.some)(effect)
                             } yield {}
                           for {
-                            _ <- queue(Key.persist.some)(persist)              // enqueue {{{ persist: F[Unit] }}} as `Key.persist`
+                            // enqueue {{{ persist: F[Unit] }}} as `Key.persist`
+                            _ <- queue(Key.persist.some)(persist)
                           } yield ().asRight[Int]
                         } else
                           0.asLeft[Unit].pure[F]
