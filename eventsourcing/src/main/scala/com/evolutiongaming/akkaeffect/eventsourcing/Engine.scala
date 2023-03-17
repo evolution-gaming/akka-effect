@@ -14,13 +14,27 @@ import com.evolutiongaming.akkaeffect.eventsourcing.util.ResourceFromQueue
 import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
 import com.evolutiongaming.akkaeffect.util.CloseOnError
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, Runtime, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, Runtime, SerParQueue, ToFuture}
 
 
 trait Engine[F[_], S, E] {
   import Engine._
 
+  @deprecated("use either `effective` or `optimistic`. `optimistic` has exact behaviour as `state`", "15-03-2023")
   def state: F[State[S]]
+
+  /**
+    * Get effective state.
+    * Effective state is latest persisted state, should be used for all async operations with [[Journaller]] or [[Snapshotter]]
+    */
+  def effective: F[State[S]]
+
+  /**
+    * Get optimistic state.
+    * Optimistic aka speculative state is used internally to keep running incoming commands in parallel
+    * with persisting events from past changes
+    */
+  def optimistic: F[State[S]]
 
   /**
     * @return Outer F[_] is about `load` being enqueued, this immediately provides order guarantees
@@ -42,6 +56,10 @@ object Engine {
   ): Engine[F, S, E] = new Engine[F, S, E] {
 
     val state = initial.pure[F]
+
+    val effective = initial.pure[F]
+
+    val optimistic = initial.pure[F]
 
     def apply[A](load: F[Validate[F, S, E, A]]) = {
       for {
@@ -123,6 +141,7 @@ object Engine {
     def queue(
       parallelism: Int,
       stateRef: Ref[F, State],
+      effectiveRef: Ref[F, Engine.State[S]],
       append: Append
     ) = {
       val graph = Source
@@ -140,7 +159,10 @@ object Engine {
                 EventsAndEffect(List.empty, effect).pure[F]
               } else {
                 val effect = (state: Engine.State[S]) => (error: Option[Throwable]) => {
-                  directive.effect(error.toLeft(state.seqNr))
+                  for {
+                    _ <- effectiveRef.set(state).whenA(error.isEmpty)
+                    _ <- directive.effect(error.toLeft(state.seqNr))
+                  } yield {}
                 }
                 directive.change match {
                   case Some(change: Change[S, E]) =>
@@ -186,12 +208,13 @@ object Engine {
     }
 
     for {
-      stateRef    <- Ref[F].of(State(initial, stopped = false)).toResource
-      append      <- Append.of(append).toResource
-      cores       <- Runtime.summon[F].availableCores.toResource
-      parallelism  = (cores max 2) * 10
-      queue       <- queue(parallelism, stateRef, append)
-      engine       = {
+      stateRef      <- Ref[F].of(State(initial, stopped = false)).toResource
+      effectiveRef  <- Ref[F].of(initial).toResource
+      append        <- Append.of(append).toResource
+      cores         <- Runtime.summon[F].availableCores.toResource
+      parallelism    = (cores max 2) * 10
+      queue         <- queue(parallelism, stateRef, effectiveRef, append)
+      engine         = {
         def loadOf[A](
           load: F[Validate[F, S, E, A]],
           deferred: Deferred[F, Either[Throwable, A]]
@@ -249,7 +272,11 @@ object Engine {
 
         new Engine[F, S, E] {
 
-          def state = stateRef.get.map { _.value }
+          def state = optimistic
+
+          def effective: F[Engine.State[S]] = effectiveRef.get
+
+          def optimistic: F[Engine.State[S]] = stateRef.get.map { _.value }
 
           def apply[A](load: F[Validate[F, S, E, A]]) = {
             for {
@@ -279,6 +306,10 @@ object Engine {
         new Engine[F, S, E] {
 
           def state = engine.state
+
+          def effective: F[State[S]] = engine.effective
+
+          def optimistic: F[State[S]] = engine.optimistic
 
           def apply[A](load: F[Validate[F, S, E, A]]) = {
             for {

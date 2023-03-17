@@ -40,6 +40,10 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
     `release finishes with inflight elements`.run()
   }
 
+  test("effective state should not change after persistence failed") {
+    `effective state should not change after persistence failed`.run()
+  }
+
 
   private def `order of stages`[F[_]: Concurrent: ToFuture: FromFuture: Timer](actorSystem: ActorSystem): F[Unit] = {
 
@@ -370,6 +374,54 @@ class EngineTest extends AsyncFunSuite with Matchers with ActorSuite {
           _       = a shouldEqual Engine.stopped.asLeft
         } yield {}
       }
+      _ <- result.toResource
+    } yield {}
+
+    result.use { _.pure[F] }
+  }
+
+
+  def `effective state should not change after persistence failed`[F[_] : Concurrent : ToFuture : FromFuture]
+  : F[Unit] = {
+    val error = new RuntimeException with NoStackTrace
+
+    type S = Unit
+    type E = Unit
+
+    val directive = Directive.change({}, Events.of({})) {
+      _.liftTo[F].void
+    }
+    val load = Validate.const {
+      directive.pure[F]
+    }
+
+    val initial = Engine.State((), SeqNr.Min)
+
+    val result = for {
+      appendRef <- Ref.of[F, Either[Throwable, SeqNr]](initial.seqNr.asRight).toResource
+      append = new Engine.Append[F, E] {
+        override def apply(events: Events[E]): F[SeqNr] =
+          for {
+            v <- appendRef.get
+            n <- v.liftTo[F]
+          } yield n
+      }
+      materializer <- Sync[F].delay { SystemMaterializer(actorSystem).materializer }.toResource
+      engine <- Engine.of[F, S, E](initial, materializer, append)
+
+      result = for {
+        _ <- engine(load.pure[F]).flatten.attempt
+        eff0 <- engine.effective
+        opt0 <- engine.optimistic
+        _ = eff0 shouldEqual opt0
+
+        _ <- appendRef.set(error.asLeft)
+        _ <- engine(load.pure[F]).flatten.attempt
+        eff1 <- engine.effective
+        opt1 <- engine.optimistic
+        _ = eff1.seqNr shouldEqual 1
+        _ = opt1.seqNr shouldEqual 2
+      } yield {}
       _ <- result.toResource
     } yield {}
 
