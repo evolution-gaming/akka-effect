@@ -411,7 +411,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
 
   def `effective state should not change after persistence failed`[F[_]: Async: ToFuture: FromFuture]
     : F[Unit] = {
-    val error = new RuntimeException()
+    val error = new RuntimeException with NoStackTrace
 
     type E = Unit
 
