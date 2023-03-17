@@ -38,7 +38,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
   }
 
   test("effective state should not change after persistence failed") {
-    `release finishes with inflight elements`[IO].run()
+    `effective state should not change after persistence failed`[IO].run()
   }
 
   def engine[F[_]: Async: ToFuture: FromFuture, S, E](
