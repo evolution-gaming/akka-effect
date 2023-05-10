@@ -2,13 +2,13 @@ import sbt._
 
 object Dependencies {
   
-  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.14"
+  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.15"
   val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "2.9.0"
   val `executor-tools`            = "com.evolutiongaming"   %% "executor-tools"            % "1.0.4"
   val retry                       = "com.evolutiongaming"   %% "retry"                     % "2.1.1"
   val `akka-persistence-inmemory` = "com.github.dnvriend"   %% "akka-persistence-inmemory" % "2.5.15.2"
   val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.2"
-  val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.12.3"
+  val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.17.3"
   val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "0.3.6"
 
   object Cats {
