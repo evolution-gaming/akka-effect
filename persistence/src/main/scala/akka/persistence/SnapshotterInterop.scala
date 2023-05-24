@@ -42,7 +42,8 @@ object SnapshotterInterop {
         }
     }
 
-    new akkaeffect.persistence.Snapshotter[F, A] {
+    class Main
+    new Main with akkaeffect.persistence.Snapshotter[F, A] {
 
       def save(seqNr: SeqNr, snapshot: A) = {
         ask(SaveSnapshot(metadata(seqNr), snapshot)) {

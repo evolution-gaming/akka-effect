@@ -14,6 +14,8 @@ object InstrumentEventSourced {
     eventSourcedOf: EventSourcedOf[F, Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], Boolean]]]]
   ): EventSourcedOf[F, Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], Boolean]]]] = {
 
+    class Instrument
+
     def record(action: Action[S, C, E]) = actions.update { action :: _ }
 
     def resource[A](allocate: Action[S, C, E], release: Action[S, C, E]) = {
@@ -61,7 +63,7 @@ object InstrumentEventSourced {
                     }
                   }
                 } { (seqNr, journaller, snapshotter) =>
-                  val journaller1 = new Journaller[F, E] {
+                  val journaller1 = new Instrument with Journaller[F, E] {
 
                     def append = events => {
                       for {
@@ -90,7 +92,7 @@ object InstrumentEventSourced {
                     }
                   }
 
-                  val snapshotter1 = new Snapshotter[F, S] {
+                  val snapshotter1 = new Instrument with Snapshotter[F, S] {
 
                     def save(seqNr: SeqNr, snapshot: S) = {
                       for {

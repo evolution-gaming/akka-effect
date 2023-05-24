@@ -62,26 +62,37 @@ object Snapshotter {
     SnapshotterInterop(snapshotter, timeout)
   }
 
+  private sealed abstract class Convert
+
+  private sealed abstract class MapK
+
+  private sealed abstract class WithFail
+
+  private sealed abstract class WithLogging
 
   implicit class SnapshotterOps[F[_], A](val self: Snapshotter[F, A]) extends AnyVal {
 
-    def mapK[G[_]: Applicative](f: F ~> G): Snapshotter[G, A] = new Snapshotter[G, A] {
+    def mapK[G[_]: Applicative](f: F ~> G): Snapshotter[G, A] = {
+      new MapK with Snapshotter[G, A] {
 
-      def save(seqNr: SeqNr, snapshot: A) = f(self.save(seqNr, snapshot)).map { a => f(a) }
+        def save(seqNr: SeqNr, snapshot: A) = f(self.save(seqNr, snapshot)).map { a => f(a) }
 
-      def delete(seqNr: SeqNr) = f(self.delete(seqNr)).map { a => f(a) }
+        def delete(seqNr: SeqNr) = f(self.delete(seqNr)).map { a => f(a) }
 
-      def delete(criteria: SnapshotSelectionCriteria) = f(self.delete(criteria)).map { a => f(a) }
+        def delete(criteria: SnapshotSelectionCriteria) = f(self.delete(criteria)).map { a => f(a) }
+      }
     }
 
 
-    def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Snapshotter[F, B] = new Snapshotter[F, B] {
+    def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Snapshotter[F, B] = {
+      new Convert with Snapshotter[F, B] {
 
-      def save(seqNr: SeqNr, snapshot: B) = f(snapshot).flatMap { a => self.save(seqNr, a) }
+        def save(seqNr: SeqNr, snapshot: B) = f(snapshot).flatMap { a => self.save(seqNr, a) }
 
-      def delete(seqNr: SeqNr) = self.delete(seqNr)
+        def delete(seqNr: SeqNr) = self.delete(seqNr)
 
-      def delete(criteria: SnapshotSelectionCriteria) = self.delete(criteria)
+        def delete(criteria: SnapshotSelectionCriteria) = self.delete(criteria)
+      }
     }
 
 
@@ -89,39 +100,41 @@ object Snapshotter {
       log: Log[F])(implicit
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]
-    ): Snapshotter[F, A] = new Snapshotter[F, A] {
+    ): Snapshotter[F, A] = {
+      new WithLogging with Snapshotter[F, A] {
 
-      def save(seqNr: SeqNr, snapshot: A) = {
-        for {
-          d <- MeasureDuration[F].start
-          r <- self.save(seqNr, snapshot)
-        } yield for {
-          r <- r
-          d <- d
-          _ <- log.info(s"save snapshot at $seqNr in ${ d.toMillis }ms")
-        } yield r
-      }
+        def save(seqNr: SeqNr, snapshot: A) = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.save(seqNr, snapshot)
+          } yield for {
+            r <- r
+            d <- d
+            _ <- log.info(s"save snapshot at $seqNr in ${ d.toMillis }ms")
+          } yield r
+        }
 
-      def delete(seqNr: SeqNr) = {
-        for {
-          d <- MeasureDuration[F].start
-          r <- self.delete(seqNr)
-        } yield for {
-          r <- r
-          d <- d
-          _ <- log.info(s"delete snapshot at $seqNr in ${ d.toMillis }ms")
-        } yield r
-      }
+        def delete(seqNr: SeqNr) = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.delete(seqNr)
+          } yield for {
+            r <- r
+            d <- d
+            _ <- log.info(s"delete snapshot at $seqNr in ${ d.toMillis }ms")
+          } yield r
+        }
 
-      def delete(criteria: SnapshotSelectionCriteria) = {
-        for {
-          d <- MeasureDuration[F].start
-          r <- self.delete(criteria)
-        } yield for {
-          r <- r
-          d <- d
-          _ <- log.info(s"delete snapshots for $criteria in ${ d.toMillis }ms")
-        } yield r
+        def delete(criteria: SnapshotSelectionCriteria) = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.delete(criteria)
+          } yield for {
+            r <- r
+            d <- d
+            _ <- log.info(s"delete snapshots for $criteria in ${ d.toMillis }ms")
+          } yield r
+        }
       }
     }
 
@@ -129,23 +142,25 @@ object Snapshotter {
     def withFail(
       fail: Fail[F])(implicit
       F: MonadThrowable[F]
-    ): Snapshotter[F, A] = new Snapshotter[F, A] {
+    ): Snapshotter[F, A] = {
+      new WithFail with Snapshotter[F, A] {
 
-      def save(seqNr: SeqNr, snapshot: A) = {
-        fail.adapt(s"failed to save snapshot at $seqNr") {
-          self.save(seqNr, snapshot)
+        def save(seqNr: SeqNr, snapshot: A) = {
+          fail.adapt(s"failed to save snapshot at $seqNr") {
+            self.save(seqNr, snapshot)
+          }
         }
-      }
 
-      def delete(seqNr: SeqNr) = {
-        fail.adapt(s"failed to delete snapshot at $seqNr") {
-          self.delete(seqNr)
+        def delete(seqNr: SeqNr) = {
+          fail.adapt(s"failed to delete snapshot at $seqNr") {
+            self.delete(seqNr)
+          }
         }
-      }
 
-      def delete(criteria: SnapshotSelectionCriteria) = {
-        fail.adapt(s"failed to delete snapshots for $criteria") {
-          self.delete(criteria)
+        def delete(criteria: SnapshotSelectionCriteria) = {
+          fail.adapt(s"failed to delete snapshots for $criteria") {
+            self.delete(criteria)
+          }
         }
       }
     }
