@@ -2,8 +2,8 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.akkaeffect.Fail
-import com.evolutiongaming.catshelper.{Log, MonadThrowable}
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
+import com.evolutiongaming.smetrics
 
 
 /**
@@ -31,7 +31,7 @@ object Journaller {
   def empty[F[_]: Applicative, A]: Journaller[F, A] = {
     Journaller(Append.empty[F, A], DeleteEventsTo.empty[F])
   }
-  
+
 
   def apply[F[_], A](
     append: Append[F, A],
@@ -90,15 +90,23 @@ object Journaller {
       }
     }
 
-
+    @deprecated("Use `withLogging1` instead", "0.4.0")
     def withLogging(
+      log: Log[F])(implicit
+      F: FlatMap[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): Journaller[F, A] = {
+      withLogging1(log)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLogging1(
       log: Log[F])(implicit
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]
     ): Journaller[F, A] = {
       Journaller(
-        self.append.withLogging(log),
-        self.deleteTo.withLogging(log))
+        self.append.withLogging1(log),
+        self.deleteTo.withLogging1(log))
     }
 
 

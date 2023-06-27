@@ -35,7 +35,7 @@ class ClusterShardingTest extends AsyncFunSuite with ActorSuite with Matchers {
       logOf                   <- LogOf.slf4j[IO].toResource
       log                     <- logOf(classOf[ClusterShardingTest]).toResource
       clusterSharding         <- ClusterSharding.of[IO](actorSystem)
-      clusterSharding         <- clusterSharding.withLogging(log).pure[Resource[IO, *]]
+      clusterSharding         <- clusterSharding.withLogging1(log).pure[Resource[IO, *]]
       clusterShardingSettings <- IO { ClusterShardingSettings(actorSystem) }.toResource
       actorRefOf               = ActorRefOf.fromActorRefFactory(actorSystem)
       probe                   <- Probe.of(actorRefOf)
