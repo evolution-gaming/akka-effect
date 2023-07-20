@@ -17,7 +17,11 @@ import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
 final case class Directive[F[_], +S, +E, A](
   change: Option[Change[S, E]],
   effect: Effect[F, A],
-  stop: Boolean)
+  stop: Boolean) {
+  def mapState[S1](f: S => S1): Directive[F, S1, E, A] = copy(change = change.map(_.mapState(f)))
+
+  def mapEvent[E1](f: E => E1): Directive[F, S, E1, A] = copy(change = change.map(_.mapEvent(f)))
+}
 
 object Directive {
 
