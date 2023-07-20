@@ -19,6 +19,8 @@ final case class Events[+A](values: Nel[Nel[A]]) { self =>
       .show(Show.fromToString[A])
       .show(self)
   }
+
+  def map[A1](f: A => A1): Events[A1] = Events(values.map(_.map(f)))
 }
 
 object Events {
