@@ -15,7 +15,7 @@ import com.evolutiongaming.akkaeffect.persistence.Events
 final case class Change[+S, +E](state: S, events: Events[E]) {
   def mapState[S1](f: S => S1): Change[S1, E] = Change(f(state), events)
 
-  def mapEvents[E1](f: E => E1): Change[S, E1] = Change(state, events.map(f))
+  def mapEvent[E1](f: E => E1): Change[S, E1] = Change(state, events.map(f))
 }
 
 object Change {

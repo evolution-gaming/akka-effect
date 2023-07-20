@@ -20,7 +20,7 @@ final case class Directive[F[_], +S, +E, A](
   stop: Boolean) {
   def mapState[S1](f: S => S1): Directive[F, S1, E, A] = copy(change = change.map(_.mapState(f)))
 
-  def mapEvents[E1](f: E => E1): Directive[F, S, E1, A] = copy(change = change.map(_.mapEvents(f)))
+  def mapEvent[E1](f: E => E1): Directive[F, S, E1, A] = copy(change = change.map(_.mapEvent(f)))
 }
 
 object Directive {
