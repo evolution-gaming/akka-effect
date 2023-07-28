@@ -11,9 +11,6 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable, ToFuture}
 import com.evolutiongaming.smetrics
 
-import scala.collection.immutable.Queue
-
-
 /**
   * @see [[akka.persistence.PersistentActor.persistAllAsync]]
   */
@@ -54,22 +51,22 @@ object Append {
 
     class Main
 
-    def fail(ref: AtomicRef[Queue[Deferred[F, Either[Throwable, SeqNr]]]], error: F[Throwable]) = {
-      ref
-        .getAndSet(Queue.empty)
-        .toList
-        .toNel
-        .foldMapM { queue =>
-          for {
-            error  <- error
-            result <- queue.foldMapM { _.complete(error.asLeft).void }
-          } yield result
-        }
+    def fail(ref: AtomicRef[Map[Events[?], Deferred[F, Either[Throwable, SeqNr]]]], error: F[Throwable]) = {
+      for {
+        error <- error
+        _     <- ref
+                  .getAndSet(Map.empty)
+                  .values
+                  .toList
+                  .traverse {
+                    _.complete(error.asLeft)
+                  }
+      } yield {}
     }
 
     Resource
       .make {
-        Sync[F].delay { AtomicRef(Queue.empty[Deferred[F, Either[Throwable, SeqNr]]]) }
+        Sync[F].delay { AtomicRef(Map.empty[Events[_], Deferred[F, Either[Throwable, SeqNr]]]) }
       } { ref =>
         Sync[F].defer { fail(ref, stopped) }
       }
@@ -85,18 +82,18 @@ object Append {
               for {
                 deferred <- Deferred[F, Either[Throwable, SeqNr]]
                 _        <- act {
-                  ref.update { _.enqueue(deferred) }
+                  ref.update { _.updated(events, deferred) }
                   var left = size
-                  eventsList.foreach { events =>
-                    eventsourced.persistAllAsync(events.toList) { _ =>
+                  eventsList.foreach { batch =>
+                    eventsourced.persistAllAsync(batch.toList) { _ =>
                       left = left - 1
                       if (left <= 0) {
                         val seqNr = eventsourced.lastSequenceNr
                         ref
-                          .modify { queue =>
-                            queue.dequeueOption match {
-                              case Some((promise, queue)) => (queue, promise.some)
-                              case None                   => (Queue.empty, none)
+                          .modify { map =>
+                            map.get(events) match {
+                              case Some(promise) => map.removed(events) -> promise.some
+                              case None          => map -> none
                             }
                           }
                           .foreach { deferred =>
