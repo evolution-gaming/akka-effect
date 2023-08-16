@@ -5,8 +5,6 @@ import cats.{Applicative, FlatMap, Functor, ~>}
 import com.evolutiongaming.akkaeffect.persistence
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.catshelper.{Log, MeasureDuration}
-import com.evolutiongaming.smetrics
-
 
 trait Journaller[F[_]] {
   /**
@@ -33,15 +31,6 @@ object Journaller {
 
     def mapK[G[_]: Functor](f: F ~> G): Journaller[G] = {
       (seqNr: SeqNr) => f(self.deleteTo(seqNr)).map(a => f(a))
-    }
-
-    @deprecated("Use `withLogging1` instead", "0.4.0")
-    def withLogging(
-      log: Log[F])(implicit
-      F: FlatMap[F],
-      measureDuration: smetrics.MeasureDuration[F]
-    ): Journaller[F] = {
-      withLogging1(log)(F, measureDuration.toCatsHelper)
     }
 
     def withLogging1(

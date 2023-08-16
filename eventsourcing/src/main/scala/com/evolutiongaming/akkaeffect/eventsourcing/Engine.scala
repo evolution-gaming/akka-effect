@@ -14,7 +14,7 @@ import com.evolutiongaming.akkaeffect.eventsourcing.util.ResourceFromQueue
 import com.evolutiongaming.akkaeffect.persistence.{Events, SeqNr}
 import com.evolutiongaming.akkaeffect.util.CloseOnError
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, Runtime, SerParQueue, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, Runtime, ToFuture}
 
 
 trait Engine[F[_], S, E] {
