@@ -6,7 +6,6 @@ import cats.syntax.all._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.akkaeffect.Fail
 import com.evolutiongaming.catshelper.{FromFuture, Log, MeasureDuration, MonadThrowable}
-import com.evolutiongaming.smetrics
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -54,15 +53,6 @@ object DeleteEventsTo {
       new MapK with DeleteEventsTo[G] {
         def apply(seqNr: SeqNr) = f(self(seqNr)).map { a => f(a) }
       }
-    }
-
-    @deprecated("Use `withLogging1` instead", "0.4.0")
-    def withLogging(
-      log: Log[F])(implicit
-      F: FlatMap[F],
-      measureDuration: smetrics.MeasureDuration[F]
-    ): DeleteEventsTo[F] = {
-      withLogging1(log)(F, measureDuration.toCatsHelper)
     }
 
     def withLogging1(
