@@ -7,10 +7,10 @@ import cats.{Applicative, Functor, Monad}
 import scala.reflect.ClassTag
 
 
-/** Capability to convert [[Any]] to specific type.
+/** Capability to convert `Any` to specific type.
   *
   * The class is useful in the context of untyped Akka to represent the
-  * conversion from [[Any]] coming to an actor to a useful type.
+  * conversion from `Any` coming to an actor to a useful type.
   *
   * While it is not necessary to use it, it provides some useful smart
   * constructors out of the box.
@@ -40,7 +40,7 @@ object Extract {
   /** Accept instances of specific class, return `None` for everything else.
     *
     * Example:
-    * {{
+    * {{{
     * scala> import cats.effect.IO
     * scala> import com.evolutiongaming.akkaeffect.Extract
     *
@@ -54,7 +54,7 @@ object Extract {
     *
     * scala> extract("hello").value
     * val res1: IO[Option[Request]] = IO(None)
-    * }}
+    * }}}
     */
   def fromClassTag[F[_]: Applicative, A: ClassTag]: Extract[F, A] = {
     fromPartialFunction { case a: A => a }
