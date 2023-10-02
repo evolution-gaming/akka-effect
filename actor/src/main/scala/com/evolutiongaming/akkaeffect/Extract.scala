@@ -7,6 +7,14 @@ import cats.{Applicative, Functor, Monad}
 import scala.reflect.ClassTag
 
 
+/** Capability to convert [[Any]] to specific type.
+  *
+  * The class is useful in the context of untyped Akka to represent the
+  * conversion from [[Any]] coming to an actor to a useful type.
+  *
+  * While it is not necessary to use it, it provides some useful smart
+  * constructors out of the box.
+  */
 trait Extract[F[_], A] {
 
   def apply(a: Any): OptionT[F, A]
@@ -29,6 +37,25 @@ object Extract {
   def summon[F[_], A](implicit F: Extract[F, A]): Extract[F, A] = F
 
 
+  /** Accept instances of specific class, return `None` for everything else.
+    *
+    * Example:
+    * {{
+    * scala> import cats.effect.IO
+    * scala> import com.evolutiongaming.akkaeffect.Extract
+    *
+    * scala> case class Request(id: Long) class Request
+    *
+    * scala> Extract.fromClassTag[IO, Request]
+    * scala> val extract = Extract.fromClassTag[IO, Request]
+    *
+    * scala> extract(Request(7)).value
+    * val res0: IO[Option[Request]] = IO(Some(Request(7)))
+    *
+    * scala> extract("hello").value
+    * val res1: IO[Option[Request]] = IO(None)
+    * }}
+    */
   def fromClassTag[F[_]: Applicative, A: ClassTag]: Extract[F, A] = {
     fromPartialFunction { case a: A => a }
   }
