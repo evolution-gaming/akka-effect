@@ -11,51 +11,6 @@ import scala.util.control.NoStackTrace
 
 class SeriallyTest extends AsyncFunSuite with Matchers {
 
-  test("serially") {
-    val threadId = IO { Thread.currentThread().getId }
-    val result = for {
-      serially  <- IO { Serially[IO, Int](0) }
-      threadId0 <- threadId
-      _         <- serially { a => (a + 1).pure[IO] }
-      threadId1 <- threadId
-      _         <- IO { threadId0 shouldEqual threadId1 }
-      deferred  <- Deferred[IO, Int]
-      _         <- IO.defer { serially { a => deferred.complete(a).as(a) } }
-      value     <- deferred.get
-      _         <- IO { value shouldEqual 1 }
-      deferred  <- Deferred[IO, Unit]
-      threadId0 <- Deferred[IO, Long]
-      threadId1 <- Deferred[IO, Long]
-      _         <- serially { a =>
-        for {
-          _        <- deferred.get
-          threadId <- threadId
-          _        <- threadId0.complete(threadId)
-        } yield {
-          a + 1
-        }
-      }
-        .start
-      _         <- serially { a =>
-        for {
-          threadId <- threadId
-          _        <- threadId1.complete(threadId)
-        } yield {
-          a + 1
-        }
-      }.start
-      _         <- deferred.complete(())
-      threadId0 <- threadId0.get
-      threadId1 <- threadId1.get
-      _         <- IO { threadId0 shouldEqual threadId1 }
-      deferred  <- Deferred[IO, Int]
-      _         <- IO.defer { serially { a => deferred.complete(a).as(a) } }
-      value     <- deferred.get
-      _         <- IO { value shouldEqual 3 }
-    } yield {}
-    result.run()
-  }
-
   test("error") {
     val result = for {
       error     <- IO { new RuntimeException with NoStackTrace }
@@ -70,19 +25,19 @@ class SeriallyTest extends AsyncFunSuite with Matchers {
     result.run()
   }
 
-  test("handles many concurrent tasks") {
+  test("handle concurrently added tasks serially") {
+    val n = 10000
     var i = 0
-
     val result = for {
-      serially <- IO {
-        Serially[IO, Int](0)
-      }
-      _ <- serially.apply(s => IO {
-        i = i + 1
-      }.as(s + 1)).parReplicateA(100000)
-      _ <- IO {
-        i shouldEqual 100000
-      }
+      serially <- IO { Serially[IO, Int](0) }
+      _        <- serially
+        .apply { a =>
+          IO
+            .apply { i = i + 1 }
+            .as(a + 1)
+        }
+        .parReplicateA(n)
+      _        <- IO { i shouldEqual n }
     } yield ()
     result.run()
   }

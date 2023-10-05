@@ -50,22 +50,23 @@ private[akkaeffect] object ActorVar {
     val serially = Serially[F, Option[State]](none)
 
     def update(f: Option[State] => F[Option[State]]): Unit = {
-      serially { state =>
-        val result = for {
-          a <- f(state)
-          _ <- a match {
-            case Some(_) => unit
-            case None    => act { stop() }
-          }
-        } yield a
-        result.handleErrorWith { error =>
-          for {
-            _ <- state.foldMapM { _.release }
-            _ <- act[Any] { throw error }
-            a <- error.raiseError[F, Option[State]]
+      serially
+        .apply { state =>
+          val result = for {
+            a <- f(state)
+            _ <- a match {
+              case Some(_) => unit
+              case None    => act { stop() }
+            }
           } yield a
+          result.handleErrorWith { error =>
+            for {
+              _ <- state.foldMapM { _.release }
+              _ <- act[Any] { throw error }
+              a <- error.raiseError[F, Option[State]]
+            } yield a
+          }
         }
-      }
         .toFuture
       ()
     }
