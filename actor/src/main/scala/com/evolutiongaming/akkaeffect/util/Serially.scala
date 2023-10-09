@@ -36,19 +36,18 @@ private[akkaeffect] object Serially {
       (a, task).tailRecM { case (a, task) =>
         for {
           a <- task(a)
-          a <- Sync[F].delay {
-            val s = ref.getAndUpdate {
+          s <- Sync[F].delay {
+            ref.getAndUpdate {
               case _: S.Active => S.Active
               case S.Active    => S.Idle(a)
               case _: S.Idle   => S.Idle(a)
             }
-            s match {
-              case s: S.Active => (a, s.task).asLeft[Unit]
-              case S.Active    => unit
-              case _: S.Idle   => unit
-            }
           }
-        } yield a
+        } yield s match {
+          case s: S.Active => (a, s.task).asLeft[Unit]
+          case S.Active    => unit
+          case _: S.Idle   => unit
+        }
       }
     }
 
