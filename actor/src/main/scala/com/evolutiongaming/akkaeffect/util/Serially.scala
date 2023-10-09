@@ -65,8 +65,8 @@ private[akkaeffect] object Serially {
               b.getOrElse(a)
             }
           }
-          a <- Sync[F].delay {
-            val s = ref.getAndUpdate {
+          s <- Sync[F].delay {
+            ref.getAndUpdate {
               case _: S.Idle => S.Active
               case s: S.Active =>
                 val task = (a: A) =>
@@ -79,13 +79,12 @@ private[akkaeffect] object Serially {
                 S.Active(task)
               case S.Active => S.Active(t)
             }
-            s match {
-              case s: S.Idle   => start(s.value, t)
-              case _: S.Active => Concurrent[F].unit
-              case S.Active    => Concurrent[F].unit
-            }
           }
-          _ <- a
+          _ <- s match {
+            case s: S.Idle   => start(s.value, t)
+            case _: S.Active => Concurrent[F].unit
+            case S.Active    => Concurrent[F].unit
+          }
           a <- d.get
           a <- a.liftTo[F]
         } yield a
