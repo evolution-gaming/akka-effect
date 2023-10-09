@@ -1,6 +1,5 @@
 package com.evolutiongaming.akkaeffect.util
 
-import cats.data.Kleisli
 import cats.effect.{Sync, Async, Concurrent}
 import cats.syntax.all._
 import java.util.concurrent.atomic.AtomicReference
@@ -19,7 +18,7 @@ private[akkaeffect] object Serially {
 
   def apply[F[_]: Async, A](value: A): Serially[F, A] = {
 
-    type Task = Kleisli[F, A, A]
+    type Task = A => F[A]
 
     sealed abstract class S
 
@@ -58,7 +57,7 @@ private[akkaeffect] object Serially {
       def apply(f: A => F[A]) = {
         for {
           d <- Concurrent[F].deferred[Either[Throwable, Unit]]
-          t = Kleisli { a: A =>
+          t = (a: A) => {
             for {
               b <- f(a).attempt
               _ <- d.complete(b.void)
@@ -68,9 +67,17 @@ private[akkaeffect] object Serially {
           }
           a <- Sync[F].delay {
             val s = ref.getAndUpdate {
-              case _: S.Idle   => S.Active
-              case s: S.Active => S.Active(s.task.andThen(t))
-              case S.Active    => S.Active(t)
+              case _: S.Idle => S.Active
+              case s: S.Active =>
+                val task = (a: A) =>
+                  Async[F].defer {
+                    for {
+                      a <- s.task(a)
+                      a <- t(a)
+                    } yield a
+                  }
+                S.Active(task)
+              case S.Active => S.Active(t)
             }
             s match {
               case s: S.Idle   => start(s.value, t)
