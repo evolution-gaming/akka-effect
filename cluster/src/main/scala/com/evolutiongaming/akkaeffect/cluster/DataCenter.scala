@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.cluster
 import cats.{Order, Show}
 import pureconfig.ConfigReader
 
-
+/** Datacenter where required cluster singletons are located */
 final case class DataCenter(value: String) {
 
   override def toString: String = value
