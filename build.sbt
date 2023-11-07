@@ -28,6 +28,7 @@ lazy val root = (project in file(".")
     testkit,
     persistence,
     eventsourcing,
+    `eventsourcing-persistence`,
     cluster,
     `cluster-sharding`))
 
@@ -64,13 +65,20 @@ lazy val testkit = (project in file("testkit")
     Akka.testkit % Test,
     scalatest % Test)))
 
+lazy val `eventsourcing-persistence` = (project in file("eventsourcing-persistence")
+  settings (name := "akka-effect-eventsourcing-persistence")
+  settings commonSettings
+  settings (
+  libraryDependencies ++= Seq(sstream)))
+
 lazy val persistence = (project in file("persistence")
   settings (name := "akka-effect-persistence")
   settings commonSettings
   dependsOn(
-    actor         % "test->test;compile->compile",
-    testkit       % "test->test;test->compile",
-    `actor-tests` % "test->test")
+    `eventsourcing-persistence` % "test->test;compile->compile",
+    actor                       % "test->test;compile->compile",
+    testkit                     % "test->test;test->compile",
+    `actor-tests`               % "test->test")
   settings (
     libraryDependencies ++= Seq(
       Akka.actor,

@@ -10,6 +10,7 @@ object Dependencies {
   val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.2"
   val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.17.3"
   val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "2.0.0"
+  val sstream                     = "com.evolutiongaming"   %% "sstream"                   % "1.0.1"
 
   object Cats {
     private val version = "2.9.0"
