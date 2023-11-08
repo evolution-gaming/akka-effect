@@ -101,7 +101,7 @@ object EventSourcedStoreOf {
                           override val seqNr: SeqNr =
                             persisted.sequenceNr
                         }
-                        val _ = buffer.update(_.appended(event)).toTry
+                        val _ = buffer.update(_ :+ event).toTry
                       }
                     }
 
