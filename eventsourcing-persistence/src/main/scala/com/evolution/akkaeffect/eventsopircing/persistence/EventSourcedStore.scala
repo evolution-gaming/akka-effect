@@ -28,13 +28,4 @@ object EventSourcedStore {
     */
   final case class Id(value: String) extends AnyVal
 
-  /**
-    * Snapshot lookup criteria
-    * @see [[akka.persistence.SnapshotSelectionCriteria]]
-    */
-  final case class Criteria(maxSequenceNr: Long = Long.MaxValue,
-                            maxTimestamp: Long = Long.MaxValue,
-                            minSequenceNr: Long = 0L,
-                            minTimestamp: Long = 0L)
-
 }
