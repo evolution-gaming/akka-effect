@@ -14,10 +14,9 @@ trait EventSourcedStore[F[_], S, E] {
     * Start recovery by retrieving snapshot (eager, happening on outer F)
     * and preparing for loading events (lazy op, happens on [[Recovery#events()]] stream materialisation)
     * @param id persistent ID
-    * @param criteria snapshot lookup criteria
     * @return [[Recovery]] instance, representing __started__ recovery
     */
-  def recover(id: Id, criteria: Criteria): F[Recovery[F, S, E]]
+  def recover(id: Id): F[Recovery[F, S, E]]
 
 }
 

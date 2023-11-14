@@ -1,24 +1,18 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.persistence.SnapshotSelectionCriteria
-import cats.syntax.all._
-import cats.effect.{Async, Ref, Resource, Sync}
 import akka.persistence.journal.AsyncRecovery
 import akka.persistence.snapshot.SnapshotStore
-import com.evolution.akkaeffect.eventsopircing.persistence.{
-  Event,
-  EventSourcedStore,
-  Recovery,
-  Snapshot
-}
-import com.evolutiongaming.catshelper.FromFuture
-import com.evolutiongaming.catshelper.ToTry
+import cats.effect.{Async, Ref, Resource, Sync}
+import cats.syntax.all._
+import com.evolution.akkaeffect.eventsopircing.persistence.{Event, EventSourcedStore, Recovery, Snapshot}
+import com.evolutiongaming.catshelper.{FromFuture, ToTry}
+import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
 
 import java.time.Instant
 import scala.concurrent.Future
 import scala.util.Try
-import com.evolutiongaming.sstream.FoldWhile._
 
 object EventSourcedStoreOf {
 
@@ -42,20 +36,10 @@ object EventSourcedStoreOf {
 
     val eventSourcedStore = new EventSourcedStore[F, S, E] {
 
-      override def recover(
-        id: EventSourcedStore.Id,
-        criteria: EventSourcedStore.Criteria
-      ): F[Recovery[F, S, E]] = {
-
-        val snapshotSelectionCriteria = SnapshotSelectionCriteria(
-          criteria.maxSequenceNr,
-          criteria.maxTimestamp,
-          criteria.minSequenceNr,
-          criteria.minTimestamp
-        )
+      override def recover(id: EventSourcedStore.Id): F[Recovery[F, S, E]] = {
 
         snapshotStore
-          .loadAsync(id.value, snapshotSelectionCriteria)
+          .loadAsync(id.value, SnapshotSelectionCriteria())
           .liftTo[F]
           .map { offer =>
             new Recovery[F, S, E] {
