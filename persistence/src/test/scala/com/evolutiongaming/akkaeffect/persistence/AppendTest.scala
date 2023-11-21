@@ -28,11 +28,11 @@ class AppendTest extends AsyncFunSuite with Matchers {
 
     case class Event(fa: F[Unit])
 
-    def eventsourced(act: Act[F], ref: Ref[F, Queue[F[Unit]]]): F[Append.Eventsourced] = {
+    def eventsourced(act: Act[F], ref: Ref[F, Queue[F[Unit]]]): F[AppendOf.Eventsourced] = {
       Ref[F]
         .of(SeqNr.Min)
         .map { seqNr =>
-          new Append.Eventsourced {
+          new AppendOf.Eventsourced {
 
             def lastSequenceNr = seqNr.get.toTry.get
 
@@ -56,7 +56,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
     for {
       ref          <- Ref[F].of(Queue.empty[F[Unit]])
       eventsourced <- eventsourced(act, ref)
-      result       <- Append
+      result       <- AppendOf
         .adapter[F, Int](act, eventsourced, stopped.pure[F])
         .use { append =>
 

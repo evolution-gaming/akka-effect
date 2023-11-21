@@ -33,7 +33,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
         override def preStart() = {
           super.preStart()
-          val snapshotter = Snapshotter[F, Any](actor, 1.minute)
+          val snapshotter = SnapshotterOf[F, Any](actor, 1.minute)
           deferred.complete(snapshotter).toFuture
           ()
         }

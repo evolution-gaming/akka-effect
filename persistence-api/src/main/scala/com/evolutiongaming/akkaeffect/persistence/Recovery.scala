@@ -1,4 +1,4 @@
-package com.evolution.akkaeffect.eventsopircing.persistence
+package com.evolutiongaming.akkaeffect.persistence
 
 import com.evolutiongaming.sstream.Stream
 

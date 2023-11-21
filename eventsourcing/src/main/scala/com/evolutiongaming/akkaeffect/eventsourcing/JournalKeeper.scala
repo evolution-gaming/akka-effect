@@ -328,6 +328,12 @@ object JournalKeeper {
 
           def delete(criteria: SnapshotSelectionCriteria) = {
 
+            delete(Snapshotter.Criteria(criteria))
+
+          }
+
+          def delete(criteria: Snapshotter.Criteria): F[F[Unit]] = {
+
             def selected(meta: SnapshotMetadata) = {
               meta.seqNr <= criteria.maxSequenceNr && meta.timestamp.toEpochMilli <= criteria.maxSequenceNr
             }
@@ -346,6 +352,7 @@ object JournalKeeper {
                   .map { _.joinWithNever }
               }
           }
+
         }
       }
     }

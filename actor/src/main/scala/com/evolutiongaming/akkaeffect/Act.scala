@@ -106,7 +106,15 @@ private[akkaeffect] object Act {
           }
         }
 
-        def receive(receive: Actor.Receive) = {
+        /**
+          * set thread local [[threadLocal]] to [[self]] and
+          * if message is of type [[Msg]] - apply internal function,
+          * otherwise delegate receive to [[receive]]
+          *
+          * @param receive [[Actor.Receive]] partial function
+          * @return [[Actor.Receive]] partial function: Any => Unit
+          */
+        def receive(receive: Actor.Receive): Actor.Receive = {
           val receiveMsg: Actor.Receive = { case Msg(f) => f() }
           syncReceive(receiveMsg orElse receive)
         }

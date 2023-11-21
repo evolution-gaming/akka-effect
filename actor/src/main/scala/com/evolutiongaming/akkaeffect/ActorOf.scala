@@ -23,14 +23,15 @@ object ActorOf {
 
     type State = Receive[F, Envelope[Any], Stop]
 
-    def onPreStart(actorCtx: ActorCtx[F])(implicit fail: Fail[F]) = {
+    def onPreStart(actorCtx: ActorCtx[F])(implicit fail: Fail[F]): Resource[F, Receive[F, Envelope[Any], Stop]] = {
       receiveOf(actorCtx)
         .handleErrorWith { (error: Throwable) =>
           s"failed to allocate receive".fail[F, State](error).toResource
         }
     }
 
-    def onReceive(a: Any, sender: ActorRef)(implicit fail: Fail[F]) = {
+    // a - message
+    def onReceive(a: Any, sender: ActorRef)(implicit fail: Fail[F]): State => F[Directive[Releasable[F, State]]] = {
       state: State =>
         val stop = a match {
           case ReceiveTimeout => state.timeout

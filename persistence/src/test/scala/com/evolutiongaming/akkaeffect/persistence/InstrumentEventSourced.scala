@@ -130,6 +130,20 @@ object InstrumentEventSourced {
                         } yield a
                       }
                     }
+
+                    def delete(criteria: Snapshotter.Criteria): F[F[Unit]] = {
+                      for {
+                        _ <- record(Action.DeleteSnapshots(criteria.asAkka))
+                        a <- snapshotter.delete(criteria)
+                        _ <- record(Action.DeleteSnapshotsOuter)
+                      } yield {
+                        for {
+                          a <- a
+                          _ <- record(Action.DeleteSnapshotsInner)
+                        } yield a
+                      }
+                    }
+
                   }
 
                   for {

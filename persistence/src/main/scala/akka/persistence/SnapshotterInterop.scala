@@ -1,7 +1,6 @@
 package akka.persistence
 
 import java.time.Instant
-
 import akka.persistence.SnapshotProtocol.{DeleteSnapshot, DeleteSnapshots, Request, SaveSnapshot}
 import akka.util.Timeout
 import cats.effect.Sync
@@ -64,6 +63,10 @@ object SnapshotterInterop {
           case _: DeleteSnapshotsSuccess => ().pure[F]
           case a: DeleteSnapshotsFailure => a.cause.raiseError[F, Unit]
         }
+      }
+
+      def delete(criteria: akkaeffect.persistence.Snapshotter.Criteria): F[F[Unit]] = {
+        delete(criteria.asAkka)
       }
     }
   }
