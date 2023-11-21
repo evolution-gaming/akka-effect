@@ -12,14 +12,14 @@ import cats.effect.kernel.Resource
 trait EventSourcedStore[F[_], S, E] {
 
   /**
-    * Start recovery by retrieving snapshot (eager, happening on outer F)
+    * Start recovery by retrieving snapshot (eager, happening on resource allocation)
     * and preparing for loading events (lazy op, happens on [[Recovery#events()]] stream materialisation)
     * @param id persistent ID
     * @return [[Recovery]] represents started recovery, resource will be released upon actor termination
     */
   def recover(id: EventSourcedId): Resource[F, Recovery[F, S, E]]
 
-  def journaller(id: EventSourcedId): Resource[F, Journaller[F, E]]
+  def journaller(id: EventSourcedId, seqNr: SeqNr): Resource[F, Journaller[F, E]]
 
   def snapshotter(id: EventSourcedId): Resource[F, Snapshotter[F, S]]
 }

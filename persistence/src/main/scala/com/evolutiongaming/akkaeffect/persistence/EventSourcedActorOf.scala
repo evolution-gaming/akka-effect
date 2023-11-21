@@ -60,7 +60,8 @@ object EventSourcedActorOf {
       } yield seqNr
 
       seqNr <- replaying.use(_.pure[F]).toResource
-      journaller <- eventSourcedStore.journaller(eventSourced.eventSourcedId)
+      journaller <- eventSourcedStore
+        .journaller(eventSourced.eventSourcedId, seqNr)
       snapshotter <- eventSourcedStore.snapshotter(eventSourced.eventSourcedId)
       receive <- recovering.completed(seqNr, journaller, snapshotter)
     } yield receive.contramapM[Envelope[Any]](_.cast[F, C])

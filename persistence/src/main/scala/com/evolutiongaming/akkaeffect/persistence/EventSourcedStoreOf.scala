@@ -140,11 +140,10 @@ object EventSourcedStoreOf {
           }
       }
 
-      override def journaller(
-        id: EventSourcedId
-      ): Resource[F, Journaller[F, E]] = {
+      override def journaller(id: EventSourcedId,
+                              seqNr: SeqNr): Resource[F, Journaller[F, E]] = {
 
-        val journaller = new Journaller[F, E] {
+        def journaller(seqNr: Ref[F, SeqNr]) = new Journaller[F, E] {
 
           override def append: Append[F, E] = new Append[F, E] {
 
@@ -157,17 +156,22 @@ object EventSourcedStoreOf {
                 AtomicWrite(persistent)
               }
 
-              Sync[F].delay {
+              seqNr
+                .updateAndGet(_ + events.size)
+                .flatMap { seqNr =>
+                  Sync[F].delay {
 
-                asyncWrite
-                  .asyncWriteMessages(atomicWrites)
-                  .liftTo[F]
-                  .map { results =>
-                    ??? // TODO: convert [[results]] into latest seqNr
+                    asyncWrite
+                      .asyncWriteMessages(atomicWrites)
+                      .liftTo[F]
+                      .flatMap { results =>
+                        results.sequence
+                          .liftTo[F]
+                          .as(seqNr)
+                      }
+
                   }
-
-              }
-
+                }
             }
           }
 
@@ -185,7 +189,10 @@ object EventSourcedStoreOf {
           }
         }
 
-        journaller.pure[Resource[F, *]]
+        Ref[F]
+          .of(seqNr)
+          .map(journaller)
+          .toResource
 
       }
 
