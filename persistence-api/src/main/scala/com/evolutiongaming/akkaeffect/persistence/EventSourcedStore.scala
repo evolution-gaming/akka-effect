@@ -19,7 +19,18 @@ trait EventSourcedStore[F[_], S, E] {
     */
   def recover(id: EventSourcedId): Resource[F, Recovery[F, S, E]]
 
+  /**
+    * Create [[Journaller]] capable of persisting and deleting events
+    * @param id persistent ID
+    * @param seqNr recovered [[SeqNr]] or [[SeqNr.Min]]
+    * @return resource will be released upon actor termination
+    */
   def journaller(id: EventSourcedId, seqNr: SeqNr): Resource[F, Journaller[F, E]]
 
+  /**
+    * Create [[Snapshotter]] capable of persisting and deleting snapshots
+    * @param id persistent ID
+    * @return resource will be released upon actor termination
+    */
   def snapshotter(id: EventSourcedId): Resource[F, Snapshotter[F, S]]
 }

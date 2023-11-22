@@ -35,8 +35,9 @@ object EventSourcedActorOf {
   ): Actor = ActorOf[F] { actorCtx =>
     for {
       eventSourced <- eventSourcedOf(actorCtx).toResource
+      persistentId = eventSourced.eventSourcedId
       recoveryStarted <- eventSourced.value
-      recovery <- eventSourcedStore.recover(eventSourced.eventSourcedId)
+      recovery <- eventSourcedStore.recover(persistentId)
 
       recovering <- recoveryStarted(
         recovery.snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min),
@@ -60,9 +61,8 @@ object EventSourcedActorOf {
       } yield seqNr
 
       seqNr <- replaying.use(_.pure[F]).toResource
-      journaller <- eventSourcedStore
-        .journaller(eventSourced.eventSourcedId, seqNr)
-      snapshotter <- eventSourcedStore.snapshotter(eventSourced.eventSourcedId)
+      journaller <- eventSourcedStore.journaller(persistentId, seqNr)
+      snapshotter <- eventSourcedStore.snapshotter(persistentId)
       receive <- recovering.completed(seqNr, journaller, snapshotter)
     } yield receive.contramapM[Envelope[Any]](_.cast[F, C])
   }
