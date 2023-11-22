@@ -1,12 +1,23 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import akka.persistence.{AtomicWrite, PersistentRepr, SnapshotSelectionCriteria}
-import akka.persistence.journal.{AsyncRecovery, AsyncWriteJournal}
+import akka.actor.ExtendedActorSystem
+import akka.persistence.Persistence.{
+  JournalFallbackConfigPath,
+  SnapshotStoreFallbackConfigPath
+}
+import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.snapshot.SnapshotStore
+import akka.persistence.{
+  AtomicWrite,
+  PersistentRepr,
+  PluginLoader,
+  SnapshotSelectionCriteria
+}
+import cats.Applicative
+import cats.effect._
 import cats.effect.implicits.effectResourceOps
-import cats.effect.{Async, Clock, Ref, Resource, Sync}
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{FromFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, SerialRef, ToTry}
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
 
@@ -14,27 +25,86 @@ import java.time.Instant
 import scala.concurrent.Future
 import scala.util.Try
 
+trait EventSourcedStoreOf[F[_]] {
+
+  def apply[S, E](
+    eventSourced: EventSourced[?]
+  ): Resource[F, EventSourcedStore[F, S, E]]
+
+}
+
 object EventSourcedStoreOf {
+
+  def fromAkka[F[_]: Async: ToTry](
+    system: ExtendedActorSystem
+  ): F[EventSourcedStoreOf[F]] = {
+
+    SerialRef[F]
+      .of(Map.empty[String, Any])
+      .map { cache =>
+        def cached[A](id: String)(fa: F[A]): F[A] =
+          cache.modify { plugins =>
+            plugins.get(id) match {
+
+              case Some(plugin) =>
+                Applicative[F].pure {
+                  plugins -> plugin.asInstanceOf[A]
+                }
+
+              case None =>
+                for {
+                  plugin <- fa
+                } yield {
+                  plugins.updated(id, plugin) -> plugin
+                }
+
+            }
+          }
+
+        new EventSourcedStoreOf[F] {
+
+          override def apply[S, E](
+            eventSourced: EventSourced[_],
+          ): Resource[F, EventSourcedStore[F, S, E]] = {
+            val journalPath = eventSourced.pluginIds.journal getOrElse JournalFallbackConfigPath
+            val snapshotPath = eventSourced.pluginIds.snapshot getOrElse SnapshotStoreFallbackConfigPath
+
+            val journalPlugin = Sync[F].delay {
+              PluginLoader.loadPlugin[AsyncWriteJournal](system, journalPath)
+            }
+            val snapshotPlugin = Sync[F].delay {
+              PluginLoader.loadPlugin[SnapshotStore](system, snapshotPath)
+            }
+
+            for {
+              journalPlugin <- cached(journalPath)(journalPlugin).toResource
+              snapshotPlugin <- cached(snapshotPath)(snapshotPlugin).toResource
+              store <- fromAkkaPlugins[F, S, E](snapshotPlugin, journalPlugin)
+            } yield store
+          }
+
+        }
+      }
+
+  }
 
   /**
     * [[EventSourcedStore]] implementation based on Akka Persistence API.
     *
-    * The implementation delegates snapshot and events load to [[SnapshotStore]] and [[AsyncRecovery]].
+    * The implementation delegates snapshot and events load to [[SnapshotStore]] and [[AsyncWriteJournal]].
     * Snapshot loaded on [[EventSourcedStore#recover]] F while events loaded lazily:
-    * first events will be available for [[Stream#foldWhileM]] while tail still loaded by [[AsyncRecovery]]
+    * first events will be available for [[Stream#foldWhileM]] while tail still loaded by [[AsyncWriteJournal]]
     *
     * @param snapshotStore Akka Persistence snapshot (plugin)
-    * @param asyncRecovery Akka Persistence journal (plugin), recovery API
-    * @param asyncWrite Akka Persistence journal (plugin), storing API
+    * @param asyncJournal Akka Persistence journal (plugin)
     * @tparam F effect
     * @tparam S snapshot
     * @tparam E event
     * @return resource of [[EventSourcedStore]]
     */
-  def fromAkka[F[_]: Async: ToTry, S, E](
+  private[persistence] def fromAkkaPlugins[F[_]: Async: ToTry, S, E](
     snapshotStore: SnapshotStore,
-    asyncRecovery: AsyncRecovery,
-    asyncWrite: AsyncWriteJournal
+    asyncJournal: AsyncWriteJournal
   ): Resource[F, EventSourcedStore[F, S, E]] = {
 
     val eventSourcedStore = new EventSourcedStore[F, S, E] {
@@ -72,13 +142,13 @@ object EventSourcedStoreOf {
 
                   buffer <- Ref[F].of(Vector.empty[Event[E]])
 
-                  highestSequenceNr <- asyncRecovery
+                  highestSequenceNr <- asyncJournal
                     .asyncReadHighestSequenceNr(id.value, fromSequenceNr)
                     .liftTo[F]
 
                   replayed <- Sync[F].delay {
 
-                    asyncRecovery.asyncReplayMessages(
+                    asyncJournal.asyncReplayMessages(
                       id.value,
                       fromSequenceNr,
                       highestSequenceNr,
@@ -161,7 +231,7 @@ object EventSourcedStoreOf {
                 .flatMap { seqNr =>
                   Sync[F].delay {
 
-                    asyncWrite
+                    asyncJournal
                       .asyncWriteMessages(atomicWrites)
                       .liftTo[F]
                       .flatMap { results =>
@@ -180,7 +250,7 @@ object EventSourcedStoreOf {
             override def apply(seqNr: SeqNr): F[F[Unit]] = {
 
               Sync[F].delay {
-                asyncWrite
+                asyncJournal
                   .asyncDeleteMessagesTo(id.value, seqNr)
                   .liftTo[F]
 

@@ -24,20 +24,20 @@ object EventSourcedActorOf {
     * @tparam E event
     * @tparam C command
     */
-  type Type[F[_], S, E, C] = EventSourcedOf[
-    F,
+  type Lifecycle[F[_], S, E, C] =
     Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], ActorOf.Stop]]]
-  ]
 
   def actor[F[_]: Async: ToFuture, S, E, C: ClassTag](
-    eventSourcedOf: Type[F, S, E, C],
-    eventSourcedStore: EventSourcedStore[F, S, E],
+    eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, C]],
+    eventSourcedStoreOf: EventSourcedStoreOf[F],
   ): Actor = ActorOf[F] { actorCtx =>
     for {
       eventSourced <- eventSourcedOf(actorCtx).toResource
       persistentId = eventSourced.eventSourcedId
       recoveryStarted <- eventSourced.value
-      recovery <- eventSourcedStore.recover(persistentId)
+
+      store <- eventSourcedStoreOf[S, E](eventSourced)
+      recovery <- store.recover(persistentId)
 
       recovering <- recoveryStarted(
         recovery.snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min),
@@ -61,8 +61,8 @@ object EventSourcedActorOf {
       } yield seqNr
 
       seqNr <- replaying.use(_.pure[F]).toResource
-      journaller <- eventSourcedStore.journaller(persistentId, seqNr)
-      snapshotter <- eventSourcedStore.snapshotter(persistentId)
+      journaller <- store.journaller(persistentId, seqNr)
+      snapshotter <- store.snapshotter(persistentId)
       receive <- recovering.completed(seqNr, journaller, snapshotter)
     } yield receive.contramapM[Envelope[Any]](_.cast[F, C])
   }
