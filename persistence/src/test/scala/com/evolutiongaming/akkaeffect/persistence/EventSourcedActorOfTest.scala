@@ -79,15 +79,18 @@ class EventSourcedActorOfTest
         )
       }
 
-    val actions = Ref.unsafe[F, List[Action[S, C, E]]](List.empty)
-    val esOf = InstrumentEventSourced(actions, eventSourcedOf)
-    def actor = EventSourcedActorOf.actor(esOf, eventSourcedStoreOf)
-
     Probe
       .of(actorRefOf)
       .use { probe =>
         for {
-          actor <- IO.delay { actorSystem.actorOf(Props(actor)) }
+          actions <- Ref[F].of(List.empty[Action[S, C, E]])
+          eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf)
+            .pure[F]
+
+          props = Props(
+            EventSourcedActorOf.actor(eventSourcedOf, eventSourcedStoreOf)
+          )
+          actor <- IO.delay { actorSystem.actorOf(props) }
           effect <- ActorEffect.fromActor[F](actor).pure[F]
           terminated <- probe.watch(actor)
 
