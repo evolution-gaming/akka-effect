@@ -29,14 +29,14 @@ object EventSourcedActorOf {
 
   def actor[F[_]: Async: ToFuture, S, E, C: ClassTag](
     eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, C]],
-    eventSourcedStoreOf: EventSourcedStoreOf[F],
+    eventSourcedStoreOf: EventSourcedStoreOf[F, S, E],
   ): Actor = ActorOf[F] { actorCtx =>
     for {
       eventSourced <- eventSourcedOf(actorCtx).toResource
       persistentId = eventSourced.eventSourcedId
       recoveryStarted <- eventSourced.value
 
-      store <- eventSourcedStoreOf[S, E](eventSourced)
+      store <- eventSourcedStoreOf(eventSourced)
       recovery <- store.recover(persistentId)
 
       recovering <- recoveryStarted(
@@ -46,8 +46,7 @@ object EventSourcedActorOf {
 
       replaying = for {
         replay <- recovering.replay
-        events = recovery.events
-        seqNrL <- events
+        seqNrL <- recovery.events
           .foldWhileM(SeqNr.Min) {
             case (_, event) =>
               replay(event.event, event.seqNr).as(event.seqNr.asLeft[Unit])

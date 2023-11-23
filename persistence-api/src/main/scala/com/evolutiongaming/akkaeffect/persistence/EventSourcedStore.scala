@@ -1,5 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import cats.Applicative
 import cats.effect.kernel.Resource
 
 /**
@@ -25,7 +26,8 @@ trait EventSourcedStore[F[_], S, E] {
     * @param seqNr recovered [[SeqNr]] or [[SeqNr.Min]]
     * @return resource will be released upon actor termination
     */
-  def journaller(id: EventSourcedId, seqNr: SeqNr): Resource[F, Journaller[F, E]]
+  def journaller(id: EventSourcedId,
+                 seqNr: SeqNr): Resource[F, Journaller[F, E]]
 
   /**
     * Create [[Snapshotter]] capable of persisting and deleting snapshots
@@ -33,4 +35,29 @@ trait EventSourcedStore[F[_], S, E] {
     * @return resource will be released upon actor termination
     */
   def snapshotter(id: EventSourcedId): Resource[F, Snapshotter[F, S]]
+}
+
+object EventSourcedStore {
+
+  def const[F[_]: Applicative, S, E](
+    recovery_ : Recovery[F, S, E],
+    journaller_ : Journaller[F, E],
+    snapshotter_ : Snapshotter[F, S]
+  ): EventSourcedStore[F, S, E] = new EventSourcedStore[F, S, E] {
+
+    import cats.syntax.all._
+
+    override def recover(id: EventSourcedId): Resource[F, Recovery[F, S, E]] =
+      recovery_.pure[Resource[F, *]]
+
+    override def journaller(id: EventSourcedId,
+                            seqNr: SeqNr): Resource[F, Journaller[F, E]] =
+      journaller_.pure[Resource[F, *]]
+
+    override def snapshotter(
+      id: EventSourcedId
+    ): Resource[F, Snapshotter[F, S]] =
+      snapshotter_.pure[Resource[F, *]]
+  }
+
 }

@@ -25,9 +25,9 @@ import java.time.Instant
 import scala.concurrent.Future
 import scala.util.Try
 
-trait EventSourcedStoreOf[F[_]] {
+trait EventSourcedStoreOf[F[_], S, E] {
 
-  def apply[S, E](
+  def apply(
     eventSourced: EventSourced[?]
   ): Resource[F, EventSourcedStore[F, S, E]]
 
@@ -35,9 +35,21 @@ trait EventSourcedStoreOf[F[_]] {
 
 object EventSourcedStoreOf {
 
-  def fromAkka[F[_]: Async: ToTry](
+  def const[F[_], S, E](
+    store: EventSourcedStore[F, S, E]
+  ): EventSourcedStoreOf[F, S, E] =
+    _ => store.pure[Resource[F, *]]
+
+  /**
+    * Create [[EventSourcedStoreOf]] capable of creating [[EventSourcedStore]]
+    * on top of akka persistence and snapshot plugins defined in [[EventSourced.pluginIds]]
+    * @param system akka system
+    * @tparam F effect type
+    * @return instance of [[EventSourcedStoreOf]]
+    */
+  def fromAkka[F[_]: Async: ToTry, S, E](
     system: ExtendedActorSystem
-  ): F[EventSourcedStoreOf[F]] = {
+  ): F[EventSourcedStoreOf[F, S, E]] = {
 
     SerialRef[F]
       .of(Map.empty[String, Any])
@@ -61,9 +73,9 @@ object EventSourcedStoreOf {
             }
           }
 
-        new EventSourcedStoreOf[F] {
+        new EventSourcedStoreOf[F, S, E] {
 
-          override def apply[S, E](
+          override def apply(
             eventSourced: EventSourced[_],
           ): Resource[F, EventSourcedStore[F, S, E]] = {
             val journalPath = eventSourced.pluginIds.journal getOrElse JournalFallbackConfigPath
