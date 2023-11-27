@@ -1,6 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import cats.effect.kernel.Resource
+import com.evolutiongaming.sstream.Stream
 
 /**
   * Event sourcing persistence API: provides snapshot followed by stream of events
@@ -10,6 +11,8 @@ import cats.effect.kernel.Resource
   * @tparam E event
   */
 trait EventSourcedStore[F[_], S, E] {
+
+  import EventSourcedStore.Recovery
 
   /**
     * Start recovery by retrieving snapshot (eager, happening on resource allocation)
@@ -37,6 +40,39 @@ trait EventSourcedStore[F[_], S, E] {
 }
 
 object EventSourcedStore {
+
+  /**
+    * Representation of __started__ recovery process:
+    * snapshot is already loaded in memory (if any)
+    * while events will be loaded only on materialisation of [[Stream]]
+    *
+    * @tparam F effect
+    * @tparam S snapshot
+    * @tparam E event
+    */
+  trait Recovery[F[_], S, E] {
+
+    def snapshot: Option[Snapshot[S]]
+    def events: Stream[F, Event[E]]
+
+  }
+
+  object Recovery {
+
+    def const[F[_], S, E](snapshot: Option[Snapshot[S]],
+                          events: Stream[F, Event[E]]): Recovery[F, S, E] = {
+
+      val (s, e) = (snapshot, events)
+
+      new Recovery[F, S, E] {
+
+        override def snapshot: Option[Snapshot[S]] = s
+        override def events: Stream[F, Event[E]] = e
+
+      }
+    }
+
+  }
 
   def const[F[_], S, E](
     recovery: Recovery[F, S, E],

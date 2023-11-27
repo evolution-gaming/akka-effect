@@ -123,14 +123,14 @@ object EventSourcedStoreOf {
 
       override def recover(
         id: EventSourcedId
-      ): Resource[F, Recovery[F, S, E]] = {
+      ): Resource[F, EventSourcedStore.Recovery[F, S, E]] = {
 
         snapshotStore
           .loadAsync(id.value, SnapshotSelectionCriteria())
           .liftTo[F]
           .toResource
           .map { offer =>
-            new Recovery[F, S, E] {
+            new EventSourcedStore.Recovery[F, S, E] {
 
               override val snapshot: Option[Snapshot[S]] =
                 offer.map { offer =>

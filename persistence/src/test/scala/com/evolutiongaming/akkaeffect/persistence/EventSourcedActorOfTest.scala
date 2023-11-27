@@ -75,7 +75,7 @@ class EventSourcedActorOfTest
       val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
         EventSourcedStoreOf.const {
           EventSourcedStore.const(
-            recovery = Recovery.const(none, Stream.empty),
+            recovery = EventSourcedStore.Recovery.const(none, Stream.empty),
             journaller = Journaller.empty[F, E],
             snapshotter = Snapshotter.empty[F, S],
           )
@@ -131,10 +131,10 @@ class EventSourcedActorOfTest
       val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
         EventSourcedStoreOf.const {
           EventSourcedStore.const(
-            recovery = Recovery.const(
+            recovery = EventSourcedStore.Recovery.const(
               none,
-              Stream.from[F, Seq, Event[E]](
-                Seq(Event.const("first", 1L), Event.const("second", 2L))
+              Stream.from[F, List, Event[E]](
+                List(Event.const("first", 1L), Event.const("second", 2L))
               )
             ),
             journaller = Journaller.empty[F, E],
@@ -194,7 +194,7 @@ class EventSourcedActorOfTest
       val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
         EventSourcedStoreOf.const {
           EventSourcedStore.const(
-            recovery = Recovery.const(
+            recovery = EventSourcedStore.Recovery.const(
               Snapshot.const(0, Snapshot.Metadata(0L, timestamp)).some,
               Stream.empty
             ),
@@ -256,10 +256,10 @@ class EventSourcedActorOfTest
       val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
         EventSourcedStoreOf.const {
           EventSourcedStore.const(
-            recovery = Recovery.const(
+            recovery = EventSourcedStore.Recovery.const(
               Snapshot.const(0, Snapshot.Metadata(0L, timestamp)).some,
-              Stream.from[F, Seq, Event[E]](
-                Seq(Event.const("first", 1L), Event.const("second", 2L))
+              Stream.from[F, List, Event[E]](
+                List(Event.const("first", 1L), Event.const("second", 2L))
               )
             ),
             journaller = Journaller.empty[F, E],
@@ -476,7 +476,7 @@ class EventSourcedActorOfTest
         val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
           EventSourcedStoreOf.const {
             EventSourcedStore.const(
-              recovery = Recovery
+              recovery = EventSourcedStore.Recovery
                 .const(none, Stream.lift(F.raiseError(new RuntimeException()))),
               journaller = Journaller.empty[F, E],
               snapshotter = Snapshotter.empty[F, S]
