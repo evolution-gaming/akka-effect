@@ -11,10 +11,18 @@ import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
   */
 trait Journaller[F[_], -A] {
 
+  /**
+    * @see [[akka.persistence.PersistentActor.persistAllAsync]]
+    */
   def append: Append[F, A]
 
+  /**
+    * @see [[akka.persistence.Eventsourced.deleteMessages]]
+    * @return outer F[_] is about deletion in background, inner F[_] is about deletion being completed
+    */
   def deleteTo: DeleteEventsTo[F]
 }
+
 
 object Journaller {
 
@@ -22,8 +30,11 @@ object Journaller {
     Journaller(Append.empty[F, A], DeleteEventsTo.empty[F])
   }
 
-  def apply[F[_], A](append: Append[F, A],
-                     deleteEventsTo: DeleteEventsTo[F]): Journaller[F, A] = {
+
+  def apply[F[_], A](
+    append: Append[F, A],
+    deleteEventsTo: DeleteEventsTo[F]
+  ): Journaller[F, A] = {
 
     val append1 = append
 
@@ -36,6 +47,7 @@ object Journaller {
     }
   }
 
+
   private sealed abstract class Narrow
 
   private sealed abstract class Convert
@@ -44,8 +56,8 @@ object Journaller {
 
   private sealed abstract class WithFail
 
-  implicit class JournallerOps[F[_], A](val self: Journaller[F, A])
-      extends AnyVal {
+
+  implicit class JournallerOps[F[_], A](val self: Journaller[F, A]) extends AnyVal {
 
     def mapK[G[_]: Applicative](f: F ~> G): Journaller[G, A] = {
       new MapK with Journaller[G, A] {
@@ -56,6 +68,7 @@ object Journaller {
       }
     }
 
+
     def convert[B](f: B => F[A])(implicit F: Monad[F]): Journaller[F, B] = {
       new Convert with Journaller[F, B] {
 
@@ -64,6 +77,7 @@ object Journaller {
         def deleteTo = self.deleteTo
       }
     }
+
 
     def narrow[B <: A]: Journaller[F, B] = {
       new Narrow with Journaller[F, B] {
@@ -74,17 +88,18 @@ object Journaller {
       }
     }
 
-    def withLogging1(log: Log[F])(
-      implicit
+    def withLogging1(
+      log: Log[F])(implicit
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]
     ): Journaller[F, A] = {
-      Journaller(self.append.withLogging1(log), self.deleteTo.withLogging1(log))
+      Journaller(
+        self.append.withLogging1(log),
+        self.deleteTo.withLogging1(log))
     }
 
-    def withFail(
-      fail: Fail[F]
-    )(implicit F: MonadThrowable[F]): Journaller[F, A] = {
+
+    def withFail(fail: Fail[F])(implicit F: MonadThrowable[F]): Journaller[F, A] = {
       new WithFail with Journaller[F, A] {
 
         val append = self.append.withFail(fail)

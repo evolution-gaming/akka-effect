@@ -14,6 +14,7 @@ import com.evolutiongaming.catshelper.{FromFuture, Memoize, ToFuture, ToTry}
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 
+
 object PersistentActorOf {
 
   /**
@@ -29,10 +30,7 @@ object PersistentActorOf {
     * @tparam E event
     * @tparam C command
     */
-  type Type[F[_], S, E, C] = EventSourcedOf[
-    F,
-    Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], ActorOf.Stop]]]
-  ]
+  type Type[F[_], S, E, C] = EventSourcedOf[F, Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], ActorOf.Stop]]]]
 
   def apply[F[_]: Async: ToFuture: FromFuture: ToTry](
     eventSourcedOf: Type[F, Any, Any, Any],
@@ -43,19 +41,13 @@ object PersistentActorOf {
 
       lazy val (actorCtx, act, eventSourced) = {
         val actorCtxRef = AtomicRef(ActorCtx[F](context))
-        val actorCtx = ActorCtx.flatten(context, Sync[F].delay {
-          actorCtxRef.get()
-        })
+        val actorCtx = ActorCtx.flatten(context, Sync[F].delay { actorCtxRef.get() })
         val act = Act.Adapter(context.self)
         val eventSourced = act.sync {
           eventSourcedOf(actorCtx)
-            .adaptError {
-              case error =>
-                val path = self.path.toStringWithoutAddress
-                ActorError(
-                  s"$path failed to allocate eventSourced: $error",
-                  error
-                )
+            .adaptError { case error =>
+              val path = self.path.toStringWithoutAddress
+              ActorError(s"$path failed to allocate eventSourced: $error", error)
             }
             .toTry
             .get
@@ -63,12 +55,9 @@ object PersistentActorOf {
         (actorCtxRef, act, eventSourced)
       }
 
-      private def actorError(msg: String,
-                             cause: Option[Throwable]): Throwable = {
+      private def actorError(msg: String, cause: Option[Throwable]): Throwable = {
         val path = self.path.toStringWithoutAddress
-        val causeStr: String = cause.foldMap { a =>
-          s": $a"
-        }
+        val causeStr: String = cause.foldMap { a => s": $a" }
         ActorError(s"$path $persistenceId $msg$causeStr", cause)
       }
 
@@ -78,26 +67,27 @@ object PersistentActorOf {
         }
       }
 
-      case class Resources(append: AppendOf.Adapter[F, Any],
-                           deleteEventsTo: DeleteEventsTo[F])
+      case class Resources(
+        append: AppendOf.Adapter[F, Any],
+        deleteEventsTo: DeleteEventsTo[F])
 
       lazy val (resources: Resources, release) = {
-        val stopped = Memoize.sync[F, Throwable] {
-          Sync[F].delay { actorError("has been stopped", none) }
-        }
+        val stopped = Memoize.sync[F, Throwable] { Sync[F].delay { actorError("has been stopped", none) } }
         val result = for {
-          stopped <- stopped.toResource
-          act <- act.value.pure[Resource[F, *]]
-          append <- AppendOf.adapter[F, Any](act, actor, stopped)
+          stopped        <- stopped.toResource
+          act            <- act.value.pure[Resource[F, *]]
+          append         <- AppendOf.adapter[F, Any](act, actor, stopped)
           deleteEventsTo <- DeleteEventsToOf.of(actor, timeout)
         } yield {
           Resources(append, deleteEventsTo)
         }
-        result.allocated.toTry.get
+        result
+          .allocated
+          .toTry
+          .get
       }
 
-      val persistence: PersistenceVar[F, Any, Any, Any] =
-        PersistenceVar[F, Any, Any, Any](act.value, context)
+      val persistence: PersistenceVar[F, Any, Any, Any] = PersistenceVar[F, Any, Any, Any](act.value, context)
 
       override def preStart(): Unit = {
         super.preStart()
@@ -117,22 +107,16 @@ object PersistentActorOf {
         eventSourced.pluginIds.snapshot getOrElse super.snapshotPluginId
       }
 
-      override protected def onPersistFailure(cause: Throwable,
-                                              event: Any,
-                                              seqNr: Long) = {
-        val error =
-          actorError(s"[$seqNr] persist failed for $event", cause.some)
+      override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long) = {
+        val error = actorError(s"[$seqNr] persist failed for $event", cause.some)
         act.sync {
           resources.append.onError(error, event, seqNr)
         }
         super.onPersistFailure(cause, event, seqNr)
       }
 
-      override protected def onPersistRejected(cause: Throwable,
-                                               event: Any,
-                                               seqNr: Long) = {
-        val error =
-          actorError(s"[$seqNr] persist rejected for $event", cause.some)
+      override protected def onPersistRejected(cause: Throwable, event: Any, seqNr: Long) = {
+        val error = actorError(s"[$seqNr] persist rejected for $event", cause.some)
         act.sync {
           resources.append.onError(error, event, seqNr)
         }
@@ -140,11 +124,9 @@ object PersistentActorOf {
       }
 
       def receiveRecover: Receive = act.receive {
-        case ap.SnapshotOffer(m, s) =>
-          persistence
-            .snapshotOffer(lastSeqNr(), SnapshotOffer(SnapshotMetadata(m), s))
-        case RecoveryCompleted => recoveryCompleted(lastSeqNr())
-        case event             => persistence.event(lastSeqNr(), event)
+        case ap.SnapshotOffer(m, s) => persistence.snapshotOffer(lastSeqNr(), SnapshotOffer(SnapshotMetadata(m), s))
+        case RecoveryCompleted      => recoveryCompleted(lastSeqNr())
+        case event                  => persistence.event(lastSeqNr(), event)
       }
 
       def receiveCommand: Receive = act.receive {
@@ -153,39 +135,27 @@ object PersistentActorOf {
       }
 
       override def persist[A](event: A)(f: A => Unit): Unit = {
-        super.persist(event) { a =>
-          act.sync { f(a) }
-        }
+        super.persist(event) { a => act.sync { f(a) } }
       }
 
       override def persistAll[A](events: Seq[A])(f: A => Unit): Unit = {
-        super.persistAll(events) { a =>
-          act.sync { f(a) }
-        }
+        super.persistAll(events) { a => act.sync { f(a) } }
       }
 
       override def persistAsync[A](event: A)(f: A => Unit): Unit = {
-        super.persistAsync(event) { a =>
-          act.sync { f(a) }
-        }
+        super.persistAsync(event) { a => act.sync { f(a) } }
       }
 
       override def persistAllAsync[A](events: Seq[A])(f: A => Unit) = {
-        super.persistAllAsync(events) { a =>
-          act.sync { f(a) }
-        }
+        super.persistAllAsync(events) { a => act.sync { f(a) } }
       }
 
       override def defer[A](event: A)(f: A => Unit): Unit = {
-        super.defer(event) { a =>
-          act.sync { f(a) }
-        }
+        super.defer(event) { a => act.sync { f(a) } }
       }
 
       override def deferAsync[A](event: A)(f: A => Unit): Unit = {
-        super.deferAsync(event) { a =>
-          act.sync { f(a) }
-        }
+        super.deferAsync(event) { a => act.sync { f(a) } }
       }
 
       override def postStop() = {
@@ -201,9 +171,7 @@ object PersistentActorOf {
       }
 
       private def recoveryCompleted(seqNr: SeqNr): Unit = {
-        val journaller =
-          Journaller[F, Any](resources.append.value, resources.deleteEventsTo)
-            .withFail(fail)
+        val journaller = Journaller[F, Any](resources.append.value, resources.deleteEventsTo).withFail(fail)
         val snapshotter = SnapshotterOf[F, Any](actor, timeout).withFail(fail)
         persistence.recoveryCompleted(seqNr, journaller, snapshotter)
       }

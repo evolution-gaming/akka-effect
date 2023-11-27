@@ -73,8 +73,6 @@ private[akkaeffect] object ActorVar {
 
     new ActorVar[F, A] {
 
-      // A - actor' state
-
       def preStart(resource: Resource[F, A]) = {
         update { _ =>
           resource
@@ -83,7 +81,7 @@ private[akkaeffect] object ActorVar {
         }
       }
 
-      def receive(f: A => F[Directive[Releasable[F, A]]]): Unit = {
+      def receive(f: A => F[Directive[Releasable[F, A]]]) = {
         update {
           case Some(state) =>
             f(state.value).flatMap {

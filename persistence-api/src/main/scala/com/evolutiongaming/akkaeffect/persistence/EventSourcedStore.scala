@@ -1,6 +1,5 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.Applicative
 import cats.effect.kernel.Resource
 
 /**
@@ -39,7 +38,7 @@ trait EventSourcedStore[F[_], S, E] {
 
 object EventSourcedStore {
 
-  def const[F[_]: Applicative, S, E](
+  def const[F[_], S, E](
     recovery: Recovery[F, S, E],
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S]
