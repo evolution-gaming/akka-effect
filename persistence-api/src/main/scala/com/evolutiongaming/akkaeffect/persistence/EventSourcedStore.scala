@@ -40,24 +40,29 @@ trait EventSourcedStore[F[_], S, E] {
 object EventSourcedStore {
 
   def const[F[_]: Applicative, S, E](
-    recovery_ : Recovery[F, S, E],
-    journaller_ : Journaller[F, E],
-    snapshotter_ : Snapshotter[F, S]
-  ): EventSourcedStore[F, S, E] = new EventSourcedStore[F, S, E] {
+    recovery: Recovery[F, S, E],
+    journaller: Journaller[F, E],
+    snapshotter: Snapshotter[F, S]
+  ): EventSourcedStore[F, S, E] = {
 
-    import cats.syntax.all._
+    val (r, j, s) = (recovery, journaller, snapshotter)
 
-    override def recover(id: EventSourcedId): Resource[F, Recovery[F, S, E]] =
-      recovery_.pure[Resource[F, *]]
+    new EventSourcedStore[F, S, E] {
 
-    override def journaller(id: EventSourcedId,
-                            seqNr: SeqNr): Resource[F, Journaller[F, E]] =
-      journaller_.pure[Resource[F, *]]
+      import cats.syntax.all._
 
-    override def snapshotter(
-      id: EventSourcedId
-    ): Resource[F, Snapshotter[F, S]] =
-      snapshotter_.pure[Resource[F, *]]
+      override def recover(id: EventSourcedId): Resource[F, Recovery[F, S, E]] =
+        r.pure[Resource[F, *]]
+
+      override def journaller(id: EventSourcedId,
+                              seqNr: SeqNr): Resource[F, Journaller[F, E]] =
+        j.pure[Resource[F, *]]
+
+      override def snapshotter(
+        id: EventSourcedId
+      ): Resource[F, Snapshotter[F, S]] =
+        s.pure[Resource[F, *]]
+    }
   }
 
 }
