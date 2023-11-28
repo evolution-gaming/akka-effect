@@ -44,22 +44,20 @@ object EventSourcedActorOf {
         recovery.snapshot.map(_.asOffer)
       )
 
-      replaying = for {
-        replay <- recovering.replay
-        seqNrL <- recovery.events
-          .foldWhileM(SeqNr.Min) {
-            case (_, event) =>
-              replay(event.event, event.seqNr).as(event.seqNr.asLeft[Unit])
-          }
-          .toResource
-        seqNr <- seqNrL
-          .as(new IllegalStateException("should newer happened"))
-          .swap
-          .liftTo[F]
-          .toResource
-      } yield seqNr
+      seqNr <- recovering.replay.use { replay =>
+        for {
+          seqNrL <- recovery.events
+            .foldWhileM(SeqNr.Min) {
+              case (_, event) =>
+                replay(event.event, event.seqNr).as(event.seqNr.asLeft[Unit])
+            }
+          seqNr <- seqNrL
+            .as(new IllegalStateException("should newer happened"))
+            .swap
+            .liftTo[F]
+        } yield seqNr
+      }.toResource
 
-      seqNr <- replaying.use(_.pure[F]).toResource
       journaller <- store.journaller(persistentId, seqNr)
       snapshotter <- store.snapshotter(persistentId)
       receive <- recovering.completed(seqNr, journaller, snapshotter)

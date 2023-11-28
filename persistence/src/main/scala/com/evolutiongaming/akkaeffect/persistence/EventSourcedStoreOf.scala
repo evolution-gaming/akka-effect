@@ -1,23 +1,13 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.ExtendedActorSystem
-import akka.persistence.Persistence.{
-  JournalFallbackConfigPath,
-  SnapshotStoreFallbackConfigPath
-}
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.snapshot.SnapshotStore
-import akka.persistence.{
-  AtomicWrite,
-  PersistentRepr,
-  PluginLoader,
-  SnapshotSelectionCriteria
-}
-import cats.Applicative
+import akka.persistence.{AtomicWrite, PersistentRepr, SnapshotSelectionCriteria}
 import cats.effect._
 import cats.effect.implicits.effectResourceOps
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{FromFuture, SerialRef, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
 
@@ -28,7 +18,7 @@ import scala.util.Try
 trait EventSourcedStoreOf[F[_], S, E] {
 
   def apply(
-    eventSourced: EventSourced[?]
+    eventSourced: EventSourced[_]
   ): Resource[F, EventSourcedStore[F, S, E]]
 
 }
@@ -49,56 +39,7 @@ object EventSourcedStoreOf {
     */
   def fromAkka[F[_]: Async: ToTry, S, E](
     system: ExtendedActorSystem
-  ): F[EventSourcedStoreOf[F, S, E]] = {
-
-    SerialRef[F]
-      .of(Map.empty[String, Any])
-      .map { cache =>
-        def cached[A](id: String)(fa: F[A]): F[A] =
-          cache.modify { plugins =>
-            plugins.get(id) match {
-
-              case Some(plugin) =>
-                Applicative[F].pure {
-                  plugins -> plugin.asInstanceOf[A]
-                }
-
-              case None =>
-                for {
-                  plugin <- fa
-                } yield {
-                  plugins.updated(id, plugin) -> plugin
-                }
-
-            }
-          }
-
-        new EventSourcedStoreOf[F, S, E] {
-
-          override def apply(
-            eventSourced: EventSourced[_],
-          ): Resource[F, EventSourcedStore[F, S, E]] = {
-            val journalPath = eventSourced.pluginIds.journal getOrElse JournalFallbackConfigPath
-            val snapshotPath = eventSourced.pluginIds.snapshot getOrElse SnapshotStoreFallbackConfigPath
-
-            val journalPlugin = Sync[F].delay {
-              PluginLoader.loadPlugin[AsyncWriteJournal](system, journalPath)
-            }
-            val snapshotPlugin = Sync[F].delay {
-              PluginLoader.loadPlugin[SnapshotStore](system, snapshotPath)
-            }
-
-            for {
-              journalPlugin <- cached(journalPath)(journalPlugin).toResource
-              snapshotPlugin <- cached(snapshotPath)(snapshotPlugin).toResource
-              store <- fromAkkaPlugins[F, S, E](snapshotPlugin, journalPlugin)
-            } yield store
-          }
-
-        }
-      }
-
-  }
+  ): F[EventSourcedStoreOf[F, S, E]] = ???
 
   /**
     * [[EventSourcedStore]] implementation based on Akka Persistence API.
