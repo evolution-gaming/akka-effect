@@ -13,11 +13,9 @@ object Snapshot {
 
   final case class Metadata(seqNr: SeqNr, timestamp: Instant)
 
-  def const[S](_snapshot: S, _metadata: Snapshot.Metadata): Snapshot[S] =
-    new Snapshot[S] {
+  private case class Const[S](snapshot: S, metadata: Snapshot.Metadata)
+      extends Snapshot[S]
 
-      override def snapshot: S = _snapshot
-
-      override def metadata: Metadata = _metadata
-    }
+  def const[S](snapshot: S, metadata: Snapshot.Metadata): Snapshot[S] =
+    Const(snapshot, metadata)
 }

@@ -9,9 +9,8 @@ trait Event[E] {
 
 object Event {
 
-  def const[E](e: E, nr: SeqNr): Event[E] = new Event[E] {
-    override def event: E = e
-    override def seqNr: SeqNr = nr
-  }
+  private case class Const[E](event: E, seqNr: SeqNr) extends Event[E]
+
+  def const[E](event: E, seqNr: SeqNr): Event[E] = Const(event, seqNr)
 
 }

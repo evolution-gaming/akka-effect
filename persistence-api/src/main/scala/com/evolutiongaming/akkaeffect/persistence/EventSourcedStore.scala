@@ -59,18 +59,13 @@ object EventSourcedStore {
 
   object Recovery {
 
+    private case class Const[F[_], S, E](snapshot: Option[Snapshot[S]],
+                                         events: Stream[F, Event[E]])
+        extends Recovery[F, S, E]
+
     def const[F[_], S, E](snapshot: Option[Snapshot[S]],
-                          events: Stream[F, Event[E]]): Recovery[F, S, E] = {
-
-      val (s, e) = (snapshot, events)
-
-      new Recovery[F, S, E] {
-
-        override def snapshot: Option[Snapshot[S]] = s
-        override def events: Stream[F, Event[E]] = e
-
-      }
-    }
+                          events: Stream[F, Event[E]]): Recovery[F, S, E] =
+      Const(snapshot, events)
 
   }
 
