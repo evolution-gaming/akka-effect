@@ -6,7 +6,7 @@ import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorEffect
 import com.evolutiongaming.akkaeffect.persistence.{Append, DeleteEventsTo, Event, EventSourcedId, Events, SeqNr, Snapshot}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 import com.evolutiongaming.sstream.FoldWhile.FoldWhileOps
 import com.evolutiongaming.sstream.Stream
 
@@ -35,7 +35,7 @@ object PersistenceAdapter {
 
   }
 
-  def of[F[_]: Async: ToFuture: FromFuture](
+  def of[F[_]: Async: ToTry: FromFuture](
     system: ActorSystem,
     askTimeout: FiniteDuration
   ): F[PersistenceAdapter[F]] = {

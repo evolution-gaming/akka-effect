@@ -1,10 +1,10 @@
 package akka.persistence
 
 import akka.actor.{ActorRef, MinimalActorRef}
-import cats.effect.{Async, Deferred}
+import cats.effect.{Concurrent, Deferred}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper.OpsCatsHelper
-import com.evolutiongaming.catshelper.{SerialRef, ToFuture}
+import com.evolutiongaming.catshelper.{SerialRef, ToTry}
 
 trait LocalActorRef[F[_], R] {
 
@@ -19,8 +19,7 @@ object LocalActorRef {
 
   type M = Any
 
-  // TODO: implement also blocking impl based on ToTry instead of ToFuture   
-  def apply[F[_]: Async: ToFuture, S, R](initial: S)(receive: (S, M) => F[Either[S, R]]): F[LocalActorRef[F, R]] =
+  def apply[F[_]: Concurrent: ToTry, S, R](initial: S)(receive: (S, M) => F[Either[S, R]]): F[LocalActorRef[F, R]] =
     for {
       state <- SerialRef.of[F, S](initial)
       defer <- Deferred[F, Either[Throwable, R]]
@@ -44,7 +43,7 @@ object LocalActorRef {
             .handleErrorWith { e =>
               defer.complete(e.asLeft).void
             }
-            .toFuture
+            .toTry
 
         }
       }
