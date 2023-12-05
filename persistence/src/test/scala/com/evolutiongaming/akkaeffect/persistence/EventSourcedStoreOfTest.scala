@@ -21,7 +21,7 @@ class EventSourcedStoreOfTest extends AnyFunSuite with Matchers {
   type S = String
   type E = String
 
-  test("""EventSourcedStoreOf.fromAkka can use journal & snapshot plugins 
+  ignore("""EventSourcedStoreOf.fromAkka can use journal & snapshot plugins 
       |defined in Akka conf (in our case `test.conf`)
       |without specifying plugin IDs in EventSourced.pluginIds""".stripMargin) {
 

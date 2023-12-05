@@ -6,7 +6,7 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper.OpsCatsHelper
 import com.evolutiongaming.catshelper.{SerialRef, ToTry}
 
-trait LocalActorRef[F[_], R] {
+private[persistence] trait LocalActorRef[F[_], R] {
 
   def ref: ActorRef
 
@@ -15,7 +15,7 @@ trait LocalActorRef[F[_], R] {
   def get: F[Option[Either[Throwable, R]]]
 }
 
-object LocalActorRef {
+private[persistence] object LocalActorRef {
 
   type M = Any
 
@@ -52,5 +52,5 @@ object LocalActorRef {
 
       override def get: F[Option[Either[Throwable, R]]] = defer.tryGet
     }
-  
+
 }

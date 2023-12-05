@@ -7,11 +7,16 @@ import cats.syntax.all._
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 
-import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, SeqNr}
+import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, SeqNr, Event, Snapshotter}
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
 import scala.concurrent.duration._
 
 import scala.util.Random
+import akka.persistence.journal.AsyncWriteJournal
+import scala.concurrent.Future
+import scala.util.Try
+import com.evolutiongaming.akkaeffect.persistence.Events
+import akka.persistence.snapshot.SnapshotStore
 
 class PersistenceAdapterTest extends AnyFunSuite with Matchers {
 
@@ -59,4 +64,202 @@ class PersistenceAdapterTest extends AnyFunSuite with Matchers {
 
     io.unsafeRunSync()
   }
+
+  test("snapshot: fail load snapshot") {
+
+    val pluginId      = "failing-snapshot"
+    val persistenceId = EventSourcedId("#3")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter     <- PersistenceAdapter.of[IO](system, 1.second)
+          snapshotter <- adapter.snapshotter[String](pluginId, persistenceId)
+          snapshot    <- snapshotter.load(SnapshotSelectionCriteria(), Long.MaxValue)
+          error       <- snapshot.attempt
+          _            = error shouldEqual Expected.exception.asLeft[List[Event[String]]]
+        } yield {}
+      }
+
+    io.unsafeRunSync()
+  }
+
+  test("snapshot: fail save snapshot") {
+
+    val pluginId      = "failing-snapshot"
+    val persistenceId = EventSourcedId("#4")
+    val payload       = Random.nextString(1024)
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter     <- PersistenceAdapter.of[IO](system, 1.second)
+          snapshotter <- adapter.snapshotter[String](pluginId, persistenceId)
+          saving      <- snapshotter.save(SeqNr.Min, payload)
+          error       <- saving.attempt
+          _            = error shouldEqual Expected.exception.asLeft[List[Event[String]]]
+        } yield {}
+      }
+
+    io.unsafeRunSync()
+  }
+
+  test("snapshot: fail delete snapshot") {
+
+    val pluginId      = "failing-snapshot"
+    val persistenceId = EventSourcedId("#5")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter     <- PersistenceAdapter.of[IO](system, 1.second)
+          snapshotter <- adapter.snapshotter[String](pluginId, persistenceId)
+          deleting    <- snapshotter.delete(SeqNr.Min)
+          error       <- deleting.attempt
+          _            = error shouldEqual Expected.exception.asLeft[List[Event[String]]]
+        } yield {}
+      }
+
+    io.unsafeRunSync()
+  }
+
+  test("snapshot: fail delete snapshot by criteria") {
+
+    val pluginId      = "failing-snapshot"
+    val persistenceId = EventSourcedId("#5")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter     <- PersistenceAdapter.of[IO](system, 1.second)
+          snapshotter <- adapter.snapshotter[String](pluginId, persistenceId)
+          deleting    <- snapshotter.delete(Snapshotter.Criteria())
+          error       <- deleting.attempt
+          _            = error shouldEqual Expected.exception.asLeft[List[Event[String]]]
+        } yield {}
+      }
+
+    io.unsafeRunSync()
+  }
+
+  test("journal: fail loading events") {
+
+    val pluginId      = "failing-journal"
+    val persistenceId = EventSourcedId("#3")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter <- PersistenceAdapter.of[IO](system, 1.second)
+          journal <- adapter.journaller[String](pluginId, persistenceId)
+          events  <- journal.replay(SeqNr.Min, SeqNr.Max, Long.MaxValue)
+          error   <- events.toList.attempt
+          _        = error shouldEqual Expected.exception.asLeft[List[Event[String]]]
+        } yield {}
+      }
+
+    io.unsafeRunSync()
+  }
+
+  test("journal: fail persisting events") {
+
+    val pluginId      = "failing-journal"
+    val persistenceId = EventSourcedId("#4")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter <- PersistenceAdapter.of[IO](system, 1.second)
+          journal <- adapter.journaller[String](pluginId, persistenceId)
+          seqNr   <- journal.append(Events.of[String]("first", "second"))
+          error   <- seqNr.attempt
+          _        = error shouldEqual Expected.exception.asLeft[SeqNr]
+        } yield {}
+      }
+
+    io.unsafeRunSync()
+  }
+
+  test("journal: fail deleting events") {
+
+    val pluginId      = "failing-journal"
+    val persistenceId = EventSourcedId("#5")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter  <- PersistenceAdapter.of[IO](system, 1.second)
+          journal  <- adapter.journaller[String](pluginId, persistenceId)
+          deleting <- journal.deleteTo(SeqNr.Max)
+          error    <- deleting.attempt
+          _         = error shouldEqual Expected.exception.asLeft[Unit]
+        } yield {}
+      }
+
+    io.unsafeRunSync()
+  }
+
+  // test("journal: timeout on loading events") {
+
+  //   val pluginId      = "infinite-journal"
+  //   val persistenceId = EventSourcedId("#6")
+
+  //   val io = TestActorSystem[IO]("testing", none)
+  //     .use { system =>
+  //       for {
+  //         adapter <- PersistenceAdapter.of[IO](system, 1.second)
+  //         journal <- adapter.journaller[String](pluginId, persistenceId)
+  //         events  <- journal.replay(SeqNr.Min, SeqNr.Max, Long.MaxValue)
+  //         error   <- events.toList.attempt
+  //         _        = error shouldEqual Expected.exception.asLeft[List[Event[String]]]
+  //       } yield {}
+  //     }
+
+  //   io.unsafeRunSync()
+  // }
+}
+
+object Expected {
+  val exception = new RuntimeException("test exception")
+}
+
+class FailingJournal extends AsyncWriteJournal {
+
+  override def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(
+    recoveryCallback: PersistentRepr => Unit
+  ): Future[Unit] = Future.failed(Expected.exception)
+
+  override def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] = Future.failed(Expected.exception)
+
+  override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = Future.failed(Expected.exception)
+
+  override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] = Future.failed(Expected.exception)
+
+}
+
+class InfiniteJournal extends AsyncWriteJournal {
+
+  override def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(
+    recoveryCallback: PersistentRepr => Unit
+  ): Future[Unit] = Future.never
+
+  override def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] = Future.never
+
+  override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = Future.never
+
+  override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] = Future.never
+
+}
+
+class FailingSnapshotter extends SnapshotStore {
+
+  override def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] =
+    Future.failed(Expected.exception)
+
+  override def saveAsync(metadata: SnapshotMetadata, snapshot: Any): Future[Unit] = Future.failed(Expected.exception)
+
+  override def deleteAsync(metadata: SnapshotMetadata): Future[Unit] = Future.failed(Expected.exception)
+
+  override def deleteAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Unit] = Future.failed(Expected.exception)
+
 }

@@ -35,6 +35,9 @@ object PersistenceAdapter {
 
   }
 
+  // TODO:
+  // 1. set timeout for journaller ops?     IMO call-side can do it as well
+  // 2. set buffer limit?                   Akka Persistence does not have such limits, should we?
   def of[F[_]: Async: ToTry: FromFuture](
     system: ActorSystem,
     askTimeout: FiniteDuration
@@ -164,6 +167,8 @@ object PersistenceAdapter {
                 for {
                   buffer <- Ref[F].of(Vector.empty[Event[E]])
                   actor  <- actor(buffer)
+                  request = JournalProtocol.ReplayMessages(fromSequenceNr, toSequenceNr, max, persistenceId, actor.ref)
+                  _      <- journaller.tell(request)
                 } yield new Stream[F, Event[E]] {
 
                   override def foldWhileM[L, R](l: L)(f: (L, Event[E]) => F[Either[L, R]]): F[Either[L, R]] =
@@ -184,7 +189,7 @@ object PersistenceAdapter {
                                   case None           => l.asLeft[Either[L, R]].pure[F]                       // expecting more events
                                 }
 
-                              // Right(...), cos user-function [[f]] desided to stop consuming stream thus wrapping in Right to break from tailRecM
+                              // Right(...), cos user-defined function [[f]] desided to stop consuming stream thus wrapping in Right to break tailRecM loop
                               case result => result.asRight[Either[L, R]].pure[F]
 
                             }
