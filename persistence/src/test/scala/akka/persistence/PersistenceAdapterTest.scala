@@ -126,7 +126,7 @@ class PersistenceAdapterTest extends AnyFunSuite with Matchers {
   test("snapshot: fail delete snapshot by criteria") {
 
     val pluginId      = "failing-snapshot"
-    val persistenceId = EventSourcedId("#5")
+    val persistenceId = EventSourcedId("#6")
 
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
@@ -142,10 +142,99 @@ class PersistenceAdapterTest extends AnyFunSuite with Matchers {
     io.unsafeRunSync()
   }
 
+  test("snapshot: timeout loading snapshot") {
+
+    val pluginId      = "infinite-snapshot"
+    val persistenceId = EventSourcedId("#7")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use(system =>
+        for {
+          adapter     <- PersistenceAdapter.of[IO](system, 1.second)
+          snapshotter <- adapter.snapshotter[String](pluginId, persistenceId)
+          snapshot    <- snapshotter.load(SnapshotSelectionCriteria(), Long.MaxValue)
+          error       <- snapshot.attempt
+        } yield error match {
+          case Left(_: AskTimeoutException) => succeed
+          case Left(other)                  => fail(other)
+          case Right(_)                     => fail("the test should fail with AskTimeoutException but did no")
+        }
+      )
+
+    io.unsafeRunSync()
+  }
+
+  test("snapshot: timeout saving snapshot") {
+
+    val pluginId      = "infinite-snapshot"
+    val persistenceId = EventSourcedId("#8")
+    val payload       = Random.nextString(1024)
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter     <- PersistenceAdapter.of[IO](system, 1.second)
+          snapshotter <- adapter.snapshotter[String](pluginId, persistenceId)
+          saving      <- snapshotter.save(SeqNr.Min, payload)
+          error       <- saving.attempt
+        } yield error match {
+          case Left(_: AskTimeoutException) => succeed
+          case Left(other)                  => fail(other)
+          case Right(_)                     => fail("the test should fail with AskTimeoutException but did no")
+        }
+      }
+
+    io.unsafeRunSync()
+  }
+
+  test("snapshot: timeout deleting snapshot") {
+
+    val pluginId      = "infinite-snapshot"
+    val persistenceId = EventSourcedId("#9")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter     <- PersistenceAdapter.of[IO](system, 1.second)
+          snapshotter <- adapter.snapshotter[String](pluginId, persistenceId)
+          deleting    <- snapshotter.delete(SeqNr.Min)
+          error       <- deleting.attempt
+        } yield error match {
+          case Left(_: AskTimeoutException) => succeed
+          case Left(other)                  => fail(other)
+          case Right(_)                     => fail("the test should fail with AskTimeoutException but did no")
+        }
+      }
+
+    io.unsafeRunSync()
+  }
+
+  test("snapshot: timeout deleting snapshot by criteria") {
+
+    val pluginId      = "infinite-snapshot"
+    val persistenceId = EventSourcedId("#10")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter     <- PersistenceAdapter.of[IO](system, 1.second)
+          snapshotter <- adapter.snapshotter[String](pluginId, persistenceId)
+          deleting    <- snapshotter.delete(Snapshotter.Criteria())
+          error       <- deleting.attempt
+        } yield error match {
+          case Left(_: AskTimeoutException) => succeed
+          case Left(other)                  => fail(other)
+          case Right(_)                     => fail("the test should fail with AskTimeoutException but did no")
+        }
+      }
+
+    io.unsafeRunSync()
+  }
+
   test("journal: fail loading events") {
 
     val pluginId      = "failing-journal"
-    val persistenceId = EventSourcedId("#3")
+    val persistenceId = EventSourcedId("#11")
 
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
@@ -164,7 +253,7 @@ class PersistenceAdapterTest extends AnyFunSuite with Matchers {
   test("journal: fail persisting events") {
 
     val pluginId      = "failing-journal"
-    val persistenceId = EventSourcedId("#4")
+    val persistenceId = EventSourcedId("#12")
 
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
@@ -183,7 +272,7 @@ class PersistenceAdapterTest extends AnyFunSuite with Matchers {
   test("journal: fail deleting events") {
 
     val pluginId      = "failing-journal"
-    val persistenceId = EventSourcedId("#5")
+    val persistenceId = EventSourcedId("#13")
 
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
@@ -261,5 +350,17 @@ class FailingSnapshotter extends SnapshotStore {
   override def deleteAsync(metadata: SnapshotMetadata): Future[Unit] = Future.failed(Expected.exception)
 
   override def deleteAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Unit] = Future.failed(Expected.exception)
+
+}
+
+class InfiniteSnapshotter extends SnapshotStore {
+
+  override def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] = Future.never
+
+  override def saveAsync(metadata: SnapshotMetadata, snapshot: Any): Future[Unit] = Future.never
+
+  override def deleteAsync(metadata: SnapshotMetadata): Future[Unit] = Future.never
+
+  override def deleteAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Unit] = Future.never
 
 }
