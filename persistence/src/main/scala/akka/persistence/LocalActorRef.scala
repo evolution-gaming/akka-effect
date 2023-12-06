@@ -59,7 +59,7 @@ private[persistence] object LocalActorRef {
     * @return
     */
   def apply[F[_]: Temporal: ToTry, S, R](initial: S, timeout: FiniteDuration)(
-    receive: (S, M) => F[Either[S, R]]
+    receive: PartialFunction[(S, M), F[Either[S, R]]]
   ): F[LocalActorRef[F, R]] = {
 
     val F = Temporal[F]
@@ -102,14 +102,20 @@ private[persistence] object LocalActorRef {
         override def !(m: M)(implicit sender: ActorRef): Unit =
           state
             .update { s =>
-              for {
-                t <- Temporal[F].realTimeInstant
-                r <- receive(s.state, m)
-                s <- r match {
-                  case Left(s)  => State(s, t).pure[F]
-                  case Right(r) => done(r.asRight).as(s)
-                }
-              } yield s
+              if (receive.isDefinedAt(s.state -> m)) {
+
+                for {
+                  t <- Temporal[F].realTimeInstant
+                  r <- receive(s.state -> m)
+                  s <- r match {
+                    case Left(s)  => State(s, t).pure[F]
+                    case Right(r) => done(r.asRight).as(s)
+                  }
+                } yield s
+
+              } else {
+                s.pure[F]
+              }
             }
             .handleErrorWith { e =>
               done(e.asLeft).void
