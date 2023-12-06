@@ -7,16 +7,16 @@ import cats.syntax.all._
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 
-import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, SeqNr, Event, Snapshotter}
+import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, SeqNr, Event, Events, Snapshotter}
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
-import scala.concurrent.duration._
 
 import scala.util.Random
 import akka.persistence.journal.AsyncWriteJournal
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.util.Try
-import com.evolutiongaming.akkaeffect.persistence.Events
 import akka.persistence.snapshot.SnapshotStore
+import akka.pattern.AskTimeoutException
 
 class PersistenceAdapterTest extends AnyFunSuite with Matchers {
 

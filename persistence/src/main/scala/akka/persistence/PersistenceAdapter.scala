@@ -35,12 +35,9 @@ object PersistenceAdapter {
 
   }
 
-  // TODO:
-  // 1. set timeout for journaller ops?     IMO call-side can do it as well
-  // 2. set buffer limit?                   Akka Persistence does not have such limits, should we?
   def of[F[_]: Async: ToTry: FromFuture](
     system: ActorSystem,
-    askTimeout: FiniteDuration
+    timeout: FiniteDuration
   ): F[PersistenceAdapter[F]] = {
 
     val F = Async[F]
@@ -64,7 +61,7 @@ object PersistenceAdapter {
 
                 val request = SnapshotProtocol.LoadSnapshot(persistenceId, criteria, toSequenceNr)
                 snapshotter
-                  .ask(request, askTimeout)
+                  .ask(request, timeout)
                   .map { response =>
                     response.flatMap {
 
@@ -93,7 +90,7 @@ object PersistenceAdapter {
                 val metadata = SnapshotMetadata(persistenceId, seqNr)
                 val request  = SnapshotProtocol.SaveSnapshot(metadata, snapshot)
                 snapshotter
-                  .ask(request, askTimeout)
+                  .ask(request, timeout)
                   .map { response =>
                     response.flatMap {
                       case SaveSnapshotSuccess(metadata) => Instant.ofEpochMilli(metadata.timestamp).pure[F]
@@ -107,7 +104,7 @@ object PersistenceAdapter {
                 val metadata = SnapshotMetadata(persistenceId, seqNr)
                 val request  = SnapshotProtocol.DeleteSnapshot(metadata)
                 snapshotter
-                  .ask(request, askTimeout)
+                  .ask(request, timeout)
                   .map { response =>
                     response.flatMap {
                       case DeleteSnapshotSuccess(_)      => ().pure[F]
@@ -119,7 +116,7 @@ object PersistenceAdapter {
               override def delete(criteria: SnapshotSelectionCriteria): F[F[Unit]] = {
                 val request = SnapshotProtocol.DeleteSnapshots(persistenceId, criteria)
                 snapshotter
-                  .ask(request, askTimeout)
+                  .ask(request, timeout)
                   .map { response =>
                     response.flatMap {
                       case DeleteSnapshotsSuccess(_)      => ().pure[F]
@@ -148,7 +145,7 @@ object PersistenceAdapter {
               override def replay(fromSequenceNr: SeqNr, toSequenceNr: SeqNr, max: SeqNr): F[Stream[F, Event[E]]] = {
 
                 def actor(buffer: Ref[F, Vector[Event[E]]]) =
-                  LocalActorRef[F, Unit, SeqNr] {} {
+                  LocalActorRef[F, Unit, SeqNr]({}, timeout) {
 
                     case (_, JournalProtocol.ReplayedMessage(persisted)) =>
                       if (persisted.deleted) ().asLeft[SeqNr].pure[F]
@@ -209,7 +206,7 @@ object PersistenceAdapter {
 
                   case class State(writes: Int, maxSeqNr: SeqNr)
                   val state = State(events.values.length, SeqNr.Min)
-                  val actor = LocalActorRef[F, State, SeqNr](state) {
+                  val actor = LocalActorRef[F, State, SeqNr](state, timeout) {
 
                     case (state, JournalProtocol.WriteMessagesSuccessful) => state.asLeft[SeqNr].pure[F]
 
@@ -247,7 +244,7 @@ object PersistenceAdapter {
 
                 override def apply(seqNr: SeqNr): F[F[Unit]] = {
 
-                  val actor = LocalActorRef[F, Unit, Unit] {} {
+                  val actor = LocalActorRef[F, Unit, Unit]({}, timeout) {
                     case (_, DeleteMessagesSuccess(_))    => ().asRight[Unit].pure[F]
                     case (_, DeleteMessagesFailure(e, _)) => e.raiseError[F, Either[Unit, Unit]]
                   }
