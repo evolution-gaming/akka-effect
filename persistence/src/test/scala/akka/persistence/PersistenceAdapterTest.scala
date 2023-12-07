@@ -17,6 +17,7 @@ import scala.concurrent.duration._
 import scala.util.Try
 import akka.persistence.snapshot.SnapshotStore
 import akka.pattern.AskTimeoutException
+import java.util.concurrent.TimeoutException
 
 class PersistenceAdapterTest extends AnyFunSuite with Matchers {
 
@@ -231,6 +232,33 @@ class PersistenceAdapterTest extends AnyFunSuite with Matchers {
     io.unsafeRunSync()
   }
 
+  test("journal: replay (nothing), save, replay, delete, replay") {
+
+    val persistenceId = EventSourcedId("#11")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter <- PersistenceAdapter.of[IO](system, 600.second)
+          journal <- adapter.journaller[String](emptyPluginId, persistenceId, SeqNr.Min)
+          events  <- journal.replay(SeqNr.Max, Long.MaxValue)
+          events  <- events.toList
+          _        = events shouldEqual List.empty[Event[String]]
+          seqNr   <- journal.append(Events.of("first", "second")).flatten
+          _        = seqNr shouldEqual 2L
+          events  <- journal.replay(SeqNr.Max, Long.MaxValue)
+          events  <- events.toList
+          _        = events shouldEqual List(Event.const("first", 1L), Event.const("second", 2L))
+          _       <- journal.deleteTo(1L).flatten
+          events  <- journal.replay(SeqNr.Max, Long.MaxValue)
+          events  <- events.toList
+          _        = events shouldEqual List(Event.const("second", 2L))
+        } yield {}
+      }
+
+    io.unsafeRunSync()
+  }
+
   test("journal: fail loading events") {
 
     val pluginId      = "failing-journal"
@@ -240,8 +268,8 @@ class PersistenceAdapterTest extends AnyFunSuite with Matchers {
       .use { system =>
         for {
           adapter <- PersistenceAdapter.of[IO](system, 1.second)
-          journal <- adapter.journaller[String](pluginId, persistenceId)
-          events  <- journal.replay(SeqNr.Min, SeqNr.Max, Long.MaxValue)
+          journal <- adapter.journaller[String](pluginId, persistenceId, SeqNr.Min)
+          events  <- journal.replay(SeqNr.Max, Long.MaxValue)
           error   <- events.toList.attempt
           _        = error shouldEqual Expected.exception.asLeft[List[Event[String]]]
         } yield {}
@@ -259,7 +287,7 @@ class PersistenceAdapterTest extends AnyFunSuite with Matchers {
       .use { system =>
         for {
           adapter <- PersistenceAdapter.of[IO](system, 1.second)
-          journal <- adapter.journaller[String](pluginId, persistenceId)
+          journal <- adapter.journaller[String](pluginId, persistenceId, SeqNr.Min)
           seqNr   <- journal.append(Events.of[String]("first", "second"))
           error   <- seqNr.attempt
           _        = error shouldEqual Expected.exception.asLeft[SeqNr]
@@ -278,7 +306,7 @@ class PersistenceAdapterTest extends AnyFunSuite with Matchers {
       .use { system =>
         for {
           adapter  <- PersistenceAdapter.of[IO](system, 1.second)
-          journal  <- adapter.journaller[String](pluginId, persistenceId)
+          journal  <- adapter.journaller[String](pluginId, persistenceId, SeqNr.Min)
           deleting <- journal.deleteTo(SeqNr.Max)
           error    <- deleting.attempt
           _         = error shouldEqual Expected.exception.asLeft[Unit]
@@ -288,24 +316,71 @@ class PersistenceAdapterTest extends AnyFunSuite with Matchers {
     io.unsafeRunSync()
   }
 
-  // test("journal: timeout on loading events") {
+  test("journal: timeout on loading events") {
 
-  //   val pluginId      = "infinite-journal"
-  //   val persistenceId = EventSourcedId("#6")
+    val pluginId      = "infinite-journal"
+    val persistenceId = EventSourcedId("#14")
 
-  //   val io = TestActorSystem[IO]("testing", none)
-  //     .use { system =>
-  //       for {
-  //         adapter <- PersistenceAdapter.of[IO](system, 1.second)
-  //         journal <- adapter.journaller[String](pluginId, persistenceId)
-  //         events  <- journal.replay(SeqNr.Min, SeqNr.Max, Long.MaxValue)
-  //         error   <- events.toList.attempt
-  //         _        = error shouldEqual Expected.exception.asLeft[List[Event[String]]]
-  //       } yield {}
-  //     }
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter <- PersistenceAdapter.of[IO](system, 1.second)
+          journal <- adapter.journaller[String](pluginId, persistenceId, SeqNr.Min)
+          events  <- journal.replay(SeqNr.Max, Long.MaxValue)
+          error   <- events.toList.attempt
+        } yield error match {
+          case Left(_: TimeoutException) => succeed
+          case Left(e)                   => fail(e)
+          case Right(r)                  => fail(s"the test should fail with TimeoutException while actual result is $r")
+        }
+      }
 
-  //   io.unsafeRunSync()
-  // }
+    io.unsafeRunSync()
+  }
+
+  test("journal: timeout persisting events") {
+
+    val pluginId      = "infinite-journal"
+    val persistenceId = EventSourcedId("#15")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter <- PersistenceAdapter.of[IO](system, 1.second)
+          journal <- adapter.journaller[String](pluginId, persistenceId, SeqNr.Min)
+          seqNr   <- journal.append(Events.of[String]("first", "second"))
+          error   <- seqNr.attempt
+        } yield error match {
+          case Left(_: TimeoutException) => succeed
+          case Left(e)                   => fail(e)
+          case Right(r)                  => fail(s"the test should fail with TimeoutException while actual result is $r")
+        }
+      }
+
+    io.unsafeRunSync()
+  }
+
+  test("journal: timeout deleting events") {
+
+    val pluginId      = "infinite-journal"
+    val persistenceId = EventSourcedId("#16")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        for {
+          adapter  <- PersistenceAdapter.of[IO](system, 1.second)
+          journal  <- adapter.journaller[String](pluginId, persistenceId, SeqNr.Min)
+          deleting <- journal.deleteTo(SeqNr.Max)
+          error    <- deleting.attempt
+        } yield error match {
+          case Left(_: TimeoutException) => succeed
+          case Left(e)                   => fail(e)
+          case Right(r)                  => fail(s"the test should fail with TimeoutException while actual result is $r")
+        }
+      }
+
+    io.unsafeRunSync()
+  }
 }
 
 object Expected {

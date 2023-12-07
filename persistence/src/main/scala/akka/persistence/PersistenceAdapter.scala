@@ -18,23 +18,28 @@ trait PersistenceAdapter[F[_]] {
 
   def snapshotter[S: ClassTag](snapshotPluginId: String, persistenceId: EventSourcedId): F[PersistenceAdapter.ExtendedSnapshotter[F, S]]
 
-  def journaller[E: ClassTag](journalPluginId: String, persistenceId: EventSourcedId): F[PersistenceAdapter.ExtendedJournaller[F, E]]
+  def journaller[E: ClassTag](
+    journalPluginId: String,
+    persistenceId: EventSourcedId,
+    currentSeqNr: SeqNr
+  ): F[PersistenceAdapter.ExtendedJournaller[F, E]]
 }
 
 object PersistenceAdapter {
 
   trait ExtendedJournaller[F[_], E] extends com.evolutiongaming.akkaeffect.persistence.Journaller[F, E] {
 
-    def replay(fromSequenceNr: Long, toSequenceNr: Long, max: Long): F[Stream[F, Event[E]]]
+    def replay(toSequenceNr: SeqNr, max: Long): F[Stream[F, Event[E]]]
 
   }
 
   trait ExtendedSnapshotter[F[_], S] extends com.evolutiongaming.akkaeffect.persistence.Snapshotter[F, S] {
 
-    def load(criteria: SnapshotSelectionCriteria, toSequenceNr: Long): F[F[Option[Snapshot[S]]]]
+    def load(criteria: SnapshotSelectionCriteria, toSequenceNr: SeqNr): F[F[Option[Snapshot[S]]]]
 
   }
 
+  // TODO: set buffer limit
   def of[F[_]: Async: ToTry: FromFuture](
     system: ActorSystem,
     timeout: FiniteDuration
@@ -57,7 +62,7 @@ object PersistenceAdapter {
 
               val persistenceId = eventSourcedId.value
 
-              override def load(criteria: SnapshotSelectionCriteria, toSequenceNr: Long): F[F[Option[Snapshot[S]]]] = {
+              override def load(criteria: SnapshotSelectionCriteria, toSequenceNr: SeqNr): F[F[Option[Snapshot[S]]]] = {
 
                 val request = SnapshotProtocol.LoadSnapshot(persistenceId, criteria, toSequenceNr)
                 snapshotter
@@ -131,23 +136,31 @@ object PersistenceAdapter {
             }
           }
 
-        override def journaller[E: ClassTag](journalPluginId: String, eventSourcedId: EventSourcedId): F[ExtendedJournaller[F, E]] = {
+        override def journaller[E: ClassTag](
+          journalPluginId: String,
+          eventSourcedId: EventSourcedId,
+          currentSeqNr: SeqNr
+        ): F[ExtendedJournaller[F, E]] = {
 
-          F.delay {
-            persistence.journalFor(journalPluginId)
-          }.map { actorRef =>
-            val journaller = ActorEffect.fromActor(actorRef)
+          for {
+            pluginActorRef <- F.delay {
+              persistence.journalFor(journalPluginId)
+            }
+            appendedSeqNr <- F.ref(currentSeqNr)
+          } yield {
+            val journaller = ActorEffect.fromActor(pluginActorRef)
 
             new ExtendedJournaller[F, E] {
 
               val persistenceId = eventSourcedId.value
 
-              override def replay(fromSequenceNr: SeqNr, toSequenceNr: SeqNr, max: SeqNr): F[Stream[F, Event[E]]] = {
+              override def replay(toSequenceNr: SeqNr, max: Long): F[Stream[F, Event[E]]] = {
 
                 def actor(buffer: Ref[F, Vector[Event[E]]]) =
                   LocalActorRef[F, Unit, SeqNr]({}, timeout) {
 
                     case (_, JournalProtocol.ReplayedMessage(persisted)) =>
+                      println(s"journal, replaying: $persisted")
                       if (persisted.deleted) ().asLeft[SeqNr].pure[F]
                       else
                         for {
@@ -156,7 +169,9 @@ object PersistenceAdapter {
                           _    <- buffer.update(_ :+ event)
                         } yield ().asLeft[SeqNr]
 
-                    case (_, JournalProtocol.RecoverySuccess(seqNr)) => seqNr.asRight[Unit].pure[F]
+                    case (_, JournalProtocol.RecoverySuccess(seqNr)) =>
+                      println(s"journal, recovery success $seqNr")
+                      appendedSeqNr.set(seqNr).as(seqNr.asRight[Unit])
 
                     case (_, JournalProtocol.ReplayMessagesFailure(error)) => error.raiseError[F, Either[Unit, SeqNr]]
                   }
@@ -164,7 +179,7 @@ object PersistenceAdapter {
                 for {
                   buffer <- Ref[F].of(Vector.empty[Event[E]])
                   actor  <- actor(buffer)
-                  request = JournalProtocol.ReplayMessages(fromSequenceNr, toSequenceNr, max, persistenceId, actor.ref)
+                  request = JournalProtocol.ReplayMessages(currentSeqNr + 1, toSequenceNr, max, persistenceId, actor.ref)
                   _      <- journaller.tell(request)
                 } yield new Stream[F, Event[E]] {
 
@@ -204,8 +219,8 @@ object PersistenceAdapter {
 
                 override def apply(events: Events[E]): F[F[SeqNr]] = {
 
-                  case class State(writes: Int, maxSeqNr: SeqNr)
-                  val state = State(events.values.length, SeqNr.Min)
+                  case class State(writes: Long, maxSeqNr: SeqNr)
+                  val state = State(events.size, SeqNr.Min)
                   val actor = LocalActorRef[F, State, SeqNr](state, timeout) {
 
                     case (state, JournalProtocol.WriteMessagesSuccessful) => state.asLeft[SeqNr].pure[F]
@@ -224,18 +239,25 @@ object PersistenceAdapter {
                     case (_, JournalProtocol.WriteMessageFailure(_, error, _)) => error.raiseError[F, Either[State, SeqNr]]
                   }
 
-                  val messages = events.values.toList.map { events =>
-                    val persistent = events.toList.map { event =>
-                      PersistentRepr(event, persistenceId = persistenceId)
-                    }
-                    AtomicWrite(persistent)
-                  }
-
                   for {
+                    messages <- appendedSeqNr.modify { seqNr =>
+                      var _seqNr = seqNr
+                      def nextSeqNr = {
+                        _seqNr = _seqNr + 1
+                        _seqNr
+                      }
+                      val messages = events.values.toList.map { events =>
+                        val persistent = events.toList.map { event =>
+                          PersistentRepr(event, persistenceId = persistenceId, sequenceNr = nextSeqNr)
+                        }
+                        AtomicWrite(persistent)
+                      }
+                      _seqNr -> messages
+                    }
                     actor  <- actor
                     request = JournalProtocol.WriteMessages(messages, actor.ref, 0)
                     _      <- journaller.tell(request)
-                  } yield actor.res // TODO: set timeout
+                  } yield actor.res
                 }
 
               }
@@ -253,7 +275,7 @@ object PersistenceAdapter {
                     actor  <- actor
                     request = JournalProtocol.DeleteMessagesTo(persistenceId, seqNr, actor.ref)
                     _      <- journaller.tell(request)
-                  } yield actor.res // TODO: set timeout
+                  } yield actor.res
                 }
 
               }
