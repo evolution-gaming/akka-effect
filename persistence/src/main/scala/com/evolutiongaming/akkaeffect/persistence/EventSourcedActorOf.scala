@@ -11,33 +11,33 @@ import scala.reflect.ClassTag
 
 object EventSourcedActorOf {
 
-  /**
-    * Describes lifecycle of entity with regards to event sourcing & PersistentActor
-    * Lifecycle phases:
+  /** Describes lifecycle of entity with regards to event sourcing & PersistentActor Lifecycle phases:
     *
-    * 1. RecoveryStarted: we have id in place and can decide whether we should continue with recovery
-    * 2. Recovering     : reading snapshot and replaying events
-    * 3. Receiving      : receiving commands and potentially storing events & snapshots
-    * 4. Termination    : triggers all release hooks of allocated resources within previous phases
+    *   1. RecoveryStarted: we have id in place and can decide whether we should continue with recovery 2. Recovering : reading snapshot and
+    *      replaying events 3. Receiving : receiving commands and potentially storing events & snapshots 4. Termination : triggers all
+    *      release hooks of allocated resources within previous phases
     *
-    * @tparam S snapshot
-    * @tparam E event
-    * @tparam C command
+    * @tparam S
+    *   snapshot
+    * @tparam E
+    *   event
+    * @tparam C
+    *   command
     */
   type Lifecycle[F[_], S, E, C] =
     Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], ActorOf.Stop]]]
 
   def actor[F[_]: Async: ToFuture, S, E, C: ClassTag](
     eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, C]],
-    eventSourcedStoreOf: EventSourcedStoreOf[F, S, E],
+    persistenceOf: EventSourcedPersistenceOf[F, S, E]
   ): Actor = ActorOf[F] { actorCtx =>
     for {
-      eventSourced <- eventSourcedOf(actorCtx).toResource
-      persistentId = eventSourced.eventSourcedId
+      eventSourced    <- eventSourcedOf(actorCtx).toResource
+      persistentId     = eventSourced.eventSourcedId
       recoveryStarted <- eventSourced.value
 
-      store <- eventSourcedStoreOf(eventSourced)
-      recovery <- store.recover(persistentId)
+      persistence <- persistenceOf(eventSourced).toResource
+      recovery    <- persistence.recover.toResource
 
       recovering <- recoveryStarted(
         recovery.snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min),
@@ -58,14 +58,13 @@ object EventSourcedActorOf {
         } yield seqNr
       }.toResource
 
-      journaller <- store.journaller(persistentId, seqNr)
-      snapshotter <- store.snapshotter(persistentId)
-      receive <- recovering.completed(seqNr, journaller, snapshotter)
+      journaller  <- persistence.journaller(seqNr).toResource
+      snapshotter <- persistence.snapshotter.toResource
+      receive     <- recovering.completed(seqNr, journaller, snapshotter)
     } yield receive.contramapM[Envelope[Any]](_.cast[F, C])
   }
 
-  private implicit class SnapshotOps[S](val snapshot: Snapshot[S])
-      extends AnyVal {
+  implicit private class SnapshotOps[S](val snapshot: Snapshot[S]) extends AnyVal {
 
     def asOffer: SnapshotOffer[S] =
       SnapshotOffer(

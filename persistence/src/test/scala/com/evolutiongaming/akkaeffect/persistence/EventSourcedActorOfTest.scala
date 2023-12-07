@@ -1,7 +1,6 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.Props
-import cats.effect.implicits.effectResourceOps
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Async, IO, Ref, Resource}
 import cats.syntax.all._
@@ -15,10 +14,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.time.Instant
 import scala.concurrent.duration._
 
-class EventSourcedActorOfTest
-    extends AnyWordSpec
-    with ActorSuite
-    with Matchers {
+class EventSourcedActorOfTest extends AnyWordSpec with ActorSuite with Matchers {
 
   type F[A] = IO[A]
   val F = Async[F]
@@ -33,7 +29,7 @@ class EventSourcedActorOfTest
   val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
   val timestamp = Instant.ofEpochMilli(0) // due to hardcoded value in InstrumentEventSourced #45
-  val timeout = 1.second
+  val timeout   = 1.second
 
   "recover" when {
 
@@ -72,12 +68,12 @@ class EventSourcedActorOfTest
 
     "no snapshots and no events" should {
 
-      val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
-        EventSourcedStoreOf.const {
-          EventSourcedStore.const(
-            recovery = EventSourcedStore.Recovery.const(none, Stream.empty),
+      val eventSourcedStoreOf: EventSourcedPersistenceOf[F, S, E] =
+        EventSourcedPersistenceOf.const {
+          EventSourcedPersistence.const(
+            recovery = EventSourcedPersistence.Recovery.const(none, Stream.empty),
             journaller = Journaller.empty[F, E],
-            snapshotter = Snapshotter.empty[F, S],
+            snapshotter = Snapshotter.empty[F, S]
           )
         }
 
@@ -94,8 +90,8 @@ class EventSourcedActorOfTest
               props = Props(
                 EventSourcedActorOf.actor(eventSourcedOf, eventSourcedStoreOf)
               )
-              actor <- F.delay { actorSystem.actorOf(props) }
-              effect <- ActorEffect.fromActor[F](actor).pure[F]
+              actor      <- F.delay(actorSystem.actorOf(props))
+              effect     <- ActorEffect.fromActor[F](actor).pure[F]
               terminated <- probe.watch(actor)
 
               _ <- effect.tell(akka.actor.ReceiveTimeout)
@@ -128,17 +124,17 @@ class EventSourcedActorOfTest
 
     "no snapshots and few events" should {
 
-      val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
-        EventSourcedStoreOf.const {
-          EventSourcedStore.const(
-            recovery = EventSourcedStore.Recovery.const(
+      val eventSourcedStoreOf: EventSourcedPersistenceOf[F, S, E] =
+        EventSourcedPersistenceOf.const {
+          EventSourcedPersistence.const(
+            recovery = EventSourcedPersistence.Recovery.const(
               none,
               Stream.from[F, List, Event[E]](
                 List(Event.const("first", 1L), Event.const("second", 2L))
               )
             ),
             journaller = Journaller.empty[F, E],
-            snapshotter = Snapshotter.empty[F, S],
+            snapshotter = Snapshotter.empty[F, S]
           )
         }
 
@@ -155,8 +151,8 @@ class EventSourcedActorOfTest
               props = Props(
                 EventSourcedActorOf.actor(eventSourcedOf, eventSourcedStoreOf)
               )
-              actor <- F.delay { actorSystem.actorOf(props) }
-              effect <- ActorEffect.fromActor[F](actor).pure[F]
+              actor      <- F.delay(actorSystem.actorOf(props))
+              effect     <- ActorEffect.fromActor[F](actor).pure[F]
               terminated <- probe.watch(actor)
 
               _ <- effect.tell(akka.actor.ReceiveTimeout)
@@ -191,15 +187,15 @@ class EventSourcedActorOfTest
 
     "there's snapshot and no events" should {
 
-      val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
-        EventSourcedStoreOf.const {
-          EventSourcedStore.const(
-            recovery = EventSourcedStore.Recovery.const(
+      val eventSourcedStoreOf: EventSourcedPersistenceOf[F, S, E] =
+        EventSourcedPersistenceOf.const {
+          EventSourcedPersistence.const(
+            recovery = EventSourcedPersistence.Recovery.const(
               Snapshot.const(0, Snapshot.Metadata(0L, timestamp)).some,
               Stream.empty
             ),
             journaller = Journaller.empty[F, E],
-            snapshotter = Snapshotter.empty[F, S],
+            snapshotter = Snapshotter.empty[F, S]
           )
         }
 
@@ -216,8 +212,8 @@ class EventSourcedActorOfTest
               props = Props(
                 EventSourcedActorOf.actor(eventSourcedOf, eventSourcedStoreOf)
               )
-              actor <- F.delay { actorSystem.actorOf(props) }
-              effect <- ActorEffect.fromActor[F](actor).pure[F]
+              actor      <- F.delay(actorSystem.actorOf(props))
+              effect     <- ActorEffect.fromActor[F](actor).pure[F]
               terminated <- probe.watch(actor)
 
               _ <- effect.tell(akka.actor.ReceiveTimeout)
@@ -253,17 +249,17 @@ class EventSourcedActorOfTest
 
     "there's snapshot and few event" should {
 
-      val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
-        EventSourcedStoreOf.const {
-          EventSourcedStore.const(
-            recovery = EventSourcedStore.Recovery.const(
+      val eventSourcedStoreOf: EventSourcedPersistenceOf[F, S, E] =
+        EventSourcedPersistenceOf.const {
+          EventSourcedPersistence.const(
+            recovery = EventSourcedPersistence.Recovery.const(
               Snapshot.const(0, Snapshot.Metadata(0L, timestamp)).some,
               Stream.from[F, List, Event[E]](
                 List(Event.const("first", 1L), Event.const("second", 2L))
               )
             ),
             journaller = Journaller.empty[F, E],
-            snapshotter = Snapshotter.empty[F, S],
+            snapshotter = Snapshotter.empty[F, S]
           )
         }
 
@@ -280,15 +276,15 @@ class EventSourcedActorOfTest
               props = Props(
                 EventSourcedActorOf.actor(eventSourcedOf, eventSourcedStoreOf)
               )
-              actor <- F.delay { actorSystem.actorOf(props) }
-              effect <- ActorEffect.fromActor[F](actor).pure[F]
+              actor      <- F.delay(actorSystem.actorOf(props))
+              effect     <- ActorEffect.fromActor[F](actor).pure[F]
               terminated <- probe.watch(actor)
 
               bar <- effect.ask("foo", timeout).flatten
-              _ = bar shouldEqual "bar"
+              _    = bar shouldEqual "bar"
 
               foo <- effect.ask("bar", timeout).flatten
-              _ = foo shouldEqual "foo"
+              _    = foo shouldEqual "foo"
 
               _ <- effect.tell("die")
               _ <- terminated
@@ -337,8 +333,8 @@ class EventSourcedActorOfTest
               props = Props(
                 EventSourcedActorOf.actor(eventSourcedOf, eventSourcedStoreOf)
               )
-              actor <- F.delay { actorSystem.actorOf(props) }
-              effect <- ActorEffect.fromActor[F](actor).pure[F]
+              actor      <- F.delay(actorSystem.actorOf(props))
+              effect     <- ActorEffect.fromActor[F](actor).pure[F]
               terminated <- probe.watch(actor)
 
               _ <- effect.tell(akka.actor.ReceiveTimeout)
@@ -380,8 +376,8 @@ class EventSourcedActorOfTest
     "exception" should {
 
       "be raised from EventSourcedStoreOf[F].apply, ie on loading Akka plugins in EventSourcedStoreOf.fromAkka" in {
-        val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
-          _ => F.raiseError(new RuntimeException()).toResource
+        val eventSourcedStoreOf: EventSourcedPersistenceOf[F, S, E] =
+          _ => F.raiseError(new RuntimeException())
 
         Probe
           .of(actorRefOf)
@@ -394,8 +390,8 @@ class EventSourcedActorOfTest
               props = Props(
                 EventSourcedActorOf.actor(eventSourcedOf, eventSourcedStoreOf)
               )
-              actor <- F.delay { actorSystem.actorOf(props) }
-              effect <- ActorEffect.fromActor[F](actor).pure[F]
+              actor      <- F.delay(actorSystem.actorOf(props))
+              effect     <- ActorEffect.fromActor[F](actor).pure[F]
               terminated <- probe.watch(actor)
 
               _ <- effect.tell(akka.actor.ReceiveTimeout)
@@ -421,17 +417,14 @@ class EventSourcedActorOfTest
       }
 
       "be raised from EventSourcedStore[F].recover, ie on loading snapshot" in {
-        val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
-          EventSourcedStoreOf.const {
-            new EventSourcedStore[F, S, E] {
-              override def recover(id: EventSourcedId) =
-                F.raiseError(new RuntimeException()).toResource
+        val eventSourcedStoreOf: EventSourcedPersistenceOf[F, S, E] =
+          EventSourcedPersistenceOf.const {
+            new EventSourcedPersistence[F, S, E] {
+              override def recover = F.raiseError(new RuntimeException())
 
-              override def journaller(id: EventSourcedId, seqNr: SeqNr) =
-                Journaller.empty[F, E].pure[Resource[F, *]]
+              override def journaller(seqNr: SeqNr) = Journaller.empty[F, E].pure[F]
 
-              override def snapshotter(id: EventSourcedId) =
-                Snapshotter.empty[F, S].pure[Resource[F, *]]
+              override def snapshotter = Snapshotter.empty[F, S].pure[F]
             }
           }
 
@@ -446,8 +439,8 @@ class EventSourcedActorOfTest
               props = Props(
                 EventSourcedActorOf.actor(eventSourcedOf, eventSourcedStoreOf)
               )
-              actor <- F.delay { actorSystem.actorOf(props) }
-              effect <- ActorEffect.fromActor[F](actor).pure[F]
+              actor      <- F.delay(actorSystem.actorOf(props))
+              effect     <- ActorEffect.fromActor[F](actor).pure[F]
               terminated <- probe.watch(actor)
 
               _ <- effect.tell(akka.actor.ReceiveTimeout)
@@ -473,10 +466,10 @@ class EventSourcedActorOfTest
       }
 
       "be raised on materialisation of Stream provided by Recovery[F].events', ie on loading events" in {
-        val eventSourcedStoreOf: EventSourcedStoreOf[F, S, E] =
-          EventSourcedStoreOf.const {
-            EventSourcedStore.const(
-              recovery = EventSourcedStore.Recovery
+        val eventSourcedStoreOf: EventSourcedPersistenceOf[F, S, E] =
+          EventSourcedPersistenceOf.const {
+            EventSourcedPersistence.const(
+              recovery = EventSourcedPersistence.Recovery
                 .const(none, Stream.lift(F.raiseError(new RuntimeException()))),
               journaller = Journaller.empty[F, E],
               snapshotter = Snapshotter.empty[F, S]
@@ -494,8 +487,8 @@ class EventSourcedActorOfTest
               props = Props(
                 EventSourcedActorOf.actor(eventSourcedOf, eventSourcedStoreOf)
               )
-              actor <- F.delay { actorSystem.actorOf(props) }
-              effect <- ActorEffect.fromActor[F](actor).pure[F]
+              actor      <- F.delay(actorSystem.actorOf(props))
+              effect     <- ActorEffect.fromActor[F](actor).pure[F]
               terminated <- probe.watch(actor)
 
               _ <- effect.tell(akka.actor.ReceiveTimeout)
