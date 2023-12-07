@@ -60,7 +60,7 @@ object EventSourcedPersistenceOf {
                   override def snapshot: Option[Snapshot[S]] = snapshotOffer
 
                   override def events: Stream[F, Event[E]] = {
-                    val fromSeqNr = snapshotOffer.map(_.metadata.seqNr).getOrElse(SeqNr.Min)
+                    val fromSeqNr = snapshotOffer.map(_.metadata.seqNr + 1).getOrElse(SeqNr.Min)
                     val stream    = replayer.replay(fromSeqNr, SeqNr.Max, Long.MaxValue)
                     Stream.lift(stream).flatten
                   }
