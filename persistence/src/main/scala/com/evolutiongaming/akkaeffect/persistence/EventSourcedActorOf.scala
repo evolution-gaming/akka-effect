@@ -33,7 +33,6 @@ object EventSourcedActorOf {
   ): Actor = ActorOf[F] { actorCtx =>
     for {
       eventSourced    <- eventSourcedOf(actorCtx).toResource
-      persistentId     = eventSourced.eventSourcedId
       recoveryStarted <- eventSourced.value
 
       persistence <- persistenceOf(eventSourced).toResource
