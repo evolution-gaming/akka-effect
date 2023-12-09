@@ -16,17 +16,13 @@ import scala.concurrent.duration._
 
 trait EventSourcedPersistenceOf[F[_], S, E] {
 
-  def apply(
-    eventSourced: EventSourced[_]
-  ): F[EventSourcedPersistence[F, S, E]]
+  def apply(eventSourced: EventSourced[_]): F[EventSourcedPersistence[F, S, E]]
 
 }
 
 object EventSourcedPersistenceOf {
 
-  def const[F[_]: Applicative, S, E](
-    store: EventSourcedPersistence[F, S, E]
-  ): EventSourcedPersistenceOf[F, S, E] =
+  def const[F[_]: Applicative, S, E](store: EventSourcedPersistence[F, S, E]): EventSourcedPersistenceOf[F, S, E] =
     _ => store.pure[F]
 
   def fromAkka[F[_]: Async: ToTry: FromFuture, S, E](
