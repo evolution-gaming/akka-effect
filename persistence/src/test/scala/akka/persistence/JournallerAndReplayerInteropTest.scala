@@ -15,6 +15,7 @@ import org.scalatest.matchers.should.Matchers
 import java.util.concurrent.TimeoutException
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.collection.immutable.Seq
 import scala.util.Try
 
 class JournallerAndReplayerInteropTest extends AnyFunSuite with Matchers {
