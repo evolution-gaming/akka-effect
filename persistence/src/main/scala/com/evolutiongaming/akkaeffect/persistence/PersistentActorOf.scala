@@ -172,7 +172,7 @@ object PersistentActorOf {
 
       private def recoveryCompleted(seqNr: SeqNr): Unit = {
         val journaller = Journaller[F, Any](resources.append.value, resources.deleteEventsTo).withFail(fail)
-        val snapshotter = SnapshotterOf[F, Any](actor, timeout).withFail(fail)
+        val snapshotter = Snapshotter[F, Any](actor, timeout).withFail(fail)
         persistence.recoveryCompleted(seqNr, journaller, snapshotter)
       }
 

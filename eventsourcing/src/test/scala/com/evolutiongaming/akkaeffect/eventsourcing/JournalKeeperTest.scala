@@ -510,13 +510,6 @@ object JournalKeeperTest {
         .add(Action.DeleteSnapshots(criteria))
         .map { _.pure[F] }
     }
-
-    def delete(criteria: Snapshotter.Criteria): F[F[Unit]] = {
-      actions
-        .add(Action.DeleteSnapshots(criteria.asAkka))
-        .map { _.pure[F] }
-    }
-
   }
 
 
