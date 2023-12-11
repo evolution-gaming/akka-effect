@@ -78,7 +78,6 @@ lazy val `persistence-api` = (project in file("persistence-api")
       CatsEffect.effect,
       `cats-helper`,
       sstream,
-      Akka.persistence, // temporal dependency
       Akka.slf4j % Test,
       Akka.testkit % Test,
       scalatest % Test)))
