@@ -68,7 +68,7 @@ object PersistentActorOf {
       }
 
       case class Resources(
-        append: AppendOf.Adapter[F, Any],
+        append: Append.Adapter[F, Any],
         deleteEventsTo: DeleteEventsTo[F])
 
       lazy val (resources: Resources, release) = {
@@ -76,8 +76,8 @@ object PersistentActorOf {
         val result = for {
           stopped        <- stopped.toResource
           act            <- act.value.pure[Resource[F, *]]
-          append         <- AppendOf.adapter[F, Any](act, actor, stopped)
-          deleteEventsTo <- DeleteEventsToOf.of(actor, timeout)
+          append         <- Append.adapter[F, Any](act, actor, stopped)
+          deleteEventsTo <- DeleteEventsTo.of(actor, timeout)
         } yield {
           Resources(append, deleteEventsTo)
         }

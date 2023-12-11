@@ -7,12 +7,12 @@ trait EventStore[F[_], A] extends EventStore.Read[F, A] with EventStore.Write[F,
 object EventStore {
 
   trait Read[F[_], A] {
-    def read(fromSeqNr: SeqNr): F[sstream.Stream[F, Event[A]]]
+    def from(seqNr: SeqNr): F[sstream.Stream[F, Event[A]]]
   }
 
   trait Write[F[_], A] {
-    def append: Append[F, A]
-    def deleteTo: DeleteEventsTo[F]
+    def save(events: Events[A]): F[F[SeqNr]]
+    def deleteTo(seqNr: SeqNr): F[F[Unit]]
   }
 
   final case class Event[A](event: A, seqNr: SeqNr)

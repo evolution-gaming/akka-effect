@@ -106,7 +106,7 @@ private[akkaeffect] object Act {
           }
         }
 
-        def receive(receive: Actor.Receive): Actor.Receive = {
+        def receive(receive: Actor.Receive) = {
           val receiveMsg: Actor.Receive = { case Msg(f) => f() }
           syncReceive(receiveMsg orElse receive)
         }

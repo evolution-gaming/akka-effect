@@ -4,18 +4,39 @@ import akka.persistence._
 import cats.effect.kernel.Async
 import cats.effect.{Deferred, Resource, Sync}
 import cats.implicits._
+import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.akkaeffect.util.AtomicRef
 import com.evolutiongaming.akkaeffect.{Act, Fail}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{MonadThrowable, ToFuture}
+import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable, ToFuture}
 
 import scala.collection.immutable.Queue
 
-object AppendOf {
+
+/**
+  * @see [[akka.persistence.PersistentActor.persistAllAsync]]
+  */
+trait Append[F[_], -A] {
 
   /**
-    * @see [[akka.persistence.PersistentActor.persistAllAsync]]
+    * @param events to be saved, inner Nel[A] will be persisted atomically, outer Nel[_] is for batching
+    * @return SeqNr of last event
     */
+  def apply(events: Events[A]): F[F[SeqNr]]
+}
+
+object Append {
+
+  def const[F[_], A](seqNr: F[F[SeqNr]]): Append[F, A] = {
+    class Const
+    new Const with Append[F, A] {
+      def apply(events: Events[A]) = seqNr
+    }
+  }
+
+  def empty[F[_]: Applicative, A]: Append[F, A] = const(SeqNr.Min.pure[F].pure[F])
+
+
   private[akkaeffect] def adapter[F[_]: Async: ToFuture, A](
     act: Act[F],
     actor: PersistentActor,
@@ -39,7 +60,7 @@ object AppendOf {
         .toNel
         .foldMapM { queue =>
           for {
-            error <- error
+            error  <- error
             result <- queue.foldMapM { _.complete(error.asLeft).void }
           } yield result
         }
@@ -62,7 +83,7 @@ object AppendOf {
               val eventsList = events.values.toList
               for {
                 deferred <- Deferred[F, Either[Throwable, SeqNr]]
-                _ <- act {
+                _        <- act {
                   ref.update { _.enqueue(deferred) }
                   var left = size
                   eventsList.foreach { events =>
@@ -103,6 +124,47 @@ object AppendOf {
       }
   }
 
+
+  implicit class AppendOps[F[_], A](val self: Append[F, A]) extends AnyVal {
+
+    def mapK[G[_]: Applicative](f: F ~> G): Append[G, A] = {
+      events => f(self(events)).map { a => f(a) }
+    }
+
+    def convert[B](f: B => F[A])(implicit F: Monad[F]): Append[F, B] = {
+      events => {
+        for {
+          events <- events.traverse(f)
+          seqNr  <- self(events)
+        } yield seqNr
+      }
+    }
+
+
+    def narrow[B <: A]: Append[F, B] = events => self(events)
+
+    def withLogging1(
+      log: Log[F])(implicit
+      F: FlatMap[F],
+      measureDuration: MeasureDuration[F]
+    ): Append[F, A] = events => {
+      for {
+        d <- MeasureDuration[F].start
+        r <- self(events)
+      } yield for {
+        r <- r
+        d <- d
+        _ <- log.debug(s"append ${ events.size } events in ${ d.toMillis }ms")
+      } yield r
+    }
+
+
+    def withFail(fail: Fail[F])(implicit F: MonadThrowable[F]): Append[F, A] = {
+      events => fail.adapt(s"failed to append $events") { self(events) }
+    }
+  }
+
+
   private[akkaeffect] trait Eventsourced {
 
     def lastSequenceNr: SeqNr
@@ -126,6 +188,7 @@ object AppendOf {
     def apply(cause: Throwable, event: A, seqNr: SeqNr): Unit
   }
 
+
   private[akkaeffect] trait Adapter[F[_], A] {
 
     def value: Append[F, A]
@@ -145,6 +208,4 @@ object AppendOf {
       }
     }
   }
-
-
 }

@@ -1,9 +1,13 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import akka.persistence.DeleteEventsToInterop
+import cats.effect.{Resource, Sync}
 import cats.syntax.all._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.akkaeffect.Fail
-import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
+import com.evolutiongaming.catshelper.{FromFuture, Log, MeasureDuration, MonadThrowable}
+
+import scala.concurrent.duration.FiniteDuration
 
 /**
   * @see [[akka.persistence.Eventsourced.deleteMessages]]
@@ -26,6 +30,15 @@ object DeleteEventsTo {
       def apply(seqNr: SeqNr) = value
     }
   }
+
+
+  private[akkaeffect] def of[F[_]: Sync: FromFuture, A](
+    persistentActor: akka.persistence.PersistentActor,
+    timeout: FiniteDuration
+  ): Resource[F, DeleteEventsTo[F]] = {
+    DeleteEventsToInterop(persistentActor, timeout)
+  }
+
 
   private sealed abstract class WithLogging
 
