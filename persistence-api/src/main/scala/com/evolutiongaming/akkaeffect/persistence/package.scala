@@ -1,8 +1,5 @@
 package com.evolutiongaming.akkaeffect
 
-import akka.persistence.Recovery
-import cats.Show
-
 package object persistence {
 
   type SeqNr = Long
@@ -17,6 +14,4 @@ package object persistence {
 
   type Timestamp = Long
 
-
-  implicit val showRecovery: Show[Recovery] = Show.fromToString
 }

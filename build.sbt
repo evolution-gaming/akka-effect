@@ -27,6 +27,7 @@ lazy val root = (project in file(".")
     `actor-tests`,
     testkit,
     persistence,
+    `persistence-api`,
     eventsourcing,
     cluster,
     `cluster-sharding`))
@@ -64,13 +65,31 @@ lazy val testkit = (project in file("testkit")
     Akka.testkit % Test,
     scalatest % Test)))
 
+lazy val `persistence-api` = (project in file("persistence-api")
+  settings (name := "akka-effect-persistence-api")
+  settings commonSettings
+  dependsOn(
+    actor % "test->test;compile->compile",
+    testkit % "test->test;test->compile",
+    `actor-tests` % "test->test")
+  settings (
+    libraryDependencies ++= Seq(
+      Cats.core,
+      CatsEffect.effect,
+      `cats-helper`,
+      sstream,
+      Akka.slf4j % Test,
+      Akka.testkit % Test,
+      scalatest % Test)))
+
 lazy val persistence = (project in file("persistence")
   settings (name := "akka-effect-persistence")
   settings commonSettings
   dependsOn(
-    actor         % "test->test;compile->compile",
-    testkit       % "test->test;test->compile",
-    `actor-tests` % "test->test")
+  `persistence-api` % "test->test;compile->compile",
+    actor           % "test->test;compile->compile",
+    testkit         % "test->test;test->compile",
+    `actor-tests`   % "test->test")
   settings (
     libraryDependencies ++= Seq(
       Akka.actor,

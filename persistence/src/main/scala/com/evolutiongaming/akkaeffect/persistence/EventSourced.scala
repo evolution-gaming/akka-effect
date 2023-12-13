@@ -18,6 +18,8 @@ final case class EventSourced[+A](
 
 object EventSourced {
 
+  implicit val showRecovery: Show[Recovery] = Show.fromToString
+
   implicit val functorEventSourced: Functor[EventSourced] = new Functor[EventSourced] {
     def map[A, B](fa: EventSourced[A])(f: A => B) = fa.map(f)
   }
