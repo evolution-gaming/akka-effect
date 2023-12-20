@@ -25,24 +25,24 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
 
   test("journal: replay (nothing), save, replay, delete, replay") {
 
-    val persistenceId = EventSourcedId("#11")
+    val persistenceId = EventSourcedId("#10")
 
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
           store  <- EventStoreInterop[IO, String](system, 1.second, emptyPluginId, persistenceId)
-          events <- store.from(SeqNr.Min)
+          events <- store.events(SeqNr.Min)
           events <- events.toList
-          _       = events shouldEqual List.empty[EventStore.Event[String]]
-          seqNr  <- store.save(Events.of("first", "second")).flatten
+          _       = events shouldEqual List(EventStore.HighestSeqNr(SeqNr.Min))
+          seqNr  <- store.save(Events.of(EventStore.Event("first", 1L), EventStore.Event("second", 2L))).flatten
           _       = seqNr shouldEqual 2L
-          events <- store.from(SeqNr.Min)
+          events <- store.events(SeqNr.Min)
           events <- events.toList
-          _       = events shouldEqual List(EventStore.Event("first", 1L), EventStore.Event("second", 2L))
-          _      <- store.deleteTo(1L).flatten
-          events <- store.from(SeqNr.Min)
+          _       = events shouldEqual List(EventStore.Event("first", 1L), EventStore.Event("second", 2L), EventStore.HighestSeqNr(2L))
+          _      <- store.deleteTo(2L).flatten
+          events <- store.events(SeqNr.Min)
           events <- events.toList
-          _       = events shouldEqual List(EventStore.Event("second", 2L))
+          _       = events shouldEqual List(EventStore.HighestSeqNr(2L))
         } yield {}
       }
 
@@ -58,7 +58,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
       .use { system =>
         for {
           store  <- EventStoreInterop[IO, String](system, 1.second, pluginId, persistenceId)
-          events <- store.from(SeqNr.Min)
+          events <- store.events(SeqNr.Min)
           error  <- events.toList.attempt
         } yield error shouldEqual FailingJournal.exception.asLeft[List[EventStore.Event[String]]]
       }
@@ -75,7 +75,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
       .use { system =>
         for {
           store <- EventStoreInterop[IO, String](system, 1.second, pluginId, persistenceId)
-          seqNr <- store.save(Events.of[String]("first", "second"))
+          seqNr <- store.save(Events.of(EventStore.Event("first", 1L), EventStore.Event("second", 2L)))
           error <- seqNr.attempt
         } yield error shouldEqual FailingJournal.exception.asLeft[SeqNr]
       }
@@ -109,7 +109,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
       .use { system =>
         for {
           store  <- EventStoreInterop[IO, String](system, 1.second, pluginId, persistenceId)
-          events <- store.from(SeqNr.Min)
+          events <- store.events(SeqNr.Min)
           error  <- events.toList.attempt
         } yield error match {
           case Left(_: TimeoutException) => succeed
@@ -130,7 +130,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
       .use { system =>
         for {
           store <- EventStoreInterop[IO, String](system, 1.second, pluginId, persistenceId)
-          seqNr <- store.save(Events.of[String]("first", "second"))
+          seqNr <- store.save(Events.of(EventStore.Event("first", 1L), EventStore.Event("second", 2L)))
           error <- seqNr.attempt
         } yield error match {
           case Left(_: TimeoutException) => succeed
