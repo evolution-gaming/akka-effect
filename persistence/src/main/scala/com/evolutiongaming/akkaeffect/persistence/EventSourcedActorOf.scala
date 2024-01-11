@@ -78,10 +78,14 @@ object EventSourcedActorOf {
             case (_, EventStore.Event(event, seqNr)) => replay(event, seqNr).as(seqNr.asLeft[Unit])
             case (_, EventStore.HighestSeqNr(seqNr)) => seqNr.asLeft[Unit].pure[F]
           }
-          seqNr <- seqNrL
-            .as(new IllegalStateException("should never happened"))
-            .swap
-            .liftTo[F]
+          seqNr <- seqNrL match {
+            case Left(seqNr) => seqNr.pure[F]
+            case Right(_)    =>
+              // function used in events.foldWhileM always returns Left
+              // and sstream.Stream.foldWhileM returns Right only if passed function do so
+              // thus makes getting Right here impossible
+              new IllegalStateException("should never happened").raiseError[F, SeqNr]
+          }
         } yield seqNr
       }.toResource
 
