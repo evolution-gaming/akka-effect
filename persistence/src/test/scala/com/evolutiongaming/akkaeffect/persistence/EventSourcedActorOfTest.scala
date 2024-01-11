@@ -72,7 +72,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     setReceiveTimeout[IO](actorSystem).run()
   }
 
-  private def persistence[F[_]: Async: FromFuture: ToTry] = EventSourcedPersistence.fromAkkaPlugins[F](actorSystem, 1.second)
+  private def persistence[F[_]: Async: FromFuture: ToTry] = EventSourcedPersistence.fromAkkaPlugins[F](actorSystem, 1.second, 1000)
 
   private def `persistentActorOf`[F[_]: Async: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem

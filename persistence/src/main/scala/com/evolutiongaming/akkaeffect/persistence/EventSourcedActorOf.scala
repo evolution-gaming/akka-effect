@@ -21,6 +21,10 @@ object EventSourcedActorOf {
     *   2. Recovering : reading snapshot and replaying events 
     *   3. Receiving : receiving commands and potentially storing events & snapshots 
     *   4. Termination : triggers all release hooks of allocated resources within previous phases
+    * 
+    * Types, describing each phace, are (simplified) a functions from data (available on the current phace) 
+    * to next phace: RecoveryStarted -> Recovering -> Receiving. Termination phace described via aggregation
+    * of [[Resource]] releace callbacks. Please refer to phace types for more details.
     *
     * @tparam S snapshot
     * @tparam E event
@@ -29,6 +33,24 @@ object EventSourcedActorOf {
   type Lifecycle[F[_], S, E, C] =
     Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], ActorOf.Stop]]]
 
+    /**
+      * Factory method aimed to create [[Actor]] capable of handling commands of type [[C]],
+      * saving snapshots of type [[S]] and producing events of type [[E]].
+      * The actor uses Event Sourcing pattern to persist events (and snapshots) and recover state from events (and snapshot) later.
+      * 
+      * Actor' lifecycle described by type [[Lifecycle]] and consists of multiple phases, 
+      * such as recovering, receiving messages and terminating. Recovery happeneds on actor' startup 
+      * and is about constucting latest actor' state from snapshot and followed events. On receiving phase
+      * actor handles incomming commands and chages its state. Each state' change represented by events,
+      * that are persisted and later used in recovery phace. Terminating happeneds on actor shutdown
+      * (technically it happens as part of [[Actor.postStop]], check [[ActorOf]] for more details).
+      * 
+      * Persistence layer, used to store/recover events and snapshots, provided by [[EventSourcedPersistence]].  
+      *
+      * @param eventSourcedOf actor logic used to recover and handle messages 
+      * @param persistence persistence used for event sourcing
+      * @return instance of [[Actor]]
+      */
   def actor[F[_]: Async: ToFuture, S, E, C: ClassTag](
     eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, C]],
     persistence: EventSourcedPersistence[F]
@@ -57,7 +79,7 @@ object EventSourcedActorOf {
             case (_, EventStore.HighestSeqNr(seqNr)) => seqNr.asLeft[Unit].pure[F]
           }
           seqNr <- seqNrL
-            .as(new IllegalStateException("should newer happened"))
+            .as(new IllegalStateException("should never happened"))
             .swap
             .liftTo[F]
         } yield seqNr

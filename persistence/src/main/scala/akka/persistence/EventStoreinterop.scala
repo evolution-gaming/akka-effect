@@ -11,12 +11,38 @@ import com.evolutiongaming.catshelper.{FromFuture, ToTry}
 import com.evolutiongaming.sstream
 
 import scala.concurrent.duration._
+import scala.util.control.NoStackTrace
 
 object EventStoreInterop {
 
+  final class BufferOverflowException(bufferCapacity: Int, persistenceId: String)
+      extends Exception(s"Events buffer with capacity $bufferCapacity was overflowed, recovery for $persistenceId failed")
+      with NoStackTrace
+
+  /** Create instance of [[EventStore]] that uses Akka Persistence journal plugin under the hood.
+    *
+    * Journal plugin uses "push" model to recover events (ie read events from underline DB) while [[EventStore]] provides "pull" API via
+    * [[sstream.Stream]]. To overcome this limitation, the interop uses internal buffer to hold events provided by Akka' journal plugin
+    * before they will be consumed (ie deleted from buffer) as [[EventStore.events]] stream. The output stream is lazy by itself and actual
+    * event consumption from the buffer will happened only on the stream materialization.
+    *
+    * @param system
+    *   Akka system
+    * @param timeout
+    *   maximum time between messages from Akka' journal plugin (is the next message expected)
+    * @param capacity
+    *   internal event buffer capacity, on oveflow will raise [[BufferOverflowException]]
+    * @param journalPluginId
+    *   Akka persistence journal plugin ID
+    * @param eventSourcedId
+    *   Akka persistence ID, unique per each actor
+    * @return
+    *   instance of [[EventStore]]
+    */
   def apply[F[_]: Async: FromFuture: ToTry, A](
     system: ActorSystem,
     timeout: FiniteDuration,
+    capacity: Int,
     journalPluginId: String,
     eventSourcedId: EventSourcedId
   ): F[EventStore[F, A]] =
@@ -44,7 +70,20 @@ object EventStoreInterop {
                   else {
                     val payload = persisted.payload.asInstanceOf[A]
                     val event   = EventStore.Event(payload, persisted.sequenceNr)
-                    buffer.update(_ :+ event).as(().asLeft[SeqNr])
+
+                    buffer
+                      .modify { buffer =>
+                        val buffer1 = buffer :+ event
+                        val lenght  = buffer.length + 1
+                        buffer1 -> lenght
+                      }
+                      .flatMap { lenght =>
+                        if (lenght > capacity) {
+                          new BufferOverflowException(capacity, persistenceId).raiseError[F, Either[Unit, SeqNr]]
+                        } else {
+                          ().asLeft[SeqNr].pure[F]
+                        }
+                      }
                   }
 
                 case (_, JournalProtocol.RecoverySuccess(seqNr)) =>
