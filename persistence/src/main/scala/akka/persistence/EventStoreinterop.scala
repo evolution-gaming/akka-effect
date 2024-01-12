@@ -74,8 +74,7 @@ object EventStoreInterop {
                     buffer
                       .modify { buffer =>
                         val buffer1 = buffer :+ event
-                        val lenght  = buffer.length + 1
-                        buffer1 -> lenght
+                        buffer1 -> buffer1.length
                       }
                       .flatMap { lenght =>
                         if (lenght > capacity) {
@@ -96,8 +95,14 @@ object EventStoreInterop {
             for {
               buffer <- Ref[F].of[Buffer](Vector.empty)
               actor  <- actor(buffer)
-              request = JournalProtocol.ReplayMessages(fromSeqNr, SeqNr.Max, Long.MaxValue, persistenceId, actor.ref)
-              _      <- journaller.tell(request)
+              request = JournalProtocol.ReplayMessages(
+                fromSequenceNr = fromSeqNr,
+                toSequenceNr = SeqNr.Max,
+                max = Long.MaxValue,
+                persistenceId = persistenceId,
+                persistentActor = actor.ref
+              )
+              _ <- journaller.tell(request)
             } yield new sstream.Stream[F, EventStore.Persisted[A]] {
 
               override def foldWhileM[L, R](l: L)(f: (L, EventStore.Persisted[A]) => F[Either[L, R]]): F[Either[L, R]] =
@@ -133,7 +138,7 @@ object EventStoreInterop {
                         }
                       } yield result
 
-                    case result => // cannot happened
+                    case result => // cannot happen
                       result.asRight[Either[L, R]].pure[F]
                   }
 

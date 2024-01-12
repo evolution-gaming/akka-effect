@@ -15,7 +15,7 @@ import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.FiniteDuration
 
 /** Representation of actor capable of constructing result from multiple messages passed into the actor. Inspired by [[PromiseActorRef]] but
-  * result [[R]] is an aggregate from incomming messages rather that first message. Can be used only locally, does _not_ tolerate.
+  * result [[R]] is an aggregate from incoming messages rather that first message. Can be used only locally, does _not_ tolerate.
   * [[ActorRef.provider]] and [[ActorRef.path]] functions.
   * @tparam F
   *   The effect type.
@@ -24,6 +24,9 @@ import scala.concurrent.duration.FiniteDuration
   */
 private[persistence] trait LocalActorRef[F[_], R] {
 
+  /** Not actual [[ActorRef]]! It is not serialisable thus chould not be passed via network. Under the hood it implements [[ActorRef]] trait
+    * by providing function `!` that updates internal state using provided function `receive`. Please check [[LocalActorRef.apply]] docs
+    */
   def ref: ActorRef
 
   /** Semantically blocking while aggregating result
@@ -50,9 +53,9 @@ private[persistence] object LocalActorRef {
     * @param initial
     *   The initial state of type [[S]].
     * @param timeout
-    *   [[TimeoutException]] will be thrown if no incomming messages received within the timeout.
+    *   [[TimeoutException]] will be thrown if no incoming messages received within the timeout.
     * @param receive
-    *   The aggregate function defining how to apply incomming message on state or produce final result: [[Left]] for continue aggregating
+    *   The aggregate function defining how to apply incoming message on state or produce final result: [[Left]] for continue aggregating
     *   while [[Right]] for the result.
     * @tparam F
     *   The effect type.
