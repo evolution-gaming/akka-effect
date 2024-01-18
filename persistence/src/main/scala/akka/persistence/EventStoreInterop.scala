@@ -12,6 +12,7 @@ import com.evolutiongaming.sstream
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
+import cats.MonadThrow
 
 object EventStoreInterop {
 
@@ -67,23 +68,23 @@ object EventStoreInterop {
 
                 case (_, JournalProtocol.ReplayedMessage(persisted)) =>
                   if (persisted.deleted) ().asLeft[SeqNr].pure[F]
-                  else {
-                    val payload = persisted.payload.asInstanceOf[A]
-                    val event   = EventStore.Event(payload, persisted.sequenceNr)
-
-                    buffer
-                      .modify { buffer =>
-                        val buffer1 = buffer :+ event
-                        buffer1 -> buffer1.length
-                      }
-                      .flatMap { length =>
-                        if (length > capacity) {
-                          new BufferOverflowException(capacity, persistenceId).raiseError[F, Either[Unit, SeqNr]]
-                        } else {
-                          ().asLeft[SeqNr].pure[F]
+                  else
+                    for {
+                      payload <- MonadThrow[F].catchNonFatal(persisted.payload.asInstanceOf[A])
+                      event    = EventStore.Event(payload, persisted.sequenceNr)
+                      result <- buffer
+                        .modify { buffer =>
+                          val buffer1 = buffer :+ event
+                          buffer1 -> buffer1.length
                         }
-                      }
-                  }
+                        .flatMap { length =>
+                          if (length > capacity) {
+                            new BufferOverflowException(capacity, persistenceId).raiseError[F, Either[Unit, SeqNr]]
+                          } else {
+                            ().asLeft[SeqNr].pure[F]
+                          }
+                        }
+                    } yield result
 
                 case (_, JournalProtocol.RecoverySuccess(seqNr)) =>
                   seqNr.asRight[Unit].pure[F]
