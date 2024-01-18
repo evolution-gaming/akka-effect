@@ -76,8 +76,8 @@ object EventStoreInterop {
                         val buffer1 = buffer :+ event
                         buffer1 -> buffer1.length
                       }
-                      .flatMap { lenght =>
-                        if (lenght > capacity) {
+                      .flatMap { length =>
+                        if (length > capacity) {
                           new BufferOverflowException(capacity, persistenceId).raiseError[F, Either[Unit, SeqNr]]
                         } else {
                           ().asLeft[SeqNr].pure[F]
