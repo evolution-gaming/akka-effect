@@ -2,16 +2,17 @@ package akka.persistence
 
 import akka.actor.ActorSystem
 import akka.persistence.SnapshotSelectionCriteria
-
-import cats.syntax.all._
+import cats.MonadThrow
 import cats.effect.Sync
-
-import com.evolutiongaming.catshelper.FromFuture
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorEffect
-import com.evolutiongaming.akkaeffect.persistence.{SnapshotStore, EventSourcedId, SeqNr}
+import com.evolutiongaming.akkaeffect.persistence.EventSourcedId
+import com.evolutiongaming.akkaeffect.persistence.SeqNr
+import com.evolutiongaming.akkaeffect.persistence.SnapshotStore
+import com.evolutiongaming.catshelper.FromFuture
 
-import scala.concurrent.duration._
 import java.time.Instant
+import scala.concurrent.duration._
 
 object SnapshotStoreInterop {
 
@@ -43,10 +44,10 @@ object SnapshotStoreInterop {
                     snapshot match {
 
                       case Some(offer) =>
-                        val payload   = offer.snapshot.asInstanceOf[A]
+                        val payload   = MonadThrow[F].catchNonFatal(offer.snapshot.asInstanceOf[A])
                         val timestamp = Instant.ofEpochMilli(offer.metadata.timestamp)
                         val metadata  = SnapshotStore.Metadata(offer.metadata.sequenceNr, timestamp)
-                        SnapshotStore.Offer(payload, metadata).some.pure[F]
+                        payload.map(SnapshotStore.Offer(_, metadata).some)
 
                       case None => none[SnapshotStore.Offer[A]].pure[F]
                     }
