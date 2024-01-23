@@ -112,8 +112,8 @@ object EventStoreInterop {
 
                     case Left(l) =>
                       for {
-                        events <- buffer.getAndSet(Vector.empty)
                         done   <- actor.get
+                        events <- buffer.getAndSet(Vector.empty)
                         result <- events.foldWhileM(l)(f)
                         result <- result match {
 
