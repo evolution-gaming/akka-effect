@@ -22,7 +22,8 @@ object EventSourcedPersistence {
   def fromAkkaPlugins[F[_]: Async: FromFuture: ToTry](
     system: ActorSystem,
     timeout: FiniteDuration,
-    capacity: Int
+    capacity: Int,
+    print: Boolean = false
   ): EventSourcedPersistence[F] = new EventSourcedPersistence[F] {
 
     override def snapshotStore[A](eventSourced: EventSourced[_]): F[SnapshotStore[F, A]] = {
@@ -32,7 +33,7 @@ object EventSourcedPersistence {
 
     override def eventStore[A](eventSourced: EventSourced[_]): F[EventStore[F, A]] = {
       val pluginId = eventSourced.pluginIds.journal.getOrElse("")
-      EventStoreInterop[F, A](system, timeout, capacity, pluginId, eventSourced.eventSourcedId)
+      EventStoreInterop[F, A](system, timeout, capacity, pluginId, eventSourced.eventSourcedId, print)
     }
   }
 

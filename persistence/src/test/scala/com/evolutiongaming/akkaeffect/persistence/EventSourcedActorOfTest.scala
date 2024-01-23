@@ -72,7 +72,8 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     setReceiveTimeout[IO](actorSystem).run()
   }
 
-  private def persistence[F[_]: Async: FromFuture: ToTry] = EventSourcedPersistence.fromAkkaPlugins[F](actorSystem, 1.second, 1000)
+  private def persistence[F[_]: Async: FromFuture: ToTry](print: Boolean = false) =
+    EventSourcedPersistence.fromAkkaPlugins[F](actorSystem, 1.second, 1000, print)
 
   private def `persistentActorOf`[F[_]: Async: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
@@ -204,7 +205,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
         .pure[F]
       actorRefOf  = ActorRefOf.fromActorRefFactory[F](actorSystem)
       probe       = Probe.of[F](actorRefOf)
-      actorEffect = EventSourcedActorEffect.of[F](actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect = EventSourcedActorEffect.of[F](actorRefOf, eventSourcedOf, persistence[F]())
       resources   = (actorEffect, probe).tupled
       result <- resources.use {
         case (actorEffect, probe) =>
@@ -256,7 +257,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.pure[F], _.pure[F])
         .pure[F]
-      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F]())
       _          <- actorEffect.use(_ => started.get)
       _          <- stopped.get
       actions    <- actions.get
@@ -316,7 +317,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
-      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F]())
       _          <- actorEffect.use(_ => started.get)
       _          <- stopped.get
       actions    <- actions.get
@@ -406,7 +407,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
-      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F]())
       _          <- actorEffect.use(_ => started.get)
       _          <- stopped.get
       actions    <- actions.get
@@ -505,7 +506,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
-      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F](true))
       _          <- actorEffect.use(_ => started.get)
       _          <- stopped.get
       actions    <- actions.get
@@ -592,7 +593,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
-      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F]())
       _          <- actorEffect.use(_ => started.get)
       _          <- stopped.get
       actions    <- actions.get
@@ -696,7 +697,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
-      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F]())
       _          <- actorEffect.use(_ => started.get)
       _          <- stopped.get
       actions    <- actions.get
@@ -789,7 +790,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       stopped        <- Deferred[F, Unit]
       actions        <- Ref[F].of(List.empty[Action[S, C, E]])
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(delay, stopped)).pure[F]
-      actorEffect     = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect     = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F]())
       actorEffect    <- actorEffect.allocated.map { case (actorEffect, _) => actorEffect }
       _ <- Probe.of(actorRefOf).use { probe =>
         for {
@@ -856,7 +857,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       stopped        <- Deferred[F, Unit]
       actions        <- Ref[F].of(List.empty[Action[S, C, E]])
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(lock, stopped)).pure[F]
-      actorEffect     = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect     = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F]())
       actorEffect    <- actorEffect.allocated.map { case (actorEffect, _) => actorEffect }
       _ <- Probe.of(actorRefOf).use { probe =>
         for {
@@ -922,7 +923,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(lock, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
-      actorEffect  = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect  = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F]())
       actorEffect <- actorEffect.allocated.map { case (actorEffect, _) => actorEffect }
       _ <- Probe.of(actorRefOf).use { probe =>
         for {
@@ -1008,7 +1009,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
-      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F]())
       _          <- actorEffect.use(_ => started.get)
       _          <- stopped.get
       actions    <- actions.get
@@ -1093,7 +1094,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       eventSourcedOf <- eventSourcedOf(timedOut)
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
-      result  = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
+      result  = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F]())
       result <- result.use(_ => timedOut.get)
     } yield result
   }

@@ -45,7 +45,8 @@ object EventStoreInterop {
     timeout: FiniteDuration,
     capacity: Int,
     journalPluginId: String,
-    eventSourcedId: EventSourcedId
+    eventSourcedId: EventSourcedId,
+    print: Boolean = false
   ): F[EventStore[F, A]] =
     Sync[F]
       .delay {
@@ -64,7 +65,7 @@ object EventStoreInterop {
             type Buffer = Vector[EventStore.Event[A]]
 
             def actor(buffer: Ref[F, Buffer]) =
-              LocalActorRef[F, Unit, SeqNr]({}, timeout) {
+              LocalActorRef[F, Unit, SeqNr]({}, timeout, print) {
 
                 case (_, JournalProtocol.ReplayedMessage(persisted)) =>
                   if (persisted.deleted) ().asLeft[SeqNr].pure[F]

@@ -65,7 +65,7 @@ private[persistence] object LocalActorRef {
     *   The final result type.
     * @return
     */
-  def apply[F[_]: Temporal: ToTry, S, R](initial: S, timeout: FiniteDuration)(
+  def apply[F[_]: Temporal: ToTry, S, R](initial: S, timeout: FiniteDuration, print: Boolean = false)(
     receive: PartialFunction[(S, M), F[Either[S, R]]]
   ): F[LocalActorRef[F, R]] = {
 
@@ -108,7 +108,10 @@ private[persistence] object LocalActorRef {
 
         override def path = throw new UnsupportedOperationException()
 
-        override def !(m: M)(implicit sender: ActorRef): Unit =
+        override def !(m: M)(implicit sender: ActorRef): Unit = {
+
+          if (print) println(s"LocalActorRef: ! ${Thread.currentThread().getId()} $m")
+
           state
             .update { s =>
               if (receive.isDefinedAt(s.state -> m)) {
@@ -131,6 +134,7 @@ private[persistence] object LocalActorRef {
             }
             .toTry
             .get
+        }
 
       }
 
