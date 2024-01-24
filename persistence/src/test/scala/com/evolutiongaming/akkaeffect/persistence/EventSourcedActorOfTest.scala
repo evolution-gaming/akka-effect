@@ -74,7 +74,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
   }
 
   private def persistence[F[_]: Concurrent: Timer: FromFuture: ToTry] =
-    EventSourcedPersistence.fromAkkaPlugins[F](actorSystem, 1.second, 1000)
+    EventSourcedPersistence.fromAkkaPlugins[F](actorSystem, 10.second, 1000)
 
   private def `persistentActorOf`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
