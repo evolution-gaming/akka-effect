@@ -19,9 +19,6 @@ import com.evolutiongaming.catshelper.{FromFuture, Runtime, SerParQueue, ToFutur
 trait Engine[F[_], S, E] {
   import Engine._
 
-  @deprecated("use either `effective` or `optimistic`. `optimistic` has exact behaviour as `state`", "15-03-2023")
-  def state: F[State[S]]
-
   /**
     * Get effective state.
     * Effective state is latest persisted state, should be used for all async operations with [[Journaller]] or [[Snapshotter]]
@@ -337,8 +334,6 @@ object Engine {
       close <- CloseOnError.of[F]
     } yield new Engine[F, S, E] {
 
-      override def state: F[State[S]] = optimistic
-
       override def effective: F[State[S]] = eff.get
 
       override def optimistic: F[State[S]] = ref.get.map(_.state)
@@ -467,8 +462,6 @@ object Engine {
       }
       .map { released =>
         new Engine[F, S, E] {
-
-          def state = engine.state
 
           def effective: F[State[S]] = engine.effective
 
