@@ -9,10 +9,8 @@ import com.evolutiongaming.catshelper.CatsHelper.OpsCatsHelper
 import com.evolutiongaming.catshelper.SerialRef
 import com.evolutiongaming.catshelper.ToTry
 
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeoutException
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 /** Representation of actor capable of constructing result from multiple messages passed into the actor. Inspired by [[PromiseActorRef]] but
   * result [[R]] is an aggregate from incoming messages rather that first message. Can be used only locally, does _not_ tolerate.
@@ -71,26 +69,40 @@ private[persistence] object LocalActorRef {
 
     val F = Temporal[F]
 
-    case class State(state: S, updated: Instant)
+    type Updated = FiniteDuration
+
+    case class State(state: S, updated: Updated)
 
     def timeoutException = new TimeoutException(s"no messages received during period of $timeout")
 
     for {
-      now   <- F.realTimeInstant
+      now   <- F.monotonic
       state <- SerialRef.of[F, State](State(initial, now))
       defer <- F.deferred[Either[Throwable, R]]
       fiber <- F.start {
-        val f = for {
-          _ <- F.sleep(timeout)
-          s <- state.get
-          n <- F.realTimeInstant
-          c  = s.updated.plus(timeout.toNanos, ChronoUnit.NANOS).isBefore(n)
-          _ <- if (c) defer.complete(timeoutException.asLeft) else F.unit
-        } yield c
 
-        ().tailRecM { _ =>
-          f.ifF(().asRight, ().asLeft)
-        }
+        type Delay = FiniteDuration
+
+        /** If state was not updated for more than [[#timeout]] - complete [[#defer]] with failed result and exid tailRecM loop.
+          *
+          * Otherwise calculate [[#delay]] til next timeout and continue loop.
+          *
+          * @param delay
+          *   time before next timeout
+          * @return
+          *   exid or continue loop
+          */
+        def failOnTimeout(delay: Delay): F[Either[Delay, Unit]] =
+          for {
+            _     <- F.sleep(delay)
+            state <- state.get
+            now   <- F.monotonic
+            result <-
+              if (state.updated + timeout < now) defer.complete(timeoutException.asLeft) as ().asRight[Delay]
+              else (state.updated + timeout - now).asLeft[Unit].pure[F]
+          } yield result
+
+        timeout.tailRecM(failOnTimeout)
       }
     } yield new LocalActorRef[F, R] {
 
@@ -114,7 +126,7 @@ private[persistence] object LocalActorRef {
               if (receive.isDefinedAt(s.state -> m)) {
 
                 for {
-                  t <- Temporal[F].realTimeInstant
+                  t <- Temporal[F].monotonic
                   r <- receive(s.state -> m)
                   s <- r match {
                     case Left(s)  => State(s, t).pure[F]
