@@ -1,13 +1,16 @@
 package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.Props
-import cats.effect.{Async, Resource}
-import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf}
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import cats.effect.Concurrent
+import cats.effect.Resource
+import com.evolutiongaming.akkaeffect.ActorEffect
+import com.evolutiongaming.akkaeffect.ActorRefOf
+import com.evolutiongaming.catshelper.FromFuture
+import com.evolutiongaming.catshelper.ToFuture
 
 object EventSourcedActorEffect {
 
-  def of[F[_]: Async: ToFuture: FromFuture: ToTry](
+  def of[F[_]: Concurrent: ToFuture: FromFuture](
     actorRefOf: ActorRefOf[F],
     eventSourcedOf: EventSourcedOf[F, EventSourcedActorOf.Lifecycle[F, Any, Any, Any]],
     persistence: EventSourcedPersistence[F],

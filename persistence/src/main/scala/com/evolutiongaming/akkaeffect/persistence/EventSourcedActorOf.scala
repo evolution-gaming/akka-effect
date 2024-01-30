@@ -2,12 +2,12 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.Actor
 import akka.persistence.SnapshotSelectionCriteria
-import cats.effect.Async
-import cats.effect.Ref
+import cats.effect.Concurrent
 import cats.effect.Resource
-import cats.effect.implicits.effectResourceOps
+import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
+import com.evolutiongaming.catshelper.CatsHelper.OpsCatsHelper
 import com.evolutiongaming.catshelper.ToFuture
 
 import java.time.Instant
@@ -54,7 +54,7 @@ object EventSourcedActorOf {
     * @return
     *   instance of [[Actor]]
     */
-  def actor[F[_]: Async: ToFuture, S, E, C: ClassTag](
+  def actor[F[_]: Concurrent: ToFuture, S, E, C: ClassTag](
     eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, C]],
     persistence: EventSourcedPersistence[F]
   ): Actor = ActorOf[F] { actorCtx =>

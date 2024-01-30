@@ -1,12 +1,14 @@
 package akka.persistence
 
 import cats.effect.IO
-import cats.effect.unsafe.implicits.global
+import cats.effect.concurrent.Deferred
 import cats.syntax.all._
-import org.scalatest.matchers.should.Matchers
+import com.evolutiongaming.akkaeffect.IOSuite._
 import org.scalatest.funsuite.AnyFunSuite
-import scala.concurrent.duration._
+import org.scalatest.matchers.should.Matchers
+
 import java.util.concurrent.TimeoutException
+import scala.concurrent.duration._
 
 class LocalActorRefTest extends AnyFunSuite with Matchers {
 
@@ -35,7 +37,7 @@ class LocalActorRefTest extends AnyFunSuite with Matchers {
 
   test("LocalActorRef.res semantically blocks until result produced") {
     val io = for {
-      d  <- IO.deferred[Unit]
+      d  <- Deferred.tryable[IO, Unit]
       r  <- of
       f   = r.res >> d.complete {}
       f  <- f.start

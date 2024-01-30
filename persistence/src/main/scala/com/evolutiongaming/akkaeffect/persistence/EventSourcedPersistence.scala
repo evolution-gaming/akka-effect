@@ -3,7 +3,8 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.actor.ActorSystem
 import akka.persistence.EventStoreInterop
 import akka.persistence.SnapshotStoreInterop
-import cats.effect.Async
+import cats.effect.Concurrent
+import cats.effect.Timer
 import com.evolutiongaming.catshelper.FromFuture
 import com.evolutiongaming.catshelper.ToTry
 
@@ -19,7 +20,7 @@ trait EventSourcedPersistence[F[_]] {
 
 object EventSourcedPersistence {
 
-  def fromAkkaPlugins[F[_]: Async: FromFuture: ToTry](
+  def fromAkkaPlugins[F[_]: Concurrent: Timer: FromFuture: ToTry](
     system: ActorSystem,
     timeout: FiniteDuration,
     capacity: Int

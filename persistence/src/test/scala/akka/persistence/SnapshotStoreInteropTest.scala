@@ -1,21 +1,20 @@
 package akka.persistence
 
+import akka.pattern.AskTimeoutException
+import cats.effect.IO
+import cats.syntax.all._
+import com.evolutiongaming.akkaeffect.IOSuite._
+import com.evolutiongaming.akkaeffect.persistence.EventSourcedId
+import com.evolutiongaming.akkaeffect.persistence.SeqNr
+import com.evolutiongaming.akkaeffect.persistence.SnapshotStore
+import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import cats.syntax.all._
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
-
-import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, SeqNr, SnapshotStore}
-import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
-
-import scala.util.Random
-
+import java.time.Instant
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import akka.pattern.AskTimeoutException
-import java.time.Instant
+import scala.util.Random
 
 class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
 

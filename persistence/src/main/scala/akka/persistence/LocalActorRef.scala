@@ -2,10 +2,14 @@ package akka.persistence
 
 import akka.actor.ActorRef
 import akka.actor.MinimalActorRef
-import cats.effect.Temporal
+import cats.effect.Clock
+import cats.effect.Concurrent
+import cats.effect.Timer
+import cats.effect.concurrent.Deferred
 import cats.effect.syntax.all._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper.OpsCatsHelper
+import com.evolutiongaming.catshelper.ClockHelper.ClockOps
 import com.evolutiongaming.catshelper.SerialRef
 import com.evolutiongaming.catshelper.ToTry
 
@@ -65,27 +69,25 @@ private[persistence] object LocalActorRef {
     *   The final result type.
     * @return
     */
-  def apply[F[_]: Temporal: ToTry, S, R](initial: S, timeout: FiniteDuration)(
+  def apply[F[_]: Concurrent: Timer: ToTry, S, R](initial: S, timeout: FiniteDuration)(
     receive: PartialFunction[(S, M), F[Either[S, R]]]
   ): F[LocalActorRef[F, R]] = {
-
-    val F = Temporal[F]
 
     case class State(state: S, updated: Instant)
 
     def timeoutException = new TimeoutException(s"no messages received during period of $timeout")
 
     for {
-      now   <- F.realTimeInstant
+      now   <- Clock[F].instant
       state <- SerialRef.of[F, State](State(initial, now))
-      defer <- F.deferred[Either[Throwable, R]]
-      fiber <- F.start {
+      defer <- Deferred.tryable[F, Either[Throwable, R]]
+      fiber <- Concurrent[F].start {
         val f = for {
-          _ <- F.sleep(timeout)
+          _ <- Timer[F].sleep(timeout)
           s <- state.get
-          n <- F.realTimeInstant
+          n <- Clock[F].instant
           c  = s.updated.plus(timeout.toNanos, ChronoUnit.NANOS).isBefore(n)
-          _ <- if (c) defer.complete(timeoutException.asLeft) else F.unit
+          _ <- if (c) defer.complete(timeoutException.asLeft) else Concurrent[F].unit
         } yield c
 
         ().tailRecM { _ =>
@@ -114,7 +116,7 @@ private[persistence] object LocalActorRef {
               if (receive.isDefinedAt(s.state -> m)) {
 
                 for {
-                  t <- Temporal[F].realTimeInstant
+                  t <- Clock[F].instant
                   r <- receive(s.state -> m)
                   s <- r match {
                     case Left(s)  => State(s, t).pure[F]

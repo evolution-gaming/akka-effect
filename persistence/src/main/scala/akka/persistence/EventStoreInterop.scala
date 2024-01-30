@@ -1,18 +1,23 @@
 package akka.persistence
 
 import akka.actor.ActorSystem
-
+import cats.MonadThrow
+import cats.effect.Concurrent
+import cats.effect.Sync
+import cats.effect.Timer
+import cats.effect.concurrent.Ref
 import cats.syntax.all._
-import cats.effect.{Async, Sync, Ref}
-
 import com.evolutiongaming.akkaeffect.ActorEffect
-import com.evolutiongaming.akkaeffect.persistence.{EventStore, EventSourcedId, SeqNr, Events}
-import com.evolutiongaming.catshelper.{FromFuture, ToTry}
+import com.evolutiongaming.akkaeffect.persistence.EventSourcedId
+import com.evolutiongaming.akkaeffect.persistence.EventStore
+import com.evolutiongaming.akkaeffect.persistence.Events
+import com.evolutiongaming.akkaeffect.persistence.SeqNr
+import com.evolutiongaming.catshelper.FromFuture
+import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.sstream
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
-import cats.MonadThrow
 
 object EventStoreInterop {
 
@@ -40,7 +45,7 @@ object EventStoreInterop {
     * @return
     *   instance of [[EventStore]]
     */
-  def apply[F[_]: Async: FromFuture: ToTry, A](
+  def apply[F[_]: Concurrent: Timer: FromFuture: ToTry, A](
     system: ActorSystem,
     timeout: FiniteDuration,
     capacity: Int,

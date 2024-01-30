@@ -2,8 +2,8 @@ package akka.persistence
 
 import akka.persistence.journal.AsyncWriteJournal
 import cats.effect.IO
-import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
+import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.EventSourcedId
 import com.evolutiongaming.akkaeffect.persistence.EventStore
 import com.evolutiongaming.akkaeffect.persistence.Events
