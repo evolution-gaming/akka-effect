@@ -57,7 +57,14 @@ object EventSourcedActorOf {
   def actor[F[_]: Concurrent: ToFuture, S, E, C: ClassTag](
     eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, C]],
     persistence: EventSourcedPersistence[F]
-  ): Actor = ActorOf[F] { actorCtx =>
+  ): Actor = ActorOf[F] {
+    receiveOf(eventSourcedOf, persistence)
+  }
+
+  private[evolutiongaming] def receiveOf[F[_]: Concurrent, S, E, C: ClassTag](
+    eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, C]],
+    persistence: EventSourcedPersistence[F]
+  ): ReceiveOf[F, Envelope[Any], ActorOf.Stop] = { actorCtx =>
     for {
       eventSourced    <- eventSourcedOf(actorCtx).toResource
       recoveryStarted <- eventSourced.value
