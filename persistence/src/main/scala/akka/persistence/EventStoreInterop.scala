@@ -1,6 +1,5 @@
 package akka.persistence
 
-import akka.actor.ActorSystem
 import cats.MonadThrow
 import cats.effect.Concurrent
 import cats.effect.Sync
@@ -32,8 +31,8 @@ object EventStoreInterop {
     * before they will be consumed (ie deleted from buffer) as [[EventStore.events]] stream. The output stream is lazy by itself and actual
     * event consumption from the buffer will happened only on the stream materialization.
     *
-    * @param system
-    *   Akka system
+    * @param persistence
+    *   Akka persistence [[Persistence]]
     * @param timeout
     *   maximum time between messages from Akka' journal plugin (is the next message expected)
     * @param capacity
@@ -46,7 +45,7 @@ object EventStoreInterop {
     *   instance of [[EventStore]]
     */
   def apply[F[_]: Concurrent: Timer: FromFuture: ToTry, A](
-    system: ActorSystem,
+    persistence: Persistence,
     timeout: FiniteDuration,
     capacity: Int,
     journalPluginId: String,
@@ -54,7 +53,7 @@ object EventStoreInterop {
   ): F[EventStore[F, A]] =
     Sync[F]
       .delay {
-        val actorRef = Persistence(system).journalFor(journalPluginId)
+        val actorRef = persistence.journalFor(journalPluginId)
         ActorEffect.fromActor(actorRef)
       }
       .map { journaller =>
