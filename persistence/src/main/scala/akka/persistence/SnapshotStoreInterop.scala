@@ -1,6 +1,5 @@
 package akka.persistence
 
-import akka.actor.ActorSystem
 import akka.persistence.SnapshotSelectionCriteria
 import cats.MonadThrow
 import cats.effect.Sync
@@ -17,14 +16,14 @@ import scala.concurrent.duration._
 object SnapshotStoreInterop {
 
   def apply[F[_]: Sync: FromFuture, A](
-    system: ActorSystem,
+    persistence: Persistence,
     timeout: FiniteDuration,
     snapshotPluginId: String,
     eventSourcedId: EventSourcedId
   ): F[SnapshotStore[F, A]] =
     Sync[F]
       .delay {
-        val actorRef = Persistence(system).snapshotStoreFor(snapshotPluginId)
+        val actorRef = persistence.snapshotStoreFor(snapshotPluginId)
         ActorEffect.fromActor(actorRef)
       }
       .map { snapshotter =>

@@ -25,14 +25,16 @@ object EventSourcedPersistence {
     capacity: Int
   ): EventSourcedPersistence[F] = new EventSourcedPersistence[F] {
 
+    val persistence = akka.persistence.Persistence(system)
+
     override def snapshotStore[A](eventSourced: EventSourced[_]): F[SnapshotStore[F, A]] = {
       val pluginId = eventSourced.pluginIds.snapshot.getOrElse("")
-      SnapshotStoreInterop[F, A](system, timeout, pluginId, eventSourced.eventSourcedId)
+      SnapshotStoreInterop[F, A](persistence, timeout, pluginId, eventSourced.eventSourcedId)
     }
 
     override def eventStore[A](eventSourced: EventSourced[_]): F[EventStore[F, A]] = {
       val pluginId = eventSourced.pluginIds.journal.getOrElse("")
-      EventStoreInterop[F, A](system, timeout, capacity, pluginId, eventSourced.eventSourcedId)
+      EventStoreInterop[F, A](persistence, timeout, capacity, pluginId, eventSourced.eventSourcedId)
     }
   }
 
