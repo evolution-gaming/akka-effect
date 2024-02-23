@@ -9,7 +9,6 @@ import cats.effect.concurrent.Deferred
 import cats.effect.syntax.all._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper.OpsCatsHelper
-import com.evolutiongaming.catshelper.ClockHelper.ClockOps
 import com.evolutiongaming.catshelper.SerialRef
 import com.evolutiongaming.catshelper.ToTry
 

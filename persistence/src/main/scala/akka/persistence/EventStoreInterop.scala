@@ -12,6 +12,7 @@ import com.evolutiongaming.akkaeffect.persistence.EventStore
 import com.evolutiongaming.akkaeffect.persistence.Events
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.catshelper.FromFuture
+import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.sstream
 
@@ -44,163 +45,170 @@ object EventStoreInterop {
     * @return
     *   instance of [[EventStore]]
     */
-  def apply[F[_]: Concurrent: Timer: FromFuture: ToTry, A](
+  def apply[F[_]: Concurrent: Timer: FromFuture: ToTry: LogOf, A](
     persistence: Persistence,
     timeout: FiniteDuration,
     capacity: Int,
     journalPluginId: String,
     eventSourcedId: EventSourcedId
   ): F[EventStore[F, A]] =
-    Sync[F]
-      .delay {
+    for {
+      log <- LogOf.log[F, EventStoreInterop.type]
+      log <- log.prefixed(eventSourcedId.value).pure[F]
+      journaller <- Sync[F].delay {
         val actorRef = persistence.journalFor(journalPluginId)
         ActorEffect.fromActor(actorRef)
       }
-      .map { journaller =>
-        new EventStore[F, A] {
+      _ <- log.debug("journaller created")
+    } yield new EventStore[F, A] {
 
-          import sstream.FoldWhile._
+      import sstream.FoldWhile._
 
-          val persistenceId = eventSourcedId.value
+      val persistenceId = eventSourcedId.value
 
-          override def events(fromSeqNr: SeqNr): F[sstream.Stream[F, EventStore.Persisted[A]]] = {
+      override def events(fromSeqNr: SeqNr): F[sstream.Stream[F, EventStore.Persisted[A]]] = {
 
-            type Buffer = Vector[EventStore.Event[A]]
+        type Buffer = Vector[EventStore.Event[A]]
 
-            def actor(buffer: Ref[F, Buffer]) =
-              LocalActorRef[F, Unit, SeqNr]({}, timeout) {
+        def actor(buffer: Ref[F, Buffer]) =
+          LocalActorRef[F, Unit, SeqNr]({}, timeout) {
 
-                case (_, JournalProtocol.ReplayedMessage(persisted)) =>
-                  if (persisted.deleted) ().asLeft[SeqNr].pure[F]
-                  else
+            case (_, JournalProtocol.ReplayedMessage(persisted)) =>
+              if (persisted.deleted) ().asLeft[SeqNr].pure[F]
+              else
+                for {
+                  _       <- log.debug(s"receive message with events $persisted")
+                  payload <- MonadThrow[F].catchNonFatal(persisted.payload.asInstanceOf[A])
+                  event    = EventStore.Event(payload, persisted.sequenceNr)
+                  result <- buffer
+                    .modify { buffer =>
+                      val buffer1 = buffer :+ event
+                      buffer1 -> buffer1.length
+                    }
+                    .flatMap { length =>
+                      if (length > capacity) {
+                        new BufferOverflowException(capacity, persistenceId).raiseError[F, Either[Unit, SeqNr]]
+                      } else {
+                        ().asLeft[SeqNr].pure[F]
+                      }
+                    }
+                  _ <- log.debug(s"(maybe) new seqNr $result")
+                } yield result
+
+            case (_, JournalProtocol.RecoverySuccess(seqNr)) =>
+              seqNr.asRight[Unit].pure[F]
+
+            case (_, JournalProtocol.ReplayMessagesFailure(error)) =>
+              error.raiseError[F, Either[Unit, SeqNr]]
+          }
+
+        for {
+          _      <- log.debug(s"starting loading events from seqNr $fromSeqNr")
+          buffer <- Ref[F].of[Buffer](Vector.empty)
+          actor  <- actor(buffer)
+          _      <- log.debug(s"event' LocalActorRef created")
+          request = JournalProtocol.ReplayMessages(
+            fromSequenceNr = fromSeqNr,
+            toSequenceNr = SeqNr.Max,
+            max = Long.MaxValue,
+            persistenceId = persistenceId,
+            persistentActor = actor.ref
+          )
+          _ <- journaller.tell(request)
+          _ <- log.debug(s"events requested from Akka persistence")
+        } yield new sstream.Stream[F, EventStore.Persisted[A]] {
+
+          override def foldWhileM[L, R](l: L)(f: (L, EventStore.Persisted[A]) => F[Either[L, R]]): F[Either[L, R]] =
+            log.debug(s"starting using events in recovery") >>
+              l.asLeft[R]
+                .tailRecM {
+
+                  case Left(l) =>
                     for {
-                      payload <- MonadThrow[F].catchNonFatal(persisted.payload.asInstanceOf[A])
-                      event    = EventStore.Event(payload, persisted.sequenceNr)
-                      result <- buffer
-                        .modify { buffer =>
-                          val buffer1 = buffer :+ event
-                          buffer1 -> buffer1.length
-                        }
-                        .flatMap { length =>
-                          if (length > capacity) {
-                            new BufferOverflowException(capacity, persistenceId).raiseError[F, Either[Unit, SeqNr]]
-                          } else {
-                            ().asLeft[SeqNr].pure[F]
+                      done   <- actor.get
+                      events <- buffer.getAndSet(Vector.empty)
+                      result <- events.foldWhileM(l)(f)
+                      result <- result match {
+
+                        case Left(l) =>
+                          done match {
+
+                            case Some(Right(seqNr)) =>
+                              val event = EventStore.HighestSeqNr(seqNr)
+                              f(l, event).map { r =>
+                                r.asRight[Either[L, R]]
+                              } // no more events but seqNr non 0, use PersistedSeqNr event to notify the actor
+
+                            case Some(Left(er)) =>
+                              er.raiseError[F, Either[Either[L, R], Either[L, R]]] // failure
+
+                            case None =>
+                              l.asLeft[R].asLeft[Either[L, R]].pure[F] // expecting more events
                           }
-                        }
+
+                        // Right(...), cos user-defined function [[f]] desided to stop consuming stream thus wrapping in Right to break tailRecM loop
+                        case result => result.asRight[Either[L, R]].pure[F]
+
+                      }
                     } yield result
 
-                case (_, JournalProtocol.RecoverySuccess(seqNr)) =>
-                  seqNr.asRight[Unit].pure[F]
+                  case result => // cannot happen
+                    result.asRight[Either[L, R]].pure[F]
+                }
 
-                case (_, JournalProtocol.ReplayMessagesFailure(error)) =>
-                  error.raiseError[F, Either[Unit, SeqNr]]
-              }
-
-            for {
-              buffer <- Ref[F].of[Buffer](Vector.empty)
-              actor  <- actor(buffer)
-              request = JournalProtocol.ReplayMessages(
-                fromSequenceNr = fromSeqNr,
-                toSequenceNr = SeqNr.Max,
-                max = Long.MaxValue,
-                persistenceId = persistenceId,
-                persistentActor = actor.ref
-              )
-              _ <- journaller.tell(request)
-            } yield new sstream.Stream[F, EventStore.Persisted[A]] {
-
-              override def foldWhileM[L, R](l: L)(f: (L, EventStore.Persisted[A]) => F[Either[L, R]]): F[Either[L, R]] =
-                l.asLeft[R]
-                  .tailRecM {
-
-                    case Left(l) =>
-                      for {
-                        done   <- actor.get
-                        events <- buffer.getAndSet(Vector.empty)
-                        result <- events.foldWhileM(l)(f)
-                        result <- result match {
-
-                          case Left(l) =>
-                            done match {
-
-                              case Some(Right(seqNr)) =>
-                                val event = EventStore.HighestSeqNr(seqNr)
-                                f(l, event).map { r =>
-                                  r.asRight[Either[L, R]]
-                                } // no more events but seqNr non 0, use PersistedSeqNr event to notify the actor
-
-                              case Some(Left(er)) =>
-                                er.raiseError[F, Either[Either[L, R], Either[L, R]]] // failure
-
-                              case None =>
-                                l.asLeft[R].asLeft[Either[L, R]].pure[F] // expecting more events
-                            }
-
-                          // Right(...), cos user-defined function [[f]] desided to stop consuming stream thus wrapping in Right to break tailRecM loop
-                          case result => result.asRight[Either[L, R]].pure[F]
-
-                        }
-                      } yield result
-
-                    case result => // cannot happen
-                      result.asRight[Either[L, R]].pure[F]
-                  }
-
-            }
-
-          }
-
-          override def save(events: Events[EventStore.Event[A]]): F[F[SeqNr]] = {
-
-            case class State(writes: Long, maxSeqNr: SeqNr)
-            val state = State(events.size, SeqNr.Min)
-            val actor = LocalActorRef[F, State, SeqNr](state, timeout) {
-
-              case (state, JournalProtocol.WriteMessagesSuccessful) => state.asLeft[SeqNr].pure[F]
-
-              case (state, JournalProtocol.WriteMessageSuccess(persistent, _)) =>
-                val seqNr = persistent.sequenceNr max state.maxSeqNr
-                val result =
-                  if (state.writes == 1) seqNr.asRight[State]
-                  else State(state.writes - 1, seqNr).asLeft[SeqNr]
-                result.pure[F]
-
-              case (_, JournalProtocol.WriteMessageRejected(_, error, _)) => error.raiseError[F, Either[State, SeqNr]]
-
-              case (_, JournalProtocol.WriteMessagesFailed(error, _)) => error.raiseError[F, Either[State, SeqNr]]
-
-              case (_, JournalProtocol.WriteMessageFailure(_, error, _)) => error.raiseError[F, Either[State, SeqNr]]
-            }
-
-            val messages = events.values.toList.map { events =>
-              val persistent = events.toList.map {
-                case EventStore.Event(event, seqNr) => PersistentRepr(event, persistenceId = persistenceId, sequenceNr = seqNr)
-              }
-              AtomicWrite(persistent)
-            }
-
-            for {
-              actor  <- actor
-              request = JournalProtocol.WriteMessages(messages, actor.ref, 0)
-              _      <- journaller.tell(request)
-            } yield actor.res
-          }
-
-          override def deleteTo(seqNr: SeqNr): F[F[Unit]] = {
-
-            val actor = LocalActorRef[F, Unit, Unit]({}, timeout) {
-              case (_, DeleteMessagesSuccess(_))    => ().asRight[Unit].pure[F]
-              case (_, DeleteMessagesFailure(e, _)) => e.raiseError[F, Either[Unit, Unit]]
-            }
-
-            for {
-              actor  <- actor
-              request = JournalProtocol.DeleteMessagesTo(persistenceId, seqNr, actor.ref)
-              _      <- journaller.tell(request)
-            } yield actor.res
-          }
         }
+
       }
+
+      override def save(events: Events[EventStore.Event[A]]): F[F[SeqNr]] = {
+
+        case class State(writes: Long, maxSeqNr: SeqNr)
+        val state = State(events.size, SeqNr.Min)
+        val actor = LocalActorRef[F, State, SeqNr](state, timeout) {
+
+          case (state, JournalProtocol.WriteMessagesSuccessful) => state.asLeft[SeqNr].pure[F]
+
+          case (state, JournalProtocol.WriteMessageSuccess(persistent, _)) =>
+            val seqNr = persistent.sequenceNr max state.maxSeqNr
+            val result =
+              if (state.writes == 1) seqNr.asRight[State]
+              else State(state.writes - 1, seqNr).asLeft[SeqNr]
+            result.pure[F]
+
+          case (_, JournalProtocol.WriteMessageRejected(_, error, _)) => error.raiseError[F, Either[State, SeqNr]]
+
+          case (_, JournalProtocol.WriteMessagesFailed(error, _)) => error.raiseError[F, Either[State, SeqNr]]
+
+          case (_, JournalProtocol.WriteMessageFailure(_, error, _)) => error.raiseError[F, Either[State, SeqNr]]
+        }
+
+        val messages = events.values.toList.map { events =>
+          val persistent = events.toList.map {
+            case EventStore.Event(event, seqNr) => PersistentRepr(event, persistenceId = persistenceId, sequenceNr = seqNr)
+          }
+          AtomicWrite(persistent)
+        }
+
+        for {
+          actor  <- actor
+          request = JournalProtocol.WriteMessages(messages, actor.ref, 0)
+          _      <- journaller.tell(request)
+        } yield actor.res
+      }
+
+      override def deleteTo(seqNr: SeqNr): F[F[Unit]] = {
+
+        val actor = LocalActorRef[F, Unit, Unit]({}, timeout) {
+          case (_, DeleteMessagesSuccess(_))    => ().asRight[Unit].pure[F]
+          case (_, DeleteMessagesFailure(e, _)) => e.raiseError[F, Either[Unit, Unit]]
+        }
+
+        for {
+          actor  <- actor
+          request = JournalProtocol.DeleteMessagesTo(persistenceId, seqNr, actor.ref)
+          _      <- journaller.tell(request)
+        } yield actor.res
+      }
+    }
 
 }

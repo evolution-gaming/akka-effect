@@ -6,11 +6,12 @@ import cats.effect.Resource
 import com.evolutiongaming.akkaeffect.ActorEffect
 import com.evolutiongaming.akkaeffect.ActorRefOf
 import com.evolutiongaming.catshelper.FromFuture
+import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.catshelper.ToFuture
 
 object EventSourcedActorEffect {
 
-  def of[F[_]: Concurrent: ToFuture: FromFuture](
+  def of[F[_]: Concurrent: ToFuture: FromFuture: LogOf](
     actorRefOf: ActorRefOf[F],
     eventSourcedOf: EventSourcedOf[F, EventSourcedActorOf.Lifecycle[F, Any, Any, Any]],
     persistence: EventSourcedPersistence[F],

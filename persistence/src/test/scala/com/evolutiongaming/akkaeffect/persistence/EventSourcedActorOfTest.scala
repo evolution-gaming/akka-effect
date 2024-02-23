@@ -5,8 +5,7 @@ import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify}
 import akka.persistence.Recovery
 import akka.testkit.TestActors
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.{Async, IO, Resource, Sync}
-import cats.effect.syntax.all._
+import cats.effect.{IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.IOSuite._
 import com.evolutiongaming.akkaeffect.persistence.InstrumentEventSourced.Action
@@ -22,8 +21,11 @@ import scala.reflect.ClassTag
 import cats.effect.concurrent.{Ref, Deferred}
 import cats.effect.Concurrent
 import cats.effect.Timer
+import com.evolutiongaming.catshelper.LogOf
 
 class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
+
+  implicit val log = LogOf.empty[IO]
 
   test("all") {
     `persistentActorOf`[IO](actorSystem).run()
@@ -73,7 +75,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     setReceiveTimeout[IO](actorSystem).run()
   }
 
-  private def persistence[F[_]: Concurrent: Timer: FromFuture: ToTry] =
+  private def persistence[F[_]: Concurrent: Timer: FromFuture: ToTry: LogOf] =
     EventSourcedPersistence.fromAkkaPlugins[F](actorSystem, 10.second, 1000)
 
   private def `persistentActorOf`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
@@ -198,6 +200,8 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       } yield {}
     }
 
+    implicit val log = LogOf.empty[F]
+
     for {
       receiveTimeout <- Deferred[F, Unit]
       eventSourcedOf <- eventSourcedOf(receiveTimeout.complete(()).void)
@@ -215,7 +219,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield result
   }
 
-  private def `recover with empty state`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover with empty state`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -276,7 +280,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recover from snapshot`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover from snapshot`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -364,7 +368,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recover from snapshot with deleted events`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover from snapshot with deleted events`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -466,7 +470,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recover from events`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover from events`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -550,7 +554,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recover from events with deleted snapshot`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover from events with deleted snapshot`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -654,7 +658,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recover from snapshot and events`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recover from snapshot and events`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -751,7 +755,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `start stops`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `start stops`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -818,7 +822,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recoveryStarted stops`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recoveryStarted stops`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -884,7 +888,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recoveryCompleted stops`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `recoveryCompleted stops`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -950,7 +954,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `append many`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](
+  private def `append many`[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -1053,7 +1057,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def setReceiveTimeout[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry](actorSystem: ActorSystem) = {
+  private def setReceiveTimeout[F[_]: Concurrent: Timer: ToFuture: FromFuture: ToTry: LogOf](actorSystem: ActorSystem) = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 

@@ -8,6 +8,7 @@ import com.evolutiongaming.akkaeffect.persistence.EventSourcedId
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.akkaeffect.persistence.SnapshotStore
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
+import com.evolutiongaming.catshelper.LogOf
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -17,6 +18,8 @@ import scala.concurrent.duration._
 import scala.util.Random
 
 class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
+
+  implicit val log = LogOf.empty[IO]
 
   val emptyPluginId = ""
 
