@@ -5,8 +5,7 @@ import akka.actor.{ActorIdentity, ActorRef, ActorSystem, Identify}
 import akka.persistence.Recovery
 import akka.testkit.TestActors
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.kernel.Ref
-import cats.effect.{Async, Deferred, IO, Resource, Sync, Temporal}
+import cats.effect.{Async, Ref, Deferred, IO, Resource, Sync, Temporal}
 import cats.effect.syntax.all._
 import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
@@ -15,7 +14,7 @@ import com.evolutiongaming.akkaeffect.persistence.InstrumentEventSourced.Action
 import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.akkaeffect.{ActorSuite, _}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry, LogOf}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -23,6 +22,8 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
 class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
+
+  implicit val log = LogOf.empty[IO]
 
   test("all") {
     `persistentActorOf`[IO](actorSystem).run()
@@ -72,7 +73,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     setReceiveTimeout[IO](actorSystem).run()
   }
 
-  private def persistence[F[_]: Async: FromFuture: ToTry] = EventSourcedPersistence.fromAkkaPlugins[F](actorSystem, 10.seconds, 1000)
+  private def persistence[F[_]: Async: FromFuture: ToTry: LogOf] = EventSourcedPersistence.fromAkkaPlugins[F](actorSystem, 10.seconds, 1000)
 
   private def `persistentActorOf`[F[_]: Async: ToFuture: FromFuture: ToTry](
     actorSystem: ActorSystem
@@ -196,6 +197,8 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       } yield {}
     }
 
+    implicit val log = LogOf.empty[F]
+
     for {
       receiveTimeout <- Deferred[F, Unit]
       eventSourcedOf <- eventSourcedOf(receiveTimeout.complete(()).void)
@@ -213,7 +216,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield result
   }
 
-  private def `recover with empty state`[F[_]: Async: ToFuture: FromFuture: ToTry](
+  private def `recover with empty state`[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -274,7 +277,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recover from snapshot`[F[_]: Async: ToFuture: FromFuture: ToTry](
+  private def `recover from snapshot`[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -362,7 +365,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recover from snapshot with deleted events`[F[_]: Async: ToFuture: FromFuture: ToTry](
+  private def `recover from snapshot with deleted events`[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -464,7 +467,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recover from events`[F[_]: Async: ToFuture: FromFuture: ToTry](
+  private def `recover from events`[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -548,7 +551,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recover from events with deleted snapshot`[F[_]: Async: ToFuture: FromFuture: ToTry](
+  private def `recover from events with deleted snapshot`[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -652,7 +655,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recover from snapshot and events`[F[_]: Async: ToFuture: FromFuture: ToTry](
+  private def `recover from snapshot and events`[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -749,7 +752,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `start stops`[F[_]: Async: ToFuture: FromFuture: ToTry](
+  private def `start stops`[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -816,7 +819,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recoveryStarted stops`[F[_]: Async: ToFuture: FromFuture: ToTry](
+  private def `recoveryStarted stops`[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -882,7 +885,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `recoveryCompleted stops`[F[_]: Async: ToFuture: FromFuture: ToTry](
+  private def `recoveryCompleted stops`[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -948,7 +951,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def `append many`[F[_]: Async: ToFuture: FromFuture: ToTry](
+  private def `append many`[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](
     actorSystem: ActorSystem
   ): F[Unit] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
@@ -1051,7 +1054,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     } yield {}
   }
 
-  private def setReceiveTimeout[F[_]: Async: ToFuture: FromFuture: ToTry](actorSystem: ActorSystem) = {
+  private def setReceiveTimeout[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](actorSystem: ActorSystem) = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 

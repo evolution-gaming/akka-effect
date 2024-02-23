@@ -5,6 +5,7 @@ import akka.persistence.EventStoreInterop
 import akka.persistence.SnapshotStoreInterop
 import cats.effect.Async
 import com.evolutiongaming.catshelper.FromFuture
+import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.catshelper.ToTry
 
 import scala.concurrent.duration._
@@ -19,7 +20,7 @@ trait EventSourcedPersistence[F[_]] {
 
 object EventSourcedPersistence {
 
-  def fromAkkaPlugins[F[_]: Async: FromFuture: ToTry](
+  def fromAkkaPlugins[F[_]: Async: FromFuture: ToTry: LogOf](
     system: ActorSystem,
     timeout: FiniteDuration,
     capacity: Int

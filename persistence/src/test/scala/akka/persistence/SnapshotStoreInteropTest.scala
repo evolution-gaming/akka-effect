@@ -9,6 +9,7 @@ import cats.effect.unsafe.implicits.global
 
 import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, SeqNr, SnapshotStore}
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
+import com.evolutiongaming.catshelper.LogOf
 
 import scala.util.Random
 
@@ -18,6 +19,8 @@ import akka.pattern.AskTimeoutException
 import java.time.Instant
 
 class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
+
+  implicit val log = LogOf.empty[IO]
 
   val emptyPluginId = ""
 

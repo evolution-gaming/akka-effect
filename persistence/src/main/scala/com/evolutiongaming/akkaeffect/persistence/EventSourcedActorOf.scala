@@ -8,6 +8,8 @@ import cats.effect.Resource
 import cats.effect.implicits.effectResourceOps
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
+import com.evolutiongaming.catshelper.CatsHelper.OpsCatsHelper
+import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.catshelper.ToFuture
 
 import java.time.Instant
@@ -54,18 +56,22 @@ object EventSourcedActorOf {
     * @return
     *   instance of [[Actor]]
     */
-  def actor[F[_]: Async: ToFuture, S, E, C: ClassTag](
+  def actor[F[_]: Async: ToFuture: LogOf, S, E, C: ClassTag](
     eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, C]],
     persistence: EventSourcedPersistence[F]
   ): Actor = ActorOf[F] {
     receiveOf(eventSourcedOf, persistence)
   }
 
-  private[evolutiongaming] def receiveOf[F[_]: Async, S, E, C: ClassTag](
+  private[evolutiongaming] def receiveOf[F[_]: Async: LogOf, S, E, C: ClassTag](
     eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, C]],
     persistence: EventSourcedPersistence[F]
   ): ReceiveOf[F, Envelope[Any], ActorOf.Stop] = { actorCtx =>
     for {
+      log <- LogOf.log[F, EventSourcedActorOf.type].toResource
+      log <- log.prefixed(actorCtx.self.path.name).pure[Resource[F, *]]
+      lor <- log.mapK(Resource.liftK[F]).pure[Resource[F, *]]
+
       eventSourced    <- eventSourcedOf(actorCtx).toResource
       recoveryStarted <- eventSourced.value
 
@@ -73,21 +79,31 @@ object EventSourcedActorOf {
       eventStore    <- persistence.eventStore[E](eventSourced).toResource
 
       snapshot <- snapshotStore.latest.toResource
+      _        <- lor.debug(s"using snapshot $snapshot")
 
       recovering <- recoveryStarted(
         snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min),
         snapshot.map(_.asOffer)
       )
+      _ <- lor.debug(s"snapshot applied, continue with events")
 
-      seqNr <- recovering.replay.use { replay =>
+      replay = for {
+        replay <- recovering.replay
+        _      <- lor.debug(s"replay allocated")
+      } yield replay
+
+      seqNr <- replay.use { replay =>
         val snapSeqNr = snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min)
         val fromSeqNr = snapshot.map(_.metadata.seqNr + 1).getOrElse(SeqNr.Min)
         for {
+          _      <- log.debug(s"snapshot seqNr: $snapSeqNr, load events from seqNr: $fromSeqNr")
           events <- eventStore.events(fromSeqNr)
+          _      <- log.debug(s"events stream created")
           seqNrL <- events.foldWhileM(snapSeqNr) {
             case (_, EventStore.Event(event, seqNr)) => replay(event, seqNr).as(seqNr.asLeft[Unit])
             case (_, EventStore.HighestSeqNr(seqNr)) => seqNr.asLeft[Unit].pure[F]
           }
+          _ <- log.debug(s"events applied, resulting in seqNr $seqNrL")
           seqNr <- seqNrL match {
             case Left(seqNr) => seqNr.pure[F]
             case Right(_)    =>
