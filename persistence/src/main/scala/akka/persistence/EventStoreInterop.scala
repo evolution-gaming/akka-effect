@@ -126,8 +126,11 @@ object EventStoreInterop {
                   case Left(l) =>
                     for {
                       done   <- actor.get
+                      _      <- log.debug(s"actor status $done")
                       events <- buffer.getAndSet(Vector.empty)
+                      _      <- log.debug(s"events to process ${events.mkString("\n")}")
                       result <- events.foldWhileM(l)(f)
+                      _      <- log.debug(s"events processing result $result")
                       result <- result match {
 
                         case Left(l) =>
@@ -137,7 +140,7 @@ object EventStoreInterop {
                               val event = EventStore.HighestSeqNr(seqNr)
                               f(l, event).map { r =>
                                 r.asRight[Either[L, R]]
-                              } // no more events but seqNr non 0, use PersistedSeqNr event to notify the actor
+                              } // no more events but seqNr non 0, use HighestSeqNr event to notify the actor
 
                             case Some(Left(er)) =>
                               er.raiseError[F, Either[Either[L, R], Either[L, R]]] // failure
