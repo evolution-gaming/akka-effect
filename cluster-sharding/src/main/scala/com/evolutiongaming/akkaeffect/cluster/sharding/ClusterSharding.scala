@@ -68,7 +68,12 @@ object ClusterSharding {
         Sync[F].blocking { actorRef }
       } { actorRef =>
         for {
-          _ <- Sync[F].delay { actorRef.tell(GracefulShutdown, ActorRef.noSender) }
+          _ <- Sync[F].delay {
+              actorRef.tell(GracefulShutdown, ActorRef.noSender)
+            }
+            // TODO: rework or delete the timeout, currently it's needed for debugging
+            .timeoutTo(30.seconds, Async[F].raiseError(new RuntimeException("shutdown of cluster sharding timed out")).void)
+
           _ <- terminated(actorRef).timeout(config.terminateTimeout)
         } yield {}
       }
