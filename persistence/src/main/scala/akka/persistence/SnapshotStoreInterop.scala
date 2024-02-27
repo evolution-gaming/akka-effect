@@ -30,7 +30,6 @@ object SnapshotStoreInterop {
           val actorRef = persistence.snapshotStoreFor(snapshotPluginId)
           ActorEffect.fromActor(actorRef)
         }
-      _ <- log.debug("snapshotter created")
     } yield new SnapshotStore[F, A] {
 
       val persistenceId = eventSourcedId.value
@@ -38,7 +37,7 @@ object SnapshotStoreInterop {
       override def latest: F[Option[SnapshotStore.Offer[A]]] = {
         val criteria = SnapshotSelectionCriteria()
         val request  = SnapshotProtocol.LoadSnapshot(persistenceId, criteria, Long.MaxValue)
-        log.debug("latest snapshot requested") >> snapshotter
+        val offer = snapshotter
           .ask(request, timeout)
           .flatMap { response =>
             response.flatMap {
@@ -52,9 +51,8 @@ object SnapshotStoreInterop {
                     val metadata  = SnapshotStore.Metadata(offer.metadata.sequenceNr, timestamp)
 
                     for {
-                      _ <- log.debug(s"offer $offer")
+                      _ <- log.debug(s"recovery: receive offer $offer")
                       a <- payload
-                      _ <- log.debug(s"snapshot $a")
                     } yield SnapshotStore.Offer(a, metadata).some
 
                   case None => none[SnapshotStore.Offer[A]].pure[F]
@@ -67,6 +65,7 @@ object SnapshotStoreInterop {
                 } yield a
             }
           }
+        log.debug("recovery: snapshot requested") >> offer
       }
 
       override def save(seqNr: SeqNr, snapshot: A): F[F[Instant]] = {
