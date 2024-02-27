@@ -89,12 +89,8 @@ object EventSourcedActorOf {
             snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min),
             snapshot.map(_.asOffer)
           )
-          _ <- log.debug(s"snapshot applied, continue with events")
 
-          replay = for {
-            replay <- recovering.replay
-            _      <- log.debug(s"replay allocated")
-          } yield replay
+          replay = recovering.replay
 
           seqNr <- replay.use { replay =>
             val snapSeqNr = snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min)
@@ -102,12 +98,10 @@ object EventSourcedActorOf {
             for {
               _      <- log.debug(s"snapshot seqNr: $snapSeqNr, load events from seqNr: $fromSeqNr").allocated
               events <- eventStore.events(fromSeqNr)
-              _      <- log.debug(s"events stream created").allocated
               seqNrL <- events.foldWhileM(snapSeqNr) {
                 case (_, EventStore.Event(event, seqNr)) => replay(event, seqNr).as(seqNr.asLeft[Unit])
                 case (_, EventStore.HighestSeqNr(seqNr)) => seqNr.asLeft[Unit].pure[F]
               }
-              _ <- log.debug(s"events applied, resulting in seqNr $seqNrL").allocated
               seqNr <- seqNrL match {
                 case Left(seqNr) => seqNr.pure[F]
                 case Right(_)    =>
@@ -118,6 +112,7 @@ object EventSourcedActorOf {
               }
             } yield seqNr
           }.toResource
+          _ <- log.debug(s"recovery completed with seqNr $seqNr")
 
           currentSeqNr <- Ref[F].of(seqNr).toResource
 
