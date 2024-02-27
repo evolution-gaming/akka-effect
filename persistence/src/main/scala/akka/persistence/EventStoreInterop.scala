@@ -4,7 +4,7 @@ import cats.MonadThrow
 import cats.effect.Concurrent
 import cats.effect.Sync
 import cats.effect.Timer
-import cats.effect.concurrent.Ref
+import cats.effect.syntax.all._
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorEffect
 import com.evolutiongaming.akkaeffect.persistence.EventSourcedId
@@ -56,57 +56,119 @@ object EventStoreInterop {
       log <- LogOf.log[F, EventStoreInterop.type]
       log <- log.prefixed(eventSourcedId.value).pure[F]
       journaller <- Sync[F].delay {
-        val actorRef = persistence.journalFor(journalPluginId)
-        ActorEffect.fromActor(actorRef)
+        ActorEffect.fromActor {
+          persistence.journalFor(journalPluginId)
+        }
       }
-      _ <- log.debug("journaller created")
     } yield new EventStore[F, A] {
-
-      import sstream.FoldWhile._
 
       val persistenceId = eventSourcedId.value
 
       override def events(fromSeqNr: SeqNr): F[sstream.Stream[F, EventStore.Persisted[A]]] = {
 
-        type Buffer = Vector[EventStore.Event[A]]
+        trait Consumer {
+          def onEvent(event: EventStore.Persisted[A]): F[Consumer]
+        }
 
-        def actor(buffer: Ref[F, Buffer]) =
-          LocalActorRef[F, Unit, SeqNr]({}, timeout) {
+        sealed trait State
+        object State {
 
-            case (_, JournalProtocol.ReplayedMessage(persisted)) =>
-              if (persisted.deleted) ().asLeft[SeqNr].pure[F]
-              else
-                for {
-                  _       <- log.debug(s"receive message with events $persisted")
-                  payload <- MonadThrow[F].catchNonFatal(persisted.payload.asInstanceOf[A])
-                  event    = EventStore.Event(payload, persisted.sequenceNr)
-                  result <- buffer
-                    .modify { buffer =>
-                      val buffer1 = buffer :+ event
-                      buffer1 -> buffer1.length
+          object Empty                                                                 extends State
+          case class Buffering(events: Vector[EventStore.Event[A]])                    extends State
+          case class Consuming(consumer: F[Consumer])                                  extends State
+          case class Finishing(events: Vector[EventStore.Event[A]], finalSeqNr: SeqNr) extends State
+
+        }
+
+        def event(persisted: PersistentRepr): F[EventStore.Event[A]] =
+          for {
+            payload <- MonadThrow[F].catchNonFatal(persisted.payload.asInstanceOf[A])
+          } yield EventStore.Event(payload, persisted.sequenceNr)
+
+        def bufferOverflow =
+          for {
+            _ <- log.error(s"events buffer overflow on recovery for entity $persistenceId. Buffer capacity is $capacity")
+            _ <- new BufferOverflowException(capacity, persistenceId).raiseError[F, Unit]
+          } yield {}
+
+        val actor = LocalActorRef[F, State, Consumer](State.Empty, timeout) {
+          case (state, message) =>
+            val effect: F[Either[State, Consumer]] = state match {
+
+              case State.Empty =>
+                message match {
+                  case consumer: Consumer =>
+                    State.Consuming(consumer.pure[F]).asLeft[Consumer].leftWiden[State].pure[F]
+
+                  case JournalProtocol.ReplayedMessage(persisted) =>
+                    event(persisted).map(event => State.Buffering(Vector(event)).asLeft[Consumer])
+
+                  case JournalProtocol.RecoverySuccess(seqNr) =>
+                    State.Finishing(Vector.empty, seqNr).asLeft[Consumer].leftWiden[State].pure[F]
+
+                  case JournalProtocol.ReplayMessagesFailure(error) =>
+                    error.raiseError[F, Either[State, Consumer]]
+                }
+
+              case state: State.Buffering =>
+                message match {
+                  case consumer: Consumer =>
+                    for {
+                      fiber <- state.events.foldLeftM(consumer) { case (c, e) => c.onEvent(e) }.start
+                    } yield State.Consuming(fiber.join).asLeft[Consumer].leftWiden[State]
+
+                  case JournalProtocol.ReplayedMessage(persisted) =>
+                    for {
+                      event <- event(persisted)
+                      _     <- if (state.events.length >= capacity) bufferOverflow else ().pure[F]
+                    } yield State.Buffering(state.events :+ event).asLeft[Consumer].leftWiden[State]
+
+                  case JournalProtocol.RecoverySuccess(seqNr) =>
+                    State.Finishing(state.events, seqNr).asLeft[Consumer].leftWiden[State].pure[F]
+
+                  case JournalProtocol.ReplayMessagesFailure(error) =>
+                    error.raiseError[F, Either[State, Consumer]]
+                }
+
+              case state: State.Consuming =>
+                message match {
+                  case JournalProtocol.ReplayedMessage(persisted) =>
+                    for {
+                      event <- event(persisted)
+                    } yield {
+                      val consumer = for {
+                        consumer <- state.consumer
+                        consumer <- consumer.onEvent(event)
+                      } yield consumer
+                      State.Consuming(consumer).asLeft[Consumer].leftWiden[State]
                     }
-                    .flatMap { length =>
-                      if (length > capacity) {
-                        new BufferOverflowException(capacity, persistenceId).raiseError[F, Either[Unit, SeqNr]]
-                      } else {
-                        ().asLeft[SeqNr].pure[F]
-                      }
-                    }
-                  _ <- log.debug(s"(maybe) new seqNr $result")
-                } yield result
 
-            case (_, JournalProtocol.RecoverySuccess(seqNr)) =>
-              seqNr.asRight[Unit].pure[F]
+                  case JournalProtocol.RecoverySuccess(seqNr) =>
+                    for {
+                      consumer <- state.consumer
+                      consumer <- consumer.onEvent(EventStore.HighestSeqNr(seqNr))
+                    } yield consumer.asRight[State]
 
-            case (_, JournalProtocol.ReplayMessagesFailure(error)) =>
-              error.raiseError[F, Either[Unit, SeqNr]]
-          }
+                  case JournalProtocol.ReplayMessagesFailure(error) =>
+                    error.raiseError[F, Either[State, Consumer]]
+                }
+
+              case state: State.Finishing =>
+                message match {
+                  case consumer: Consumer =>
+                    for {
+                      consumer <- state.events.foldLeftM(consumer) { case (c, e) => c.onEvent(e) }
+                      consumer <- consumer.onEvent(EventStore.HighestSeqNr(state.finalSeqNr))
+                    } yield consumer.asRight[State]
+                }
+
+            }
+
+            log.debug(s"recovery: receive message $message for state $state") >> effect
+        }
 
         for {
-          _      <- log.debug(s"starting loading events from seqNr $fromSeqNr")
-          buffer <- Ref[F].of[Buffer](Vector.empty)
-          actor  <- actor(buffer)
-          _      <- log.debug(s"event' LocalActorRef created")
+          actor <- actor
           request = JournalProtocol.ReplayMessages(
             fromSequenceNr = fromSeqNr,
             toSequenceNr = SeqNr.Max,
@@ -115,49 +177,27 @@ object EventStoreInterop {
             persistentActor = actor.ref
           )
           _ <- journaller.tell(request)
-          _ <- log.debug(s"events requested from Akka persistence")
+          _ <- log.debug("recovery: events from Akka percictence requested")
         } yield new sstream.Stream[F, EventStore.Persisted[A]] {
 
-          override def foldWhileM[L, R](l: L)(f: (L, EventStore.Persisted[A]) => F[Either[L, R]]): F[Either[L, R]] =
-            log.debug(s"starting using events in recovery") >>
-              l.asLeft[R]
-                .tailRecM {
+          override def foldWhileM[L, R](l: L)(f: (L, EventStore.Persisted[A]) => F[Either[L, R]]): F[Either[L, R]] = {
 
-                  case Left(l) =>
-                    for {
-                      done   <- actor.get
-                      _      <- log.debug(s"actor status $done")
-                      events <- buffer.getAndSet(Vector.empty)
-                      _      <- log.debug(s"events to process ${events.mkString("\n")}")
-                      result <- events.foldWhileM(l)(f)
-                      _      <- log.debug(s"events processing result $result")
-                      result <- result match {
+            class TheConsumer(val state: Either[L, R]) extends Consumer { self =>
 
-                        case Left(l) =>
-                          done match {
-
-                            case Some(Right(seqNr)) =>
-                              val event = EventStore.HighestSeqNr(seqNr)
-                              f(l, event).map { r =>
-                                r.asRight[Either[L, R]]
-                              } // no more events but seqNr non 0, use HighestSeqNr event to notify the actor
-
-                            case Some(Left(er)) =>
-                              er.raiseError[F, Either[Either[L, R], Either[L, R]]] // failure
-
-                            case None =>
-                              l.asLeft[R].asLeft[Either[L, R]].pure[F] // expecting more events
-                          }
-
-                        // Right(...), cos user-defined function [[f]] desided to stop consuming stream thus wrapping in Right to break tailRecM loop
-                        case result => result.asRight[Either[L, R]].pure[F]
-
-                      }
-                    } yield result
-
-                  case result => // cannot happen
-                    result.asRight[Either[L, R]].pure[F]
+              def onEvent(event: EventStore.Persisted[A]): F[Consumer] =
+                state match {
+                  case Left(state) => f(state, event) map { e => new TheConsumer(e) }
+                  case _           => (self: Consumer).pure[F]
                 }
+
+            }
+
+            for {
+              _ <- log.debug(s"recovery: events stream materialisation started")
+              _ <- Sync[F].delay(actor.ref ! new TheConsumer(l.asLeft[R]))
+              c <- actor.res
+            } yield c.asInstanceOf[TheConsumer].state
+          }
 
         }
 
