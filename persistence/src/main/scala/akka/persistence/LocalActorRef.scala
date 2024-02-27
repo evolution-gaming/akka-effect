@@ -123,11 +123,12 @@ private[persistence] object LocalActorRef {
         override def !(m: M)(implicit sender: ActorRef): Unit =
           state
             .update { s =>
-              if (receive.isDefinedAt(s.state -> m)) {
+              val p = s.state -> m
+              if (receive.isDefinedAt(p)) {
 
                 for {
                   t <- Temporal[F].monotonic
-                  r <- receive(s.state -> m)
+                  r <- receive(p)
                   s <- r match {
                     case Left(s)  => State(s, t).pure[F]
                     case Right(r) => done(r.asRight).as(s)
