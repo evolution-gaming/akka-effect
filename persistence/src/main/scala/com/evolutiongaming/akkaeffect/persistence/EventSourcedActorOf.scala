@@ -8,7 +8,6 @@ import cats.effect.Resource
 import cats.effect.implicits.effectResourceOps
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
-import com.evolutiongaming.catshelper.CatsHelper.OpsCatsHelper
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.catshelper.ToFuture
 

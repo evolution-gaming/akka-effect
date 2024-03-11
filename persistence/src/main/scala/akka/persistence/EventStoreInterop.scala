@@ -1,6 +1,7 @@
 package akka.persistence
 
 import cats.syntax.all._
+import cats.effect.syntax.all._
 import cats.effect.{Async, Sync, Ref}
 
 import com.evolutiongaming.akkaeffect.ActorEffect
@@ -11,6 +12,7 @@ import com.evolutiongaming.sstream
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 import cats.MonadThrow
+import com.evolutiongaming.akkaeffect.AkkaEffectHelper.IdOpsAkkaEffectHelper
 
 object EventStoreInterop {
 
@@ -108,7 +110,7 @@ object EventStoreInterop {
                   case consumer: Consumer =>
                     for {
                       fiber <- state.events.foldLeftM(consumer) { case (c, e) => c.onEvent(e) }.start
-                    } yield State.Consuming(fiber.join).asLeft[Consumer].leftWiden[State]
+                    } yield State.Consuming(fiber.join.flatMap(_.embedError)).asLeft[Consumer].leftWiden[State]
 
                   case JournalProtocol.ReplayedMessage(persisted) =>
                     for {

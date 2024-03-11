@@ -50,8 +50,6 @@ object Engine {
     result: Either[Throwable, SeqNr]
   ): Engine[F, S, E] = new Engine[F, S, E] {
 
-    val state = initial.pure[F]
-
     val effective = initial.pure[F]
 
     val optimistic = initial.pure[F]
@@ -522,7 +520,7 @@ object Engine {
     }
 
 
-    def of[F[_] : Sync, A](initial: SeqNr, appended: Ref[F, List[A]]): Append[F, A] =
+    def of[F[_], A](initial: SeqNr, appended: Ref[F, List[A]]): Append[F, A] =
       events =>
         appended.modify { persisted =>
           val applied = persisted ++ events.toList
