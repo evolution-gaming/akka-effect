@@ -5,32 +5,34 @@ import cats.effect.{Async, Resource, Sync}
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 
-/**
-  * Typesafe api for ActorRef
+/** Typesafe api for ActorRef
   *
-  * @see [[akka.actor.ActorRef]]
-  * @tparam A message
-  * @tparam B reply
+  * @see
+  *   [[akka.actor.ActorRef]]
+  * @tparam A
+  *   message
+  * @tparam B
+  *   reply
   */
 trait ActorEffect[F[_], -A, B] {
 
-  /**
-    * @see [[akka.actor.ActorRef.path]]
+  /** @see
+    *   [[akka.actor.ActorRef.path]]
     */
   def path: ActorPath
 
-  /**
-    * @see [[akka.pattern.ask]]
+  /** @see
+    *   [[akka.pattern.ask]]
     */
   def ask: Ask[F, A, B]
 
-  /**
-    * @see [[akka.actor.ActorRef.tell]]
+  /** @see
+    *   [[akka.actor.ActorRef.tell]]
     */
   def tell: Tell[F, A]
 
-  /**
-    * @return underlying ActorRef
+  /** @return
+    *   underlying ActorRef
     */
   def toUnsafe: ActorRef
 }
@@ -47,9 +49,8 @@ object ActorEffect {
 
     val props = Props(actor)
 
-    actorRefOf(props, name).map { actorRef => fromActor(actorRef) }
+    actorRefOf(props, name).map(actorRef => fromActor(actorRef))
   }
-
 
   def fromActor[F[_]: Sync: FromFuture](
     actorRef: ActorRef
@@ -69,12 +70,9 @@ object ActorEffect {
     }
   }
 
-
   implicit class ActorEffectOps[F[_], A, B](val self: ActorEffect[F, A, B]) extends AnyVal {
 
-    def convert[A1, B1](
-      af: A1 => F[A],
-      bf: B => F[B1])(implicit
+    def convert[A1, B1](af: A1 => F[A], bf: B => F[B1])(implicit
       F: FlatMap[F]
     ): ActorEffect[F, A1, B1] = new ActorEffect[F, A1, B1] {
 
@@ -87,9 +85,7 @@ object ActorEffect {
       def toUnsafe = self.toUnsafe
     }
 
-
-    def narrow[A1 <: A, B1](
-      f: B => F[B1])(implicit
+    def narrow[A1 <: A, B1](f: B => F[B1])(implicit
       F: FlatMap[F]
     ): ActorEffect[F, A1, B1] = new ActorEffect[F, A1, B1] {
 
@@ -102,7 +98,6 @@ object ActorEffect {
       def toUnsafe = self.toUnsafe
     }
 
-
     def mapK[G[_]: Applicative](f: F ~> G): ActorEffect[G, A, B] = new ActorEffect[G, A, B] {
 
       def path = self.path
@@ -114,7 +109,6 @@ object ActorEffect {
       def toUnsafe = self.toUnsafe
     }
   }
-
 
   implicit class ActorEffectAnyOps[F[_]](val self: ActorEffect[F, Any, Any]) extends AnyVal {
 

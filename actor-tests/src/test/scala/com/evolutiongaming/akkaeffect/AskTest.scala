@@ -12,7 +12,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
-
 class AskTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("toString") {
@@ -28,13 +27,13 @@ class AskTest extends AsyncFunSuite with ActorSuite with Matchers {
     actorRefOf(TestActors.echoActorProps).use { actorRef =>
       val ask = Ask.fromActorRef[F](actorRef)
       Sync[F].delay {
-        ask.toString shouldEqual s"Ask(${ actorRef.path })"
+        ask.toString shouldEqual s"Ask(${actorRef.path})"
       }
     }
   }
 
   private def `apply`[F[_]: Async: FromFuture](actorSystem: ActorSystem) = {
-    val timeout = 1.second
+    val timeout    = 1.second
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     actorRefOf(TestActors.echoActorProps).use { actorRef =>
       val ask = Ask.fromActorRef[F](actorRef).mapK(FunctionK.id)

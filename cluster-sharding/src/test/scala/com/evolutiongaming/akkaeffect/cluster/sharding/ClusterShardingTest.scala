@@ -19,13 +19,12 @@ import org.scalatest.matchers.should.Matchers
 
 class ClusterShardingTest extends AsyncFunSuite with ActorSuite with Matchers {
 
-  override def config = {
+  override def config =
     IO {
       ConfigFactory
         .load("ClusterShardingTest.conf")
         .some
     }
-  }
 
   test("start") {
     case object HandOffStopMessage
@@ -35,10 +34,10 @@ class ClusterShardingTest extends AsyncFunSuite with ActorSuite with Matchers {
       log                     <- logOf(classOf[ClusterShardingTest]).toResource
       clusterSharding         <- ClusterSharding.of[IO](actorSystem)
       clusterSharding         <- clusterSharding.withLogging1(log).pure[Resource[IO, *]]
-      clusterShardingSettings <- IO { ClusterShardingSettings(actorSystem) }.toResource
+      clusterShardingSettings <- IO(ClusterShardingSettings(actorSystem)).toResource
       actorRefOf               = ActorRefOf.fromActorRefFactory[IO](actorSystem)
       probe                   <- Probe.of[IO](actorRefOf)
-      props                    = {
+      props = {
         def actor() = new Actor {
           def receive = {
             case ()                 => sender().tell((), self)
@@ -48,23 +47,20 @@ class ClusterShardingTest extends AsyncFunSuite with ActorSuite with Matchers {
 
         Props(actor())
       }
-      shardRegion             <- clusterSharding.start(
-          TypeName("typeName"),
-          props,
-          clusterShardingSettings,
-          { case a => ("entityId", a) },
-          { (_: Msg) => "shardId" },
-          new LeastShardAllocationStrategy(1, 1),
-          HandOffStopMessage)
-    } yield {
-      for {
-        a <- probe.expect[Unit]
-        _ <- IO { shardRegion.tell((), probe.actorEffect.toUnsafe) }
-        a <- a
-      } yield {
-        a.msg
-      }
-    }
+      shardRegion <- clusterSharding.start(
+        TypeName("typeName"),
+        props,
+        clusterShardingSettings,
+        { case a => ("entityId", a) },
+        (_: Msg) => "shardId",
+        new LeastShardAllocationStrategy(1, 1),
+        HandOffStopMessage
+      )
+    } yield for {
+      a <- probe.expect[Unit]
+      _ <- IO(shardRegion.tell((), probe.actorEffect.toUnsafe))
+      a <- a
+    } yield a.msg
     result
       .use(identity)
       .run()

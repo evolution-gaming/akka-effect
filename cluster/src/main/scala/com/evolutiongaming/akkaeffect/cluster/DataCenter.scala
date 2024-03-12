@@ -15,5 +15,5 @@ object DataCenter {
 
   implicit val showDataCenter: Show[DataCenter] = Show.fromToString
 
-  implicit val configReaderDataCenter: ConfigReader[DataCenter] = ConfigReader[String].map { a => DataCenter(a) }
+  implicit val configReaderDataCenter: ConfigReader[DataCenter] = ConfigReader[String].map(a => DataCenter(a))
 }

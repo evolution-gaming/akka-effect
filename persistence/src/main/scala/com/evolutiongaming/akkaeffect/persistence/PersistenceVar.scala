@@ -7,7 +7,6 @@ import com.evolutiongaming.akkaeffect.ActorVar.Directive
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.catshelper.ToFuture
 
-
 private[akkaeffect] trait PersistenceVar[F[_], S, E, C] {
 
   def preStart(recoveryStarted: Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], Boolean]]]): Unit
@@ -34,55 +33,49 @@ private[akkaeffect] object PersistenceVar {
   def apply[F[_]: Async: ToFuture: Fail, S, E, C](
     act: Act[F],
     actorContext: ActorContext
-  ): PersistenceVar[F, S, E, C] = {
+  ): PersistenceVar[F, S, E, C] =
     apply(ActorVar[F, Persistence[F, S, E, C]](act, actorContext), Some(actorContext))
-  }
 
   def apply[F[_]: Sync: Fail, S, E, C](
     actorVar: ActorVar[F, Persistence[F, S, E, C]],
     actorContext: Option[ActorContext] = None
-  ): PersistenceVar[F, S, E, C] = {
-
+  ): PersistenceVar[F, S, E, C] =
     new PersistenceVar[F, S, E, C] {
 
-      def preStart(recoveryStarted: Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], Boolean]]]) = {
+      def preStart(recoveryStarted: Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], Boolean]]]) =
         actorVar.preStart {
-          recoveryStarted.map { recoveryStarted => Persistence.started(recoveryStarted) }
+          recoveryStarted.map(recoveryStarted => Persistence.started(recoveryStarted))
         }
-      }
 
-      def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]) = {
+      def snapshotOffer(seqNr: SeqNr, snapshotOffer: SnapshotOffer[S]) =
         actorVar.receive { persistence =>
           persistence
             .snapshotOffer(seqNr, snapshotOffer)
-            .map { result => Directive.update(result) }
+            .map(result => Directive.update(result))
             .handleErrorWith(onRecoveryFailed("snapshotOffer"))
         }
-      }
 
-      def event(seqNr: SeqNr, event: E) = {
+      def event(seqNr: SeqNr, event: E) =
         actorVar.receive { persistence =>
           persistence
             .event(seqNr, event)
-            .map { result => Directive.update(result) }
+            .map(result => Directive.update(result))
             .handleErrorWith(onRecoveryFailed("event"))
         }
-      }
 
       def recoveryCompleted(
         seqNr: SeqNr,
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S]
-      ) = {
+      ) =
         actorVar.receive { persistence =>
           persistence
             .recoveryCompleted(seqNr, journaller, snapshotter)
-            .map { result => Directive.update(result) }
+            .map(result => Directive.update(result))
             .handleErrorWith(onRecoveryFailed("recoveryCompleted"))
         }
-      }
 
-      def onRecoveryFailed[A](scope: String)(error: Throwable): F[Directive[A]] = {
+      def onRecoveryFailed[A](scope: String)(error: Throwable): F[Directive[A]] =
         Sync[F].delay {
           actorContext.foreach { actorContext =>
             val msg = s"$scope failed: ${actorContext.self.path.toStringWithoutAddress} error recovering actor state: $error"
@@ -90,19 +83,14 @@ private[akkaeffect] object PersistenceVar {
           }
           Directive.stop
         }
-      }
 
-      def command(cmd: C, seqNr: SeqNr, sender: ActorRef) = {
-        actorVar.receive { _.command(seqNr, cmd, sender) }
-      }
+      def command(cmd: C, seqNr: SeqNr, sender: ActorRef) =
+        actorVar.receive(_.command(seqNr, cmd, sender))
 
-      def timeout(seqNr: SeqNr) = {
-        actorVar.receive { _.timeout(seqNr) }
-      }
+      def timeout(seqNr: SeqNr) =
+        actorVar.receive(_.timeout(seqNr))
 
-      def postStop(seqNr: SeqNr) = {
+      def postStop(seqNr: SeqNr) =
         actorVar.postStop()
-      }
     }
-  }
 }

@@ -6,11 +6,12 @@ import cats.effect.Sync
 import cats.syntax.all._
 import cats.{Contravariant, FlatMap, ~>}
 
-/**
-  * Typesafe api for replying part of "ask pattern" in conjunction with `Status`
+/** Typesafe api for replying part of "ask pattern" in conjunction with `Status`
   *
-  * @see [[akka.actor.Status]]
-  * @tparam A reply
+  * @see
+  *   [[akka.actor.Status]]
+  * @tparam A
+  *   reply
   */
 trait ReplyStatus[F[_], -A] {
 
@@ -21,7 +22,7 @@ trait ReplyStatus[F[_], -A] {
 
 object ReplyStatus {
 
-  implicit def contravariantReplyStatus[F[_]]: Contravariant[ReplyStatus[F, *]] = {
+  implicit def contravariantReplyStatus[F[_]]: Contravariant[ReplyStatus[F, *]] =
     new Contravariant[ReplyStatus[F, *]] {
 
       def contramap[A, B](fa: ReplyStatus[F, A])(f: B => A) = new ReplyStatus[F, B] {
@@ -31,7 +32,6 @@ object ReplyStatus {
         def fail(error: Throwable) = fa.fail(error)
       }
     }
-  }
 
   def fromReply[F[_]](reply: Reply[F, Status]): ReplyStatus[F, Any] = new ReplyStatus[F, Any] {
 
@@ -42,16 +42,13 @@ object ReplyStatus {
     override def toString = reply.toString
   }
 
-
   def fromActorRef[F[_]: Sync](
     to: ActorRef,
-    from: Option[ActorRef],
-  ): ReplyStatus[F, Any] = {
+    from: Option[ActorRef]
+  ): ReplyStatus[F, Any] =
     Reply
       .fromActorRef(to, from)
       .toReplyStatus
-  }
-
 
   implicit class ReplyStatusOps[F[_], A](val self: ReplyStatus[F, A]) extends AnyVal {
 
@@ -64,19 +61,16 @@ object ReplyStatus {
       override def toString = self.toString
     }
 
-
     def convert[B](f: B => F[A])(implicit F: FlatMap[F]): ReplyStatus[F, B] = new ReplyStatus[F, B] {
 
-      def success(a: B) = {
+      def success(a: B) =
         for {
           a <- f(a)
           a <- self.success(a)
         } yield a
-      }
 
       def fail(error: Throwable) = self.fail(error)
     }
-
 
     def narrow[B <: A]: ReplyStatus[F, B] = self
   }

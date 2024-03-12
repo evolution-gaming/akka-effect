@@ -16,30 +16,27 @@ trait EventStream[F[_]] {
 
 object EventStream {
 
-  def apply[F[_]: Async: ToFuture](actorSystem: ActorSystem): EventStream[F] = {
+  def apply[F[_]: Async: ToFuture](actorSystem: ActorSystem): EventStream[F] =
     apply(actorSystem.eventStream, actorSystem)
-  }
 
   def apply[F[_]: Async: ToFuture](
     eventStream: akka.event.EventStream,
-    refFactory: ActorRefFactory,
+    refFactory: ActorRefFactory
   ): EventStream[F] = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](refFactory)
 
     new EventStream[F] {
 
-      def publish[A](a: A) = {
-        Sync[F].delay { eventStream.publish(a) }
-      }
+      def publish[A](a: A) =
+        Sync[F].delay(eventStream.publish(a))
 
       def subscribe[A](onEvent: A => F[Unit])(implicit tag: ClassTag[A]) = {
 
         val channel = tag.runtimeClass
 
-        def unsubscribe(actorRef: ActorRef): F[Unit] = {
-          Sync[F].delay { eventStream.unsubscribe(actorRef, channel) }.void
-        }
+        def unsubscribe(actorRef: ActorRef): F[Unit] =
+          Sync[F].delay(eventStream.unsubscribe(actorRef, channel)).void
 
         def receiveOf = ReceiveOf[F] { actorCtx =>
           Resource.make {
@@ -60,13 +57,12 @@ object EventStream {
           }
         }
 
-        def subscribe(actorRef: ActorRef) = {
+        def subscribe(actorRef: ActorRef) =
           Resource.make {
-            Sync[F].delay { eventStream.subscribe(actorRef, channel) }.void
+            Sync[F].delay(eventStream.subscribe(actorRef, channel)).void
           } { _ =>
             unsubscribe(actorRef)
           }
-        }
 
         val props = Props(ActorOf(receiveOf))
         for {

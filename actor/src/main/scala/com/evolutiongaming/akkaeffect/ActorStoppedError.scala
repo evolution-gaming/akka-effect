@@ -4,11 +4,11 @@ import cats.syntax.all._
 
 import scala.util.control.NoStackTrace
 
-
 final case class ActorStoppedError(
   msg: String,
   cause: Option[Throwable] = None
-) extends RuntimeException(msg, cause.orNull) with NoStackTrace
+) extends RuntimeException(msg, cause.orNull)
+    with NoStackTrace
 
 object ActorStoppedError {
 

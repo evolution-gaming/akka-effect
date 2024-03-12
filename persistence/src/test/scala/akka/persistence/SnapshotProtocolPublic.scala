@@ -8,7 +8,6 @@ object SnapshotProtocolPublic {
 
   def deleteSnapshot(metadata: SnapshotMetadata): Any = DeleteSnapshot(metadata)
 
-  def deleteSnapshots(persistenceId: String, criteria: SnapshotSelectionCriteria): Any = {
+  def deleteSnapshots(persistenceId: String, criteria: SnapshotSelectionCriteria): Any =
     DeleteSnapshots(persistenceId, criteria)
-  }
 }

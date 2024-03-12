@@ -27,10 +27,8 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
 
-    def actor(probe: Probe[F], deferred: Deferred[F, Snapshotter[F, Any]]) = {
-
+    def actor(probe: Probe[F], deferred: Deferred[F, Snapshotter[F, Any]]) =
       new SnapshotterPublic { actor =>
-
         override def preStart() = {
           super.preStart()
           val snapshotter = Snapshotter[F, Any](actor, 1.minute)
@@ -46,7 +44,6 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
         def receive = PartialFunction.empty
       }
-    }
 
     val result = for {
       probe       <- Probe.of(actorRefOf)
@@ -54,7 +51,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
       props        = Props(actor(probe, snapshotter))
       _           <- actorRefOf(props)
       snapshotter <- snapshotter.get.toResource
-      result      <- {
+      result <- {
         val metadata = akka.persistence.SnapshotMetadata("snapshotterId", 0L)
 
         val criteria = SnapshotSelectionCriteria()
@@ -66,61 +63,51 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
           req: Any,
           res: Any,
           expected: Either[Throwable, A]
-        ) = {
+        ) =
           for {
             a <- probe.expect[Any]
             b <- fa
             a <- a
             _  = a.msg shouldEqual req
-            _ <- Sync[F].delay { a.from.tell(res, ActorRef.noSender) }
+            _ <- Sync[F].delay(a.from.tell(res, ActorRef.noSender))
             b <- b.attempt
             _  = b shouldEqual expected
           } yield {}
-        }
 
-        def save = snapshotter.save(metadata.sequenceNr, "snapshot").map { _.void }
+        def save = snapshotter.save(metadata.sequenceNr, "snapshot").map(_.void)
 
         val result = for {
-          _ <- verify(
-            save,
-            SnapshotProtocolPublic.saveSnapshot(metadata, "snapshot"),
-            SaveSnapshotSuccess(metadata),
-            ().asRight)
+          _ <- verify(save, SnapshotProtocolPublic.saveSnapshot(metadata, "snapshot"), SaveSnapshotSuccess(metadata), ().asRight)
 
-          _ <- verify(
-            save,
-            SnapshotProtocolPublic.saveSnapshot(metadata, "snapshot"),
-            SaveSnapshotFailure(metadata, error),
-            error.asLeft)
+          _ <- verify(save, SnapshotProtocolPublic.saveSnapshot(metadata, "snapshot"), SaveSnapshotFailure(metadata, error), error.asLeft)
 
-          _ <- verify(
-            snapshotter.delete(0L),
-            SnapshotProtocolPublic.deleteSnapshot(metadata),
-            DeleteSnapshotSuccess(metadata),
-            ().asRight)
+          _ <- verify(snapshotter.delete(0L), SnapshotProtocolPublic.deleteSnapshot(metadata), DeleteSnapshotSuccess(metadata), ().asRight)
 
           _ <- verify(
             snapshotter.delete(0L),
             SnapshotProtocolPublic.deleteSnapshot(metadata),
             DeleteSnapshotFailure(metadata, error),
-            error.asLeft)
+            error.asLeft
+          )
 
           _ <- verify(
             snapshotter.delete(criteria),
             SnapshotProtocolPublic.deleteSnapshots("snapshotterId", criteria),
             DeleteSnapshotsSuccess(criteria),
-            ().asRight)
+            ().asRight
+          )
 
           _ <- verify(
             snapshotter.delete(criteria),
             SnapshotProtocolPublic.deleteSnapshots("snapshotterId", criteria),
             DeleteSnapshotsFailure(criteria, error),
-            error.asLeft)
+            error.asLeft
+          )
         } yield {}
         result.toResource
       }
     } yield result
 
-    result.use { _.pure[F] }
+    result.use(_.pure[F])
   }
 }

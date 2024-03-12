@@ -19,12 +19,12 @@ object Terminated {
 
   def apply[F[_]: Concurrent: ToFuture](
     actorRefOf: ActorRefOf[F]
-  ): Terminated[F] = {
+  ): Terminated[F] =
     new Terminated[F] {
 
-      def apply(actorRef: ActorRef) = {
+      def apply(actorRef: ActorRef) =
         Deferred[F, Unit].flatMap { deferred =>
-          def actor() = {
+          def actor() =
             new Actor {
 
               override def preStart() = {
@@ -40,20 +40,15 @@ object Terminated {
                   ()
               }
             }
-          }
 
           actorRefOf(Props(actor()))
             .use(_ => deferred.get)
             .recover {
-              case e: IllegalStateException
-                if e.getMessage == "cannot create children while terminating or terminated" =>
+              case e: IllegalStateException if e.getMessage == "cannot create children while terminating or terminated" =>
             }
         }
-      }
 
-      def apply[A, B](actorEffect: ActorEffect[F, A, B]) = {
+      def apply[A, B](actorEffect: ActorEffect[F, A, B]) =
         apply(actorEffect.toUnsafe)
-      }
     }
-  }
 }
