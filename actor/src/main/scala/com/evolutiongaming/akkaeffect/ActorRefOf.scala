@@ -5,10 +5,10 @@ import cats.effect.kernel.MonadCancel
 import cats.effect.{Resource, Sync}
 import cats.~>
 
-/**
-  * Resource-full api for ActorRefFactory
+/** Resource-full api for ActorRefFactory
   *
-  * @see [[akka.actor.ActorRefFactory]]
+  * @see
+  *   [[akka.actor.ActorRefFactory]]
   */
 trait ActorRefOf[F[_]] {
 
@@ -22,17 +22,14 @@ object ActorRefOf {
 
   def fromActorRefFactory[F[_]: Sync](
     actorRefFactory: ActorRefFactory
-  ): ActorRefOf[F] = {
-
-    (props: Props, name: Option[String]) => {
-      Resource.make {
-        name match {
-          case Some(name) => Sync[F].delay { actorRefFactory.actorOf(props, name) }
-          case None       => Sync[F].delay { actorRefFactory.actorOf(props) }
-        }
-      } { actorRef =>
-        Sync[F].delay { actorRefFactory.stop(actorRef) }
+  ): ActorRefOf[F] = { (props: Props, name: Option[String]) =>
+    Resource.make {
+      name match {
+        case Some(name) => Sync[F].delay(actorRefFactory.actorOf(props, name))
+        case None       => Sync[F].delay(actorRefFactory.actorOf(props))
       }
+    } { actorRef =>
+      Sync[F].delay(actorRefFactory.stop(actorRef))
     }
   }
 

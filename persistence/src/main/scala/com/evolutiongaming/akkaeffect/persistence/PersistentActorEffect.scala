@@ -5,7 +5,6 @@ import cats.effect.{Async, Resource}
 import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf}
 import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
-
 object PersistentActorEffect {
 
   def of[F[_]: Async: ToFuture: FromFuture: ToTry](
@@ -19,6 +18,6 @@ object PersistentActorEffect {
     val props = Props(actor)
 
     actorRefOf(props, name)
-      .map { actorRef => ActorEffect.fromActor(actorRef) }
+      .map(actorRef => ActorEffect.fromActor(actorRef))
   }
 }

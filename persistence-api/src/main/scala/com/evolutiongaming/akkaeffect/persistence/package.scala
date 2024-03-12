@@ -11,7 +11,6 @@ package object persistence {
     val Max: SeqNr = Long.MaxValue
   }
 
-
   type Timestamp = Long
 
 }

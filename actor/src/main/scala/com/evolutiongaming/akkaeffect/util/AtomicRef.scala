@@ -32,7 +32,7 @@ object AtomicRef {
 
       def update(f: A => A) = {
         @tailrec def update(): Unit = {
-          val a = ref.get()
+          val a  = ref.get()
           val a1 = f(a)
           if (!ref.compareAndSet(a, a1)) update()
         }
@@ -42,7 +42,7 @@ object AtomicRef {
 
       def modify[B](f: A => (A, B)) = {
         @tailrec def modify(): B = {
-          val a = ref.get()
+          val a       = ref.get()
           val (a1, b) = f(a)
           if (ref.compareAndSet(a, a1)) b
           else modify()

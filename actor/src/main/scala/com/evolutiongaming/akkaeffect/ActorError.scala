@@ -11,4 +11,3 @@ object ActorError {
 
   def apply(msg: String, cause: Throwable): ActorError = ActorError(msg, cause.some)
 }
-

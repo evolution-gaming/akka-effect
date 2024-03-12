@@ -28,7 +28,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
 
     case class Event(fa: F[Unit])
 
-    def eventsourced(act: Act[F], ref: Ref[F, Queue[F[Unit]]]): F[Append.Eventsourced] = {
+    def eventsourced(act: Act[F], ref: Ref[F, Queue[F[Unit]]]): F[Append.Eventsourced] =
       Ref[F]
         .of(SeqNr.Min)
         .map { seqNr =>
@@ -38,38 +38,33 @@ class AppendTest extends AsyncFunSuite with Matchers {
 
             def persistAllAsync[A](events: List[A])(handler: A => Unit) = {
               val handlers = for {
-                _ <- seqNr.update { _ + events.size }
-                _ <- events.foldMapM { event => act { handler(event) } }
+                _ <- seqNr.update(_ + events.size)
+                _ <- events.foldMapM(event => act(handler(event)))
               } yield {}
               ref
-                .update { _.enqueue(handlers) }
+                .update(_.enqueue(handlers))
                 .toTry
                 .get
             }
           }
         }
-    }
 
-    val error: Throwable = new RuntimeException with NoStackTrace
+    val error: Throwable   = new RuntimeException with NoStackTrace
     val stopped: Throwable = new RuntimeException with NoStackTrace
 
     for {
       ref          <- Ref[F].of(Queue.empty[F[Unit]])
       eventsourced <- eventsourced(act, ref)
-      result       <- Append
+      result <- Append
         .adapter[F, Int](act, eventsourced, stopped.pure[F])
         .use { append =>
-
-          def dequeue = {
-            ref
-              .modify { queue =>
-                queue.dequeueOption match {
-                  case Some((a, queue)) => (queue, a)
-                  case None             => (Queue.empty, ().pure[F])
-                }
+          def dequeue =
+            ref.modify { queue =>
+              queue.dequeueOption match {
+                case Some((a, queue)) => (queue, a)
+                case None             => (Queue.empty, ().pure[F])
               }
-              .flatten
-          }
+            }.flatten
 
           for {
             seqNr0 <- append.value(Events.batched(Nel.of(0, 1), Nel.of(2)))
@@ -90,7 +85,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
             seqNr1 <- append.value(Events.of(5))
             queue  <- ref.get
             _       = queue.size shouldEqual 2
-            _      <- Sync[F].delay { append.onError(error, 2, 2L) }
+            _      <- Sync[F].delay(append.onError(error, 2, 2L))
             seqNr  <- seqNr0.attempt
             _       = seqNr shouldEqual error.asLeft
             seqNr  <- seqNr1.attempt
@@ -98,8 +93,8 @@ class AppendTest extends AsyncFunSuite with Matchers {
             result <- append.value(Events.of(6))
           } yield result
         }
-      result   <- result.attempt
-      _         = result shouldEqual stopped.asLeft
+      result <- result.attempt
+      _       = result shouldEqual stopped.asLeft
     } yield {}
   }
 }
