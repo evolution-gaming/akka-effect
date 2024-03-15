@@ -110,7 +110,7 @@ private[persistence] object LocalActorRef {
 
       private def done(e: Either[Throwable, R]) = {
         val finish = for {
-          _ <- defer.complete(e)
+          _ <- defer.complete(e).attempt
           _ <- fiber.cancel
         } yield {}
         finish.uncancelable
