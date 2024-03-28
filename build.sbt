@@ -6,10 +6,9 @@ lazy val commonSettings = Seq(
   startYear := Some(2019),
   organizationName := "Evolution",
   organizationHomepage := Some(url("http://evolution.com")),
-  scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.13", "2.12.19"),
+  scalaVersion := "2.13.13",
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
-  scalacOptions := Seq("-release:17"/*, "-Xsource:3"*//*, "-Xsource:3-cross"*/),
+  scalacOptions := Seq("-release:17", "-Xsource:3-cross"),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
@@ -18,11 +17,14 @@ lazy val commonSettings = Seq(
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
   versionScheme := Some("semver-spec"))
 
+val alias: Seq[sbt.Def.Setting[_]] =
+  addCommandAlias("build", "all scalafmtCheckAll scalafmtSbtCheck compile test")
 
 lazy val root = (project in file(".")
   settings (name := "akka-effect")
   settings commonSettings
   settings (publish / skip := true)
+  settings alias
   aggregate(
     actor,
     `actor-tests`,
