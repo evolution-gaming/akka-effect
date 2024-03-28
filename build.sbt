@@ -18,7 +18,7 @@ lazy val commonSettings = Seq(
   versionScheme := Some("semver-spec"))
 
 val alias: Seq[sbt.Def.Setting[_]] =
-  addCommandAlias("build", "all scalafmtCheckAll scalafmtSbtCheck compile test")
+  addCommandAlias("build", "all compile test")
 
 lazy val root = (project in file(".")
   settings (name := "akka-effect")

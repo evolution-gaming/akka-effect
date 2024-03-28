@@ -23,7 +23,7 @@ import scala.reflect.ClassTag
 
 class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
-  implicit val log = LogOf.empty[IO]
+  implicit val log: LogOf[IO] = LogOf.empty[IO]
 
   test("all") {
     `persistentActorOf`[IO](actorSystem).run()
