@@ -7,7 +7,7 @@ object Dependencies {
   val `executor-tools`            = "com.evolutiongaming"   %% "executor-tools"            % "1.0.4"
   val retry                       = "com.evolutiongaming"   %% "retry"                     % "3.0.1"
   val `akka-persistence-inmemory` = "com.github.dnvriend"   %% "akka-persistence-inmemory" % "2.5.15.2"
-  val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.2"
+  val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.3"
   val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.17.3"
   val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "2.0.0"
   val sstream                     = "com.evolutiongaming"   %% "sstream"                   % "1.0.1"

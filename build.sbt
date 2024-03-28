@@ -2,13 +2,14 @@ import Dependencies._
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
-  homepage := Some(new URL("http://github.com/evolution-gaming/akka-effect")),
+  homepage := Some(url("http://github.com/evolution-gaming/akka-effect")),
   startYear := Some(2019),
   organizationName := "Evolution",
   organizationHomepage := Some(url("http://evolution.com")),
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.10", "2.12.17"),
+  crossScalaVersions := Seq("2.13.13", "2.12.19"),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
+  scalacOptions := Seq("-release:17"/*, "-Xsource:3"*//*, "-Xsource:3-cross"*/),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
