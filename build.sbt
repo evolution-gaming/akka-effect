@@ -2,20 +2,23 @@ import Dependencies._
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
-  homepage := Some(url("http://github.com/evolution-gaming/akka-effect")),
-  startYear := Some(2019),
   organizationName := "Evolution",
   organizationHomepage := Some(url("http://evolution.com")),
+  homepage := Some(url("http://github.com/evolution-gaming/akka-effect")),
+  startYear := Some(2019),
+
   scalaVersion := "2.13.13",
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   scalacOptions := Seq("-release:17", "-Xsource:3-cross"),
-  publishTo := Some(Resolver.evolutionReleases),
-  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
-  scalacOptsFailOnWarn := Some(false),
+  publishTo := Some(Resolver.evolutionReleases),
+  versionScheme := Some("semver-spec"),
+
   /*testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))*/
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
-  versionScheme := Some("semver-spec"))
+
+  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
+)
 
 val alias: Seq[sbt.Def.Setting[_]] =
   addCommandAlias("build", "all compile test")
