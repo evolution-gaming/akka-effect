@@ -32,7 +32,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store  <- EventStoreInterop[IO, String](Persistence(system), 1.second, 100, emptyPluginId, persistenceId)
+          store  <- EventStoreInterop[IO](Persistence(system), 1.second, 100, emptyPluginId, persistenceId)
           events <- store.events(SeqNr.Min)
           events <- events.toList
           _       = events shouldEqual List(EventStore.HighestSeqNr(SeqNr.Min))
@@ -59,7 +59,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store  <- EventStoreInterop[IO, String](Persistence(system), 1.second, 100, pluginId, persistenceId)
+          store  <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
           events <- store.events(SeqNr.Min)
           error  <- events.toList.attempt
         } yield error shouldEqual FailingJournal.exception.asLeft[List[EventStore.Event[String]]]
@@ -76,7 +76,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store <- EventStoreInterop[IO, String](Persistence(system), 1.second, 100, pluginId, persistenceId)
+          store <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
           seqNr <- store.save(Events.of(EventStore.Event("first", 1L), EventStore.Event("second", 2L)))
           error <- seqNr.attempt
         } yield error shouldEqual FailingJournal.exception.asLeft[SeqNr]
@@ -93,7 +93,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store    <- EventStoreInterop[IO, String](Persistence(system), 1.second, 100, pluginId, persistenceId)
+          store    <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
           deleting <- store.deleteTo(SeqNr.Max)
           error    <- deleting.attempt
         } yield error shouldEqual FailingJournal.exception.asLeft[Unit]
@@ -110,7 +110,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store  <- EventStoreInterop[IO, String](Persistence(system), 1.second, 100, pluginId, persistenceId)
+          store  <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
           events <- store.events(SeqNr.Min)
           error  <- events.toList.attempt
         } yield error match {
@@ -129,12 +129,12 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
 
     val timeout  = 1.second
     val capacity = 100
-    val events   = List.tabulate(capacity * 2)(n => EventStore.Event(s"event_$n", n.toLong))
+    val events   = List.tabulate(capacity * 2)(n => EventStore.Event[Any](s"event_$n", n.toLong))
 
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store  <- EventStoreInterop[IO, String](Persistence(system), timeout, capacity, emptyPluginId, persistenceId)
+          store  <- EventStoreInterop[IO](Persistence(system), timeout, capacity, emptyPluginId, persistenceId)
           _      <- store.save(Events.fromList(events).get).flatten
           events <- store.events(SeqNr.Min)
           _      <- IO.sleep(timeout * 2)
@@ -157,7 +157,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store <- EventStoreInterop[IO, String](Persistence(system), 1.second, 100, pluginId, persistenceId)
+          store <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
           seqNr <- store.save(Events.of(EventStore.Event("first", 1L), EventStore.Event("second", 2L)))
           error <- seqNr.attempt
         } yield error match {
@@ -178,7 +178,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store    <- EventStoreInterop[IO, String](Persistence(system), 1.second, 100, pluginId, persistenceId)
+          store    <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
           deleting <- store.deleteTo(SeqNr.Max)
           error    <- deleting.attempt
         } yield error match {

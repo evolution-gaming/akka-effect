@@ -10,11 +10,11 @@ object EventSourcedActorEffect {
   def of[F[_]: Async: ToFuture: FromFuture: LogOf](
     actorRefOf: ActorRefOf[F],
     eventSourcedOf: EventSourcedOf[F, EventSourcedActorOf.Lifecycle[F, Any, Any, Any]],
-    persistence: EventSourcedPersistence[F],
+    persistence: EventSourcedPersistence[F, Any, Any],
     name: Option[String] = None
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 
-    def actor = EventSourcedActorOf.actor[F, Any, Any, Any](eventSourcedOf, persistence)
+    def actor = EventSourcedActorOf.actor[F](eventSourcedOf, persistence)
 
     val props = Props(actor)
 
