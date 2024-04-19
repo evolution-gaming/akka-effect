@@ -36,7 +36,7 @@ object EventSourcedActorOf {
     * Sourcing pattern to persist events/snapshots and recover state from them later.
     *
     * Actor's lifecycle is described by type [[Lifecycle]] and consists of multiple phases, such as recovering, receiving messages and
-    * terminating. Recovery happeneds on actor' startup and is about constucting latest actor' state from snapshot and followed events. On
+    * terminating. Recovery happens on actor's startup and is about constructing latest actor state from snapshot and followed events. On
     * receiving phase actor handles incoming commands and chages its state. Each state' change represented by events, that are persisted and
     * later used in recovery phase. Terminating happeneds on actor shutdown (technically it happens as part of [[Actor.postStop]], check
     * [[ActorOf]] for more details).
