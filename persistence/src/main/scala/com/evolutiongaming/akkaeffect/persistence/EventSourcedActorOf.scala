@@ -165,9 +165,7 @@ object EventSourcedActorOf {
                   seqNr1 -> EventStore.Event(event, seqNr1)
               }
             }
-            .flatMap { events =>
-              store.save(events)
-            }
+            .flatMap { store.save }
 
       }
 
