@@ -19,7 +19,7 @@ import scala.concurrent.Await
 
 class ActorOfTest extends AnyFunSuite with Matchers {
 
-  ignore("ActorCtx effectful methods should always terminate") {
+  test("ActorCtx effectful methods should always terminate") {
     effecfulMethodsMustTerminate[IO]
   }
 
