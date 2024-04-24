@@ -207,7 +207,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
         .pure[F]
       actorRefOf  = ActorRefOf.fromActorRefFactory[F](actorSystem)
       probe       = Probe.of[F](actorRefOf)
-      actorEffect = EventSourcedActorEffect.of[F](actorRefOf, eventSourcedOf, persistence[F])
+      actorEffect = EventSourcedActorEffect.of[F, Any, Any](actorRefOf, eventSourcedOf, persistence[F])
       resources   = (actorEffect, probe).tupled
       result <- resources.use {
         case (actorEffect, probe) =>

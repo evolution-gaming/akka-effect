@@ -32,6 +32,7 @@ object EventSourcedActorOf {
   type Lifecycle[F[_], S, E, C] = Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], ActorOf.Stop]]]
   // format: on
 
+  // format: off
   /** Factory method aimed to create [[Actor]] capable of handling commands, saving snapshots and producing events. The actor uses Event
     * Sourcing pattern to persist events/snapshots and recover state from them later.
     *
@@ -42,6 +43,10 @@ object EventSourcedActorOf {
     * [[ActorOf]] for more details).
     *
     * Persistence layer, used to store/recover events and snapshots, provided by [[EventSourcedPersistence]].
+    * 
+    * @tparam F effect type
+    * @tparam S snapshot type
+    * @tparam E event type
     *
     * @param eventSourcedOf
     *   actor logic used to recover and handle messages
@@ -50,16 +55,17 @@ object EventSourcedActorOf {
     * @return
     *   instance of [[Actor]]
     */
-  def actor[F[_]: Async: ToFuture: LogOf](
-    eventSourcedOf: EventSourcedOf[F, Lifecycle[F, Any, Any, Any]],
-    persistence: EventSourcedPersistence[F, Any, Any]
+  // format: on
+  def actor[F[_]: Async: ToFuture: LogOf, S, E](
+    eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, Any]],
+    persistence: EventSourcedPersistence[F, S, E]
   ): Actor = ActorOf[F] {
     receiveOf(eventSourcedOf, persistence)
   }
 
-  private[evolutiongaming] def receiveOf[F[_]: Async: LogOf](
-    eventSourcedOf: EventSourcedOf[F, Lifecycle[F, Any, Any, Any]],
-    persistence: EventSourcedPersistence[F, Any, Any]
+  private[evolutiongaming] def receiveOf[F[_]: Async: LogOf, S, E](
+    eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, Any]],
+    persistence: EventSourcedPersistence[F, S, E]
   ): ReceiveOf[F, Envelope[Any], ActorOf.Stop] = { actorCtx =>
     LogOf
       .log[F, EventSourcedActorOf.type]
@@ -165,7 +171,9 @@ object EventSourcedActorOf {
                   seqNr1 -> EventStore.Event(event, seqNr1)
               }
             }
-            .flatMap { store.save }
+            .flatMap { events =>
+              store.save(events)
+            }
 
       }
 

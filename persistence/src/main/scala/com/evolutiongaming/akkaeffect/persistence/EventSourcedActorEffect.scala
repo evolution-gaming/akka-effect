@@ -7,14 +7,14 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture, LogOf}
 
 object EventSourcedActorEffect {
 
-  def of[F[_]: Async: ToFuture: FromFuture: LogOf](
+  def of[F[_]: Async: ToFuture: FromFuture: LogOf, S, E](
     actorRefOf: ActorRefOf[F],
-    eventSourcedOf: EventSourcedOf[F, EventSourcedActorOf.Lifecycle[F, Any, Any, Any]],
-    persistence: EventSourcedPersistence[F, Any, Any],
+    eventSourcedOf: EventSourcedOf[F, EventSourcedActorOf.Lifecycle[F, S, E, Any]],
+    persistence: EventSourcedPersistence[F, S, E],
     name: Option[String] = None
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 
-    def actor = EventSourcedActorOf.actor[F](eventSourcedOf, persistence)
+    def actor = EventSourcedActorOf.actor[F, S, E](eventSourcedOf, persistence)
 
     val props = Props(actor)
 
