@@ -70,7 +70,7 @@ object Reply {
 
 
     def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Reply[F, B] = {
-      msg: B =>
+      (msg: B) =>
         for {
           a <- f(msg)
           a <- self(a)

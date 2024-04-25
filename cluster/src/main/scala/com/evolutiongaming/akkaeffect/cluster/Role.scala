@@ -11,7 +11,7 @@ final case class Role(value: String) {
 
 object Role {
 
-  implicit val orderRole: Order[Role] = Order.by { a: Role => a.value }
+  implicit val orderRole: Order[Role] = Order.by { (a: Role) => a.value }
 
   implicit val showRole: Show[Role] = Show.fromToString
 

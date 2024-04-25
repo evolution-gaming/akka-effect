@@ -2,26 +2,32 @@ import Dependencies._
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
-  homepage := Some(new URL("http://github.com/evolution-gaming/akka-effect")),
-  startYear := Some(2019),
   organizationName := "Evolution",
   organizationHomepage := Some(url("http://evolution.com")),
-  scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.10", "2.12.17"),
+  homepage := Some(url("http://github.com/evolution-gaming/akka-effect")),
+  startYear := Some(2019),
+
+  scalaVersion := "2.13.13",
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
-  publishTo := Some(Resolver.evolutionReleases),
-  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
+  scalacOptions := Seq("-release:17", "-Xsource:3-cross"),
   releaseCrossBuild := true,
-  scalacOptsFailOnWarn := Some(false),
+  publishTo := Some(Resolver.evolutionReleases),
+  versionScheme := Some("semver-spec"),
+
   /*testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))*/
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
-  versionScheme := Some("semver-spec"))
 
+  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
+)
+
+val alias: Seq[sbt.Def.Setting[_]] =
+  addCommandAlias("build", "all compile test")
 
 lazy val root = (project in file(".")
   settings (name := "akka-effect")
   settings commonSettings
   settings (publish / skip := true)
+  settings alias
   aggregate(
     actor,
     `actor-tests`,

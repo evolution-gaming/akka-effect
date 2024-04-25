@@ -21,7 +21,7 @@ import scala.util.Try
 
 class EventStoreInteropTest extends AnyFunSuite with Matchers {
 
-  implicit val log = LogOf.empty[IO]
+  implicit val log: LogOf[IO] = LogOf.empty[IO]
 
   val emptyPluginId = ""
 

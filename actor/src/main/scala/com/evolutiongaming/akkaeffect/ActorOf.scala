@@ -31,7 +31,7 @@ object ActorOf {
     }
 
     def onReceive(a: Any, sender: ActorRef)(implicit fail: Fail[F]) = {
-      state: State =>
+      (state: State) =>
         val stop = a match {
           case ReceiveTimeout => state.timeout
           case a              => state(Envelope(a, sender))
@@ -48,7 +48,7 @@ object ActorOf {
 
     new Actor {
 
-      private implicit val fail = Fail.fromActorRef[F](self)
+      private implicit val fail: Fail[F] = Fail.fromActorRef[F](self)
 
       private val act = Act.Adapter(self)
 

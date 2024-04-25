@@ -11,7 +11,7 @@ final case class TypeName(value: String) {
 
 object TypeName {
 
-  implicit val orderTypeName: Order[TypeName] = Order.by { a: TypeName => a.value }
+  implicit val orderTypeName: Order[TypeName] = Order.by { (a: TypeName) => a.value }
 
   implicit val showTypeName: Show[TypeName] = Show.fromToString
 
