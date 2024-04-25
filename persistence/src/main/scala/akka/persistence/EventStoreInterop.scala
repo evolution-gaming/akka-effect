@@ -73,10 +73,7 @@ object EventStoreInterop {
 
         }
 
-        def event(persisted: PersistentRepr): F[EventStore.Event[Any]] =
-          for {
-            payload <- MonadThrow[F].catchNonFatal(persisted.payload)
-          } yield EventStore.Event(payload, persisted.sequenceNr)
+        def event(persisted: PersistentRepr): EventStore.Event[Any] = EventStore.Event(persisted.payload, persisted.sequenceNr)
 
         def bufferOverflow =
           for {
@@ -94,10 +91,13 @@ object EventStoreInterop {
                     State.Consuming(consumer.pure[F]).asLeft[Consumer].leftWiden[State].pure[F]
 
                   case JournalProtocol.ReplayedMessage(persisted) =>
-                    event(persisted).map(event => State.Buffering(Vector(event)).asLeft[Consumer])
+                    val events = Vector(event(persisted))
+                    val state1 = State.Buffering(events): State
+                    state1.asLeft[Consumer].pure[F]
 
                   case JournalProtocol.RecoverySuccess(seqNr) =>
-                    State.Finishing(Vector.empty, seqNr).asLeft[Consumer].leftWiden[State].pure[F]
+                    val state1 = State.Finishing(Vector.empty, seqNr): State
+                    state1.asLeft[Consumer].pure[F]
 
                   case JournalProtocol.ReplayMessagesFailure(error) =>
                     error.raiseError[F, Either[State, Consumer]]
@@ -108,16 +108,24 @@ object EventStoreInterop {
                   case consumer: Consumer =>
                     for {
                       fiber <- state.events.foldLeftM(consumer) { case (c, e) => c.onEvent(e) }.start
-                    } yield State.Consuming(fiber.join.flatMap(_.embedError)).asLeft[Consumer].leftWiden[State]
+                    } yield {
+                      val joined = fiber.join.flatMap(_.embedError)
+                      val state1 = State.Consuming(joined): State
+                      state1.asLeft[Consumer]
+                    }
 
                   case JournalProtocol.ReplayedMessage(persisted) =>
                     for {
-                      event <- event(persisted)
-                      _     <- if (state.events.length >= capacity) bufferOverflow else ().pure[F]
-                    } yield State.Buffering(state.events :+ event).asLeft[Consumer].leftWiden[State]
+                      _ <- if (state.events.length >= capacity) bufferOverflow else ().pure[F]
+                    } yield {
+                      val events = state.events :+ event(persisted)
+                      val state1 = State.Buffering(events): State
+                      state1.asLeft[Consumer]
+                    }
 
                   case JournalProtocol.RecoverySuccess(seqNr) =>
-                    State.Finishing(state.events, seqNr).asLeft[Consumer].leftWiden[State].pure[F]
+                    val state1 = State.Finishing(state.events, seqNr): State
+                    state1.asLeft[Consumer].pure[F]
 
                   case JournalProtocol.ReplayMessagesFailure(error) =>
                     error.raiseError[F, Either[State, Consumer]]
@@ -126,15 +134,12 @@ object EventStoreInterop {
               case state: State.Consuming =>
                 message match {
                   case JournalProtocol.ReplayedMessage(persisted) =>
-                    for {
-                      event <- event(persisted)
-                    } yield {
-                      val consumer = for {
-                        consumer <- state.consumer
-                        consumer <- consumer.onEvent(event)
-                      } yield consumer
-                      State.Consuming(consumer).asLeft[Consumer].leftWiden[State]
-                    }
+                    val consumer = for {
+                      consumer <- state.consumer
+                      consumer <- consumer.onEvent(event(persisted))
+                    } yield consumer
+                    val state1 = State.Consuming(consumer): State
+                    state1.asLeft[Consumer].pure[F]
 
                   case JournalProtocol.RecoverySuccess(seqNr) =>
                     for {

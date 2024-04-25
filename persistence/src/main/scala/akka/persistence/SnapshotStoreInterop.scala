@@ -3,7 +3,6 @@ package akka.persistence
 import java.time.Instant
 
 import akka.persistence.SnapshotSelectionCriteria
-import cats.MonadThrow
 import cats.effect.Sync
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorEffect
@@ -44,14 +43,13 @@ object SnapshotStoreInterop {
                 snapshot match {
 
                   case Some(offer) =>
-                    val payload   = MonadThrow[F].catchNonFatal(offer.snapshot)
+                    val payload   = offer.snapshot
                     val timestamp = Instant.ofEpochMilli(offer.metadata.timestamp)
                     val metadata  = SnapshotStore.Metadata(offer.metadata.sequenceNr, timestamp)
 
                     for {
                       _ <- log.debug(s"recovery: receive offer $offer")
-                      a <- payload
-                    } yield SnapshotStore.Offer(a, metadata).some
+                    } yield SnapshotStore.Offer(payload, metadata).some
 
                   case None => none[SnapshotStore.Offer[Any]].pure[F]
                 }
