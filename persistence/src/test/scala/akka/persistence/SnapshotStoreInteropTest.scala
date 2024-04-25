@@ -32,7 +32,7 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store    <- SnapshotStoreInterop[IO, String](Persistence(system), 1.second, emptyPluginId, persistenceId)
+          store    <- SnapshotStoreInterop[IO](Persistence(system), 1.second, emptyPluginId, persistenceId)
           snapshot <- store.latest
           _         = snapshot shouldEqual none
           _        <- store.save(SeqNr.Min, payload).flatten
@@ -52,7 +52,7 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store    <- SnapshotStoreInterop[IO, String](Persistence(system), 1.second, emptyPluginId, persistenceId)
+          store    <- SnapshotStoreInterop[IO](Persistence(system), 1.second, emptyPluginId, persistenceId)
           _        <- store.save(SeqNr.Min, payload).flatten
           snapshot <- store.latest
           _         = snapshot.get.snapshot should equal(payload)
@@ -73,7 +73,7 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store <- SnapshotStoreInterop[IO, String](Persistence(system), 1.second, pluginId, persistenceId)
+          store <- SnapshotStoreInterop[IO](Persistence(system), 1.second, pluginId, persistenceId)
           error <- store.latest.attempt
           _      = error shouldEqual FailingSnapshotter.exception.asLeft[List[SnapshotStore.Offer[String]]]
         } yield {}
@@ -91,7 +91,7 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store  <- SnapshotStoreInterop[IO, String](Persistence(system), 1.second, pluginId, persistenceId)
+          store  <- SnapshotStoreInterop[IO](Persistence(system), 1.second, pluginId, persistenceId)
           saving <- store.save(SeqNr.Min, payload)
           error  <- saving.attempt
           _       = error shouldEqual FailingSnapshotter.exception.asLeft[Instant]
@@ -109,7 +109,7 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store    <- SnapshotStoreInterop[IO, String](Persistence(system), 1.second, pluginId, persistenceId)
+          store    <- SnapshotStoreInterop[IO](Persistence(system), 1.second, pluginId, persistenceId)
           deleting <- store.delete(SeqNr.Min)
           error    <- deleting.attempt
           _         = error shouldEqual FailingSnapshotter.exception.asLeft[Unit]
@@ -127,7 +127,7 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store    <- SnapshotStoreInterop[IO, String](Persistence(system), 1.second, pluginId, persistenceId)
+          store    <- SnapshotStoreInterop[IO](Persistence(system), 1.second, pluginId, persistenceId)
           deleting <- store.delete(SnapshotStore.Criteria())
           error    <- deleting.attempt
           _         = error shouldEqual FailingSnapshotter.exception.asLeft[Unit]
@@ -145,7 +145,7 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use(system =>
         for {
-          store <- SnapshotStoreInterop[IO, String](Persistence(system), 1.second, pluginId, persistenceId)
+          store <- SnapshotStoreInterop[IO](Persistence(system), 1.second, pluginId, persistenceId)
           error <- store.latest.attempt
         } yield error match {
           case Left(_: AskTimeoutException) => succeed
@@ -166,7 +166,7 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store  <- SnapshotStoreInterop[IO, String](Persistence(system), 1.second, pluginId, persistenceId)
+          store  <- SnapshotStoreInterop[IO](Persistence(system), 1.second, pluginId, persistenceId)
           saving <- store.save(SeqNr.Min, payload)
           error  <- saving.attempt
         } yield error match {
@@ -187,7 +187,7 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store    <- SnapshotStoreInterop[IO, String](Persistence(system), 1.second, pluginId, persistenceId)
+          store    <- SnapshotStoreInterop[IO](Persistence(system), 1.second, pluginId, persistenceId)
           deleting <- store.delete(SeqNr.Min)
           error    <- deleting.attempt
         } yield error match {
@@ -208,7 +208,7 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
         for {
-          store    <- SnapshotStoreInterop[IO, String](Persistence(system), 1.second, pluginId, persistenceId)
+          store    <- SnapshotStoreInterop[IO](Persistence(system), 1.second, pluginId, persistenceId)
           deleting <- store.delete(SnapshotStore.Criteria())
           error    <- deleting.attempt
         } yield error match {

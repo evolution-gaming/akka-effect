@@ -1,18 +1,15 @@
 package akka.persistence
 
-import cats.syntax.all._
 import cats.effect.syntax.all._
-import cats.effect.{Async, Sync, Ref}
-
+import cats.effect.{Async, Sync}
+import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorEffect
-import com.evolutiongaming.akkaeffect.persistence.{EventStore, EventSourcedId, SeqNr, Events}
-import com.evolutiongaming.catshelper.{FromFuture, ToTry, LogOf}
+import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, EventStore, Events, SeqNr}
+import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToTry}
 import com.evolutiongaming.sstream
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
-import cats.MonadThrow
-import com.evolutiongaming.akkaeffect.AkkaEffectHelper.IdOpsAkkaEffectHelper
 
 object EventStoreInterop {
 
@@ -40,13 +37,13 @@ object EventStoreInterop {
     * @return
     *   instance of [[EventStore]]
     */
-  def apply[F[_]: Async: FromFuture: ToTry: LogOf, A](
+  def apply[F[_]: Async: FromFuture: ToTry: LogOf](
     persistence: Persistence,
     timeout: FiniteDuration,
     capacity: Int,
     journalPluginId: String,
     eventSourcedId: EventSourcedId
-  ): F[EventStore[F, A]] =
+  ): F[EventStore[F, Any]] =
     for {
       log <- LogOf.log[F, EventStoreInterop.type]
       log <- log.prefixed(eventSourcedId.value).pure[F]
@@ -55,30 +52,27 @@ object EventStoreInterop {
           persistence.journalFor(journalPluginId)
         }
       }
-    } yield new EventStore[F, A] {
+    } yield new EventStore[F, Any] {
 
       val persistenceId = eventSourcedId.value
 
-      override def events(fromSeqNr: SeqNr): F[sstream.Stream[F, EventStore.Persisted[A]]] = {
+      override def events(fromSeqNr: SeqNr): F[sstream.Stream[F, EventStore.Persisted[Any]]] = {
 
         trait Consumer {
-          def onEvent(event: EventStore.Persisted[A]): F[Consumer]
+          def onEvent(event: EventStore.Persisted[Any]): F[Consumer]
         }
 
         sealed trait State
         object State {
 
-          object Empty                                                                 extends State
-          case class Buffering(events: Vector[EventStore.Event[A]])                    extends State
-          case class Consuming(consumer: F[Consumer])                                  extends State
-          case class Finishing(events: Vector[EventStore.Event[A]], finalSeqNr: SeqNr) extends State
+          object Empty                                                                   extends State
+          case class Buffering(events: Vector[EventStore.Event[Any]])                    extends State
+          case class Consuming(consumer: F[Consumer])                                    extends State
+          case class Finishing(events: Vector[EventStore.Event[Any]], finalSeqNr: SeqNr) extends State
 
         }
 
-        def event(persisted: PersistentRepr): F[EventStore.Event[A]] =
-          for {
-            payload <- MonadThrow[F].catchNonFatal(persisted.payload.asInstanceOf[A])
-          } yield EventStore.Event(payload, persisted.sequenceNr)
+        def event(persisted: PersistentRepr): EventStore.Event[Any] = EventStore.Event(persisted.payload, persisted.sequenceNr)
 
         def bufferOverflow =
           for {
@@ -96,10 +90,13 @@ object EventStoreInterop {
                     State.Consuming(consumer.pure[F]).asLeft[Consumer].leftWiden[State].pure[F]
 
                   case JournalProtocol.ReplayedMessage(persisted) =>
-                    event(persisted).map(event => State.Buffering(Vector(event)).asLeft[Consumer])
+                    val events = Vector(event(persisted))
+                    val state1 = State.Buffering(events): State
+                    state1.asLeft[Consumer].pure[F]
 
                   case JournalProtocol.RecoverySuccess(seqNr) =>
-                    State.Finishing(Vector.empty, seqNr).asLeft[Consumer].leftWiden[State].pure[F]
+                    val state1 = State.Finishing(Vector.empty, seqNr): State
+                    state1.asLeft[Consumer].pure[F]
 
                   case JournalProtocol.ReplayMessagesFailure(error) =>
                     error.raiseError[F, Either[State, Consumer]]
@@ -110,16 +107,24 @@ object EventStoreInterop {
                   case consumer: Consumer =>
                     for {
                       fiber <- state.events.foldLeftM(consumer) { case (c, e) => c.onEvent(e) }.start
-                    } yield State.Consuming(fiber.join.flatMap(_.embedError)).asLeft[Consumer].leftWiden[State]
+                    } yield {
+                      val joined = fiber.join.flatMap(_.embedError)
+                      val state1 = State.Consuming(joined): State
+                      state1.asLeft[Consumer]
+                    }
 
                   case JournalProtocol.ReplayedMessage(persisted) =>
                     for {
-                      event <- event(persisted)
-                      _     <- if (state.events.length >= capacity) bufferOverflow else ().pure[F]
-                    } yield State.Buffering(state.events :+ event).asLeft[Consumer].leftWiden[State]
+                      _ <- if (state.events.length >= capacity) bufferOverflow else ().pure[F]
+                    } yield {
+                      val events = state.events :+ event(persisted)
+                      val state1 = State.Buffering(events): State
+                      state1.asLeft[Consumer]
+                    }
 
                   case JournalProtocol.RecoverySuccess(seqNr) =>
-                    State.Finishing(state.events, seqNr).asLeft[Consumer].leftWiden[State].pure[F]
+                    val state1 = State.Finishing(state.events, seqNr): State
+                    state1.asLeft[Consumer].pure[F]
 
                   case JournalProtocol.ReplayMessagesFailure(error) =>
                     error.raiseError[F, Either[State, Consumer]]
@@ -128,15 +133,12 @@ object EventStoreInterop {
               case state: State.Consuming =>
                 message match {
                   case JournalProtocol.ReplayedMessage(persisted) =>
-                    for {
-                      event <- event(persisted)
-                    } yield {
-                      val consumer = for {
-                        consumer <- state.consumer
-                        consumer <- consumer.onEvent(event)
-                      } yield consumer
-                      State.Consuming(consumer).asLeft[Consumer].leftWiden[State]
-                    }
+                    val consumer = for {
+                      consumer <- state.consumer
+                      consumer <- consumer.onEvent(event(persisted))
+                    } yield consumer
+                    val state1 = State.Consuming(consumer): State
+                    state1.asLeft[Consumer].pure[F]
 
                   case JournalProtocol.RecoverySuccess(seqNr) =>
                     for {
@@ -173,13 +175,13 @@ object EventStoreInterop {
           )
           _ <- journaller.tell(request)
           _ <- log.debug("recovery: events from Akka percictence requested")
-        } yield new sstream.Stream[F, EventStore.Persisted[A]] {
+        } yield new sstream.Stream[F, EventStore.Persisted[Any]] {
 
-          override def foldWhileM[L, R](l: L)(f: (L, EventStore.Persisted[A]) => F[Either[L, R]]): F[Either[L, R]] = {
+          override def foldWhileM[L, R](l: L)(f: (L, EventStore.Persisted[Any]) => F[Either[L, R]]): F[Either[L, R]] = {
 
             class TheConsumer(val state: Either[L, R]) extends Consumer { self =>
 
-              def onEvent(event: EventStore.Persisted[A]): F[Consumer] =
+              def onEvent(event: EventStore.Persisted[Any]): F[Consumer] =
                 state match {
                   case Left(state) => f(state, event) map { e => new TheConsumer(e) }
                   case _           => (self: Consumer).pure[F]
@@ -198,7 +200,7 @@ object EventStoreInterop {
 
       }
 
-      override def save(events: Events[EventStore.Event[A]]): F[F[SeqNr]] = {
+      override def save(events: Events[EventStore.Event[Any]]): F[F[SeqNr]] = {
 
         case class State(writes: Long, maxSeqNr: SeqNr)
         val state = State(events.size, SeqNr.Min)

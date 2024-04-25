@@ -1,27 +1,23 @@
 package akka.persistence
 
 import akka.persistence.SnapshotSelectionCriteria
-import cats.MonadThrow
 import cats.effect.Sync
 import cats.syntax.all._
 import com.evolutiongaming.akkaeffect.ActorEffect
-import com.evolutiongaming.akkaeffect.persistence.EventSourcedId
-import com.evolutiongaming.akkaeffect.persistence.SeqNr
-import com.evolutiongaming.akkaeffect.persistence.SnapshotStore
-import com.evolutiongaming.catshelper.FromFuture
+import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, SeqNr, SnapshotStore}
+import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 
 import java.time.Instant
 import scala.concurrent.duration._
-import com.evolutiongaming.catshelper.LogOf
 
 object SnapshotStoreInterop {
 
-  def apply[F[_]: Sync: FromFuture: LogOf, A](
+  def apply[F[_]: Sync: FromFuture: LogOf](
     persistence: Persistence,
     timeout: FiniteDuration,
     snapshotPluginId: String,
     eventSourcedId: EventSourcedId
-  ): F[SnapshotStore[F, A]] =
+  ): F[SnapshotStore[F, Any]] =
     for {
       log <- LogOf.log[F, SnapshotStoreInterop.type]
       log <- log.prefixed(eventSourcedId.value).pure[F]
@@ -30,11 +26,11 @@ object SnapshotStoreInterop {
           val actorRef = persistence.snapshotStoreFor(snapshotPluginId)
           ActorEffect.fromActor(actorRef)
         }
-    } yield new SnapshotStore[F, A] {
+    } yield new SnapshotStore[F, Any] {
 
       val persistenceId = eventSourcedId.value
 
-      override def latest: F[Option[SnapshotStore.Offer[A]]] = {
+      override def latest: F[Option[SnapshotStore.Offer[Any]]] = {
         val criteria = SnapshotSelectionCriteria()
         val request  = SnapshotProtocol.LoadSnapshot(persistenceId, criteria, Long.MaxValue)
         val offer = snapshotter
@@ -46,29 +42,28 @@ object SnapshotStoreInterop {
                 snapshot match {
 
                   case Some(offer) =>
-                    val payload   = MonadThrow[F].catchNonFatal(offer.snapshot.asInstanceOf[A])
+                    val payload   = offer.snapshot
                     val timestamp = Instant.ofEpochMilli(offer.metadata.timestamp)
                     val metadata  = SnapshotStore.Metadata(offer.metadata.sequenceNr, timestamp)
 
                     for {
                       _ <- log.debug(s"recovery: receive offer $offer")
-                      a <- payload
-                    } yield SnapshotStore.Offer(a, metadata).some
+                    } yield SnapshotStore.Offer(payload, metadata).some
 
-                  case None => none[SnapshotStore.Offer[A]].pure[F]
+                  case None => none[SnapshotStore.Offer[Any]].pure[F]
                 }
 
               case SnapshotProtocol.LoadSnapshotFailed(err) =>
                 for {
                   _ <- log.error(s"loading snapshot failed", err)
-                  a <- err.raiseError[F, Option[SnapshotStore.Offer[A]]]
+                  a <- err.raiseError[F, Option[SnapshotStore.Offer[Any]]]
                 } yield a
             }
           }
         log.debug("recovery: snapshot requested") >> offer
       }
 
-      override def save(seqNr: SeqNr, snapshot: A): F[F[Instant]] = {
+      override def save(seqNr: SeqNr, snapshot: Any): F[F[Instant]] = {
         val metadata = SnapshotMetadata(persistenceId, seqNr)
         val request  = SnapshotProtocol.SaveSnapshot(metadata, snapshot)
         snapshotter
