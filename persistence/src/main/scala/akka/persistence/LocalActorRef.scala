@@ -1,13 +1,11 @@
 package akka.persistence
 
-import akka.actor.ActorRef
-import akka.actor.MinimalActorRef
+import akka.actor.{ActorRef, MinimalActorRef}
 import cats.effect.Temporal
 import cats.effect.syntax.all._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper.OpsCatsHelper
-import com.evolutiongaming.catshelper.SerialRef
-import com.evolutiongaming.catshelper.ToTry
+import com.evolutiongaming.catshelper.{SerialRef, ToTry}
 
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration._

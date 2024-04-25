@@ -1,7 +1,5 @@
 package akka.persistence
 
-import java.time.Instant
-
 import akka.persistence.SnapshotSelectionCriteria
 import cats.effect.Sync
 import cats.syntax.all._
@@ -9,6 +7,7 @@ import com.evolutiongaming.akkaeffect.ActorEffect
 import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, SeqNr, SnapshotStore}
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 
+import java.time.Instant
 import scala.concurrent.duration._
 
 object SnapshotStoreInterop {

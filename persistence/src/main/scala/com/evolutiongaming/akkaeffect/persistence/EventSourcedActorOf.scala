@@ -1,7 +1,5 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import java.time.Instant
-
 import akka.actor.Actor
 import akka.persistence.SnapshotSelectionCriteria
 import cats.Monad
@@ -11,6 +9,8 @@ import cats.syntax.all._
 import com.evolutiongaming.akkaeffect._
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.catshelper.{LogOf, ToFuture}
+
+import java.time.Instant
 
 object EventSourcedActorOf {
 

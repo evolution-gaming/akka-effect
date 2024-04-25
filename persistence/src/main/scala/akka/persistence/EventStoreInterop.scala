@@ -1,6 +1,5 @@
 package akka.persistence
 
-import cats.MonadThrow
 import cats.effect.syntax.all._
 import cats.effect.{Async, Sync}
 import cats.syntax.all._
