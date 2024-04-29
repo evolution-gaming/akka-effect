@@ -88,7 +88,7 @@ private[akkaeffect] object Act {
                   if (adapter.contains(self: Adapter[F])) {
                     Sync[F].delay { f }
                   } else {
-                    Async[F].async_[A] { callback =>
+                    Async[F].async[A] { callback =>
                       val f1 = () => {
                         val a = Either.catchNonFatal(f)
                         callback(a)
@@ -97,7 +97,10 @@ private[akkaeffect] object Act {
                           case Left(a)  => throw a
                         }
                       }
-                      tell(Msg(f1))
+                      Async[F].delay {
+                        tell(Msg(f1))
+                        Async[F].unit.some
+                      }
                     }
                   }
                 }

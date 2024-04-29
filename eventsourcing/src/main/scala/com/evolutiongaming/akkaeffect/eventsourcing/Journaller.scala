@@ -4,9 +4,7 @@ import cats.syntax.all._
 import cats.{Applicative, FlatMap, Functor, ~>}
 import com.evolutiongaming.akkaeffect.persistence
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
-import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.smetrics.MeasureDuration
-
+import com.evolutiongaming.catshelper.{Log, MeasureDuration}
 
 trait Journaller[F[_]] {
   /**
@@ -35,8 +33,7 @@ object Journaller {
       (seqNr: SeqNr) => f(self.deleteTo(seqNr)).map(a => f(a))
     }
 
-
-    def withLogging(
+    def withLogging1(
       log: Log[F])(implicit
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]

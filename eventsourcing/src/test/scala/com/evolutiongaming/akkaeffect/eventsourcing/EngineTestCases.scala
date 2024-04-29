@@ -229,7 +229,6 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
   def `append error prevents further appends`[F[_]: Async: ToFuture: FromFuture]
     : F[Unit] = {
 
-    type S = Unit
     type E = Unit
 
     val error: Throwable = new RuntimeException with NoStackTrace

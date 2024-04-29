@@ -12,7 +12,7 @@ final case class EventSourcedId(value: String) {
 
 object EventSourcedId {
 
-  implicit val orderEventSourcedId: Order[EventSourcedId] = Order.by { a: EventSourcedId => a.value }
+  implicit val orderEventSourcedId: Order[EventSourcedId] = Order.by { (a: EventSourcedId) => a.value }
 
   implicit val showEventSourcedId: Show[EventSourcedId] = Show.fromToString
 }

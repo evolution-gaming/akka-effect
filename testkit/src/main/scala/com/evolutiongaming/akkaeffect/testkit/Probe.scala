@@ -123,7 +123,7 @@ object Probe {
         def watch(target: ActorRef) = {
 
           def listenerOf(deferred: Deferred[F, Unit]) = {
-            a: Envelope[Any] =>
+            (a: Envelope[Any]) =>
               a.msg match {
                 case Terminated(`target`) => deferred.complete(()).as(true)
                 case _                    => false.pure[F]

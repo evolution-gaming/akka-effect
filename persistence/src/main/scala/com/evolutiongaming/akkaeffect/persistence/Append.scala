@@ -8,8 +8,7 @@ import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.akkaeffect.util.AtomicRef
 import com.evolutiongaming.akkaeffect.{Act, Fail}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{Log, MonadThrowable, ToFuture}
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable, ToFuture}
 
 import scala.collection.immutable.Queue
 
@@ -144,8 +143,7 @@ object Append {
 
     def narrow[B <: A]: Append[F, B] = events => self(events)
 
-
-    def withLogging(
+    def withLogging1(
       log: Log[F])(implicit
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]

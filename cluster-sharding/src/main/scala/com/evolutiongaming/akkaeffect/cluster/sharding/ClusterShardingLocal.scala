@@ -15,15 +15,21 @@ import com.evolutiongaming.catshelper.{FromFuture, ToFuture, ToTry}
 
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import scala.concurrent.Promise
+import scala.concurrent.{ExecutionContextExecutor, Promise}
 import scala.concurrent.duration._
 import scala.util.Try
 
-
+/** Stub for [[ClusterSharding]] to be used in the unit tests. */
 trait ClusterShardingLocal[F[_]] {
 
+  /** Provides the actual stub */
   def clusterSharding: ClusterSharding[F]
 
+  /** Simulate cluster rebalacing.
+    *
+    * I.e. send `handOffStopMessage` from [[ClusterSharding#startProxy]] to the
+    * actors that need rebalancing according to `shardAllocationStrategy`.
+    */
   def rebalance: F[Unit]
 }
 
@@ -123,7 +129,7 @@ object ClusterShardingLocal {
 
               def regionActor(): Actor = new Actor {
 
-                private implicit val executor = context.dispatcher
+                private implicit val executor: ExecutionContextExecutor = context.dispatcher
 
                 def allocation(): Map[ActorRef, Vector[ShardId]] = {
                   val shardIds = context

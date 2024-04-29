@@ -13,7 +13,6 @@ import com.evolutiongaming.akkaeffect.util.Terminated
 import com.evolutiongaming.akkaeffect.{ActorRefOf, Ask}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper._
-import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration._
 
@@ -138,15 +137,15 @@ object ClusterSharding {
 
   implicit class ClusterShardingOps[F[_]](val self: ClusterSharding[F]) extends AnyVal {
 
-    def withLogging(implicit
+    def withLogging1(implicit
       F: BracketThrowable[F],
       measureDuration: MeasureDuration[F],
       logOf: LogOf[F]
     ): F[ClusterSharding[F]] = {
-      logOf(ClusterSharding.getClass).map { log => withLogging(log) }
+      logOf(ClusterSharding.getClass).map { log => withLogging1(log) }
     }
 
-    def withLogging(
+    def withLogging1(
       log: Log[F])(implicit
       F: BracketThrowable[F],
       measureDuration: MeasureDuration[F]

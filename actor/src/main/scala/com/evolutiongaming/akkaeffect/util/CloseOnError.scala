@@ -5,10 +5,22 @@ import cats.effect.{Ref, Sync}
 import cats.syntax.all._
 
 
+/** Execute underlying effect as is, but memoize a potential error.
+  *
+  * In other words, as soon as the error happens, the effects will not be
+  * executed anymore, but the previous error will be returned instead.
+  */
 trait CloseOnError[F[_]] {
 
+  /** Wrap an effectful value.
+    *
+    * This method is fine to be called serveral times, but all of the wrapped
+    * values will use a single latch, so if one of them fails, all others will
+    * return the same error.
+    */
   def apply[A](fa: F[A]): F[A]
 
+  /** Memoized error, or `None` if an error did not happen yet */
   def error: F[Option[Throwable]]
 }
 
