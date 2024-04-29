@@ -354,7 +354,7 @@ object JournalKeeper {
   final case class Candidate[+A](seqNr: SeqNr, value: A)
 
   object Candidate {
-    implicit def ordered[A]: Order[Candidate[A]] = Order.by { a: Candidate[A] => a.seqNr }
+    implicit def ordered[A]: Order[Candidate[A]] = Order.by { (a: Candidate[A]) => a.seqNr }
   }
 
 

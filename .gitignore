@@ -25,4 +25,8 @@ project/plugins/project/
 # Mac
 .DS_Store
 
+metals.sbt
+.metals
+.bloop
+
 ignored

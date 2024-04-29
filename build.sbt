@@ -2,31 +2,38 @@ import Dependencies._
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
-  homepage := Some(new URL("http://github.com/evolution-gaming/akka-effect")),
-  startYear := Some(2019),
   organizationName := "Evolution",
   organizationHomepage := Some(url("http://evolution.com")),
-  scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.10", "2.12.17"),
+  homepage := Some(url("http://github.com/evolution-gaming/akka-effect")),
+  startYear := Some(2019),
+
+  scalaVersion := "2.13.13",
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
-  publishTo := Some(Resolver.evolutionReleases),
-  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
+  scalacOptions := Seq("-release:17", "-Xsource:3-cross"),
   releaseCrossBuild := true,
-  scalacOptsFailOnWarn := Some(false),
+  publishTo := Some(Resolver.evolutionReleases),
+  versionScheme := Some("semver-spec"),
+
   /*testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))*/
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
-  versionScheme := Some("semver-spec"))
 
+  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
+)
+
+val alias: Seq[sbt.Def.Setting[_]] =
+  addCommandAlias("build", "all compile test")
 
 lazy val root = (project in file(".")
   settings (name := "akka-effect")
   settings commonSettings
   settings (publish / skip := true)
+  settings alias
   aggregate(
     actor,
     `actor-tests`,
     testkit,
     persistence,
+    `persistence-api`,
     eventsourcing,
     cluster,
     `cluster-sharding`))
@@ -64,13 +71,31 @@ lazy val testkit = (project in file("testkit")
     Akka.testkit % Test,
     scalatest % Test)))
 
+lazy val `persistence-api` = (project in file("persistence-api")
+  settings (name := "akka-effect-persistence-api")
+  settings commonSettings
+  dependsOn(
+    actor % "test->test;compile->compile",
+    testkit % "test->test;test->compile",
+    `actor-tests` % "test->test")
+  settings (
+    libraryDependencies ++= Seq(
+      Cats.core,
+      CatsEffect.effect,
+      `cats-helper`,
+      sstream,
+      Akka.slf4j % Test,
+      Akka.testkit % Test,
+      scalatest % Test)))
+
 lazy val persistence = (project in file("persistence")
   settings (name := "akka-effect-persistence")
   settings commonSettings
   dependsOn(
-    actor         % "test->test;compile->compile",
-    testkit       % "test->test;test->compile",
-    `actor-tests` % "test->test")
+  `persistence-api` % "test->test;compile->compile",
+    actor           % "test->test;compile->compile",
+    testkit         % "test->test;test->compile",
+    `actor-tests`   % "test->test")
   settings (
     libraryDependencies ++= Seq(
       Akka.actor,

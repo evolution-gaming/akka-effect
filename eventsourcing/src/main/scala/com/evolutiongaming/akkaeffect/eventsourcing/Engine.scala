@@ -19,9 +19,6 @@ import com.evolutiongaming.catshelper.{FromFuture, Runtime, SerParQueue, ToFutur
 trait Engine[F[_], S, E] {
   import Engine._
 
-  @deprecated("use either `effective` or `optimistic`. `optimistic` has exact behaviour as `state`", "15-03-2023")
-  def state: F[State[S]]
-
   /**
     * Get effective state.
     * Effective state is latest persisted state, should be used for all async operations with [[Journaller]] or [[Snapshotter]]
@@ -52,8 +49,6 @@ object Engine {
     initial: State[S],
     result: Either[Throwable, SeqNr]
   ): Engine[F, S, E] = new Engine[F, S, E] {
-
-    val state = initial.pure[F]
 
     val effective = initial.pure[F]
 
@@ -337,8 +332,6 @@ object Engine {
       close <- CloseOnError.of[F]
     } yield new Engine[F, S, E] {
 
-      override def state: F[State[S]] = optimistic
-
       override def effective: F[State[S]] = eff.get
 
       override def optimistic: F[State[S]] = ref.get.map(_.state)
@@ -468,8 +461,6 @@ object Engine {
       .map { released =>
         new Engine[F, S, E] {
 
-          def state = engine.state
-
           def effective: F[State[S]] = engine.effective
 
           def optimistic: F[State[S]] = engine.optimistic
@@ -529,7 +520,7 @@ object Engine {
     }
 
 
-    def of[F[_] : Sync, A](initial: SeqNr, appended: Ref[F, List[A]]): Append[F, A] =
+    def of[F[_], A](initial: SeqNr, appended: Ref[F, List[A]]): Append[F, A] =
       events =>
         appended.modify { persisted =>
           val applied = persisted ++ events.toList
