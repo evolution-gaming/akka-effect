@@ -20,7 +20,7 @@ object Dependencies {
   }
 
   object CatsEffect {
-    private val version = "3.4.4"
+    private val version = "3.4.11"
     val effect          = "org.typelevel" %% "cats-effect" % version
   }
 
