@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies {
 
-  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.17"
+  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.18"
   val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "3.6.0"
   val `executor-tools`            = "com.evolutiongaming"   %% "executor-tools"            % "1.0.4"
   val retry                       = "com.evolutiongaming"   %% "retry"                     % "3.0.1"
@@ -13,14 +13,14 @@ object Dependencies {
   val sstream                     = "com.evolutiongaming"   %% "sstream"                   % "1.0.1"
 
   object Cats {
-    private val version = "2.9.0"
+    private val version = "2.10.0"
     val core            = "org.typelevel" %% "cats-core"   % version
     val kernel          = "org.typelevel" %% "cats-kernel" % version
     val macros          = "org.typelevel" %% "cats-macros" % version
   }
 
   object CatsEffect {
-    private val version = "3.4.4"
+    private val version = "3.4.11"
     val effect          = "org.typelevel" %% "cats-effect" % version
   }
 
@@ -39,7 +39,7 @@ object Dependencies {
   }
 
   object Logback {
-    private val version = "1.5.3"
+    private val version = "1.5.6"
     val core            = "ch.qos.logback" % "logback-core"    % version
     val classic         = "ch.qos.logback" % "logback-classic" % version
   }
