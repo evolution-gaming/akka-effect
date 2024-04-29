@@ -13,14 +13,16 @@ jobs:
           - 2.13.13
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - uses: coursier/cache-action@v6
 
-      - name: scala
-        uses: olafurpg/setup-scala@v11
+      - name: setup Java and SBT
+        uses: actions/setup-java@v4
         with:
-          java-version: 17
+          java-version: '17'
+          distribution: 'oracle'
+          cache: 'sbt'
 
       - name: build ${{ matrix.scala }}
         run: sbt ++${{ matrix.scala }} clean coverage test
