@@ -2,25 +2,25 @@ import sbt._
 
 object Dependencies {
 
-  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.17"
-  val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "3.6.0"
+  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.18"
+  val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "3.10.3"
   val `executor-tools`            = "com.evolutiongaming"   %% "executor-tools"            % "1.0.4"
-  val retry                       = "com.evolutiongaming"   %% "retry"                     % "3.0.1"
+  val retry                       = "com.evolutiongaming"   %% "retry"                     % "3.0.2"
   val `akka-persistence-inmemory` = "com.github.dnvriend"   %% "akka-persistence-inmemory" % "2.5.15.2"
   val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.3"
   val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.17.3"
-  val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "2.0.0"
+  val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "2.2.0"
   val sstream                     = "com.evolutiongaming"   %% "sstream"                   % "1.0.2"
 
   object Cats {
-    private val version = "2.9.0"
+    private val version = "2.10.0"
     val core            = "org.typelevel" %% "cats-core"   % version
     val kernel          = "org.typelevel" %% "cats-kernel" % version
     val macros          = "org.typelevel" %% "cats-macros" % version
   }
 
   object CatsEffect {
-    private val version = "3.4.4"
+    private val version = "3.4.11"
     val effect          = "org.typelevel" %% "cats-effect" % version
   }
 
@@ -45,7 +45,7 @@ object Dependencies {
   }
 
   object Slf4j {
-    private val version    = "2.0.12"
+    private val version    = "2.0.13"
     val api                = "org.slf4j" % "slf4j-api"        % version
     val `log4j-over-slf4j` = "org.slf4j" % "log4j-over-slf4j" % version
   }
