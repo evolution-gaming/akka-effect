@@ -10,7 +10,7 @@ object Dependencies {
   val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.3"
   val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.17.3"
   val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "2.2.0"
-  val sstream                     = "com.evolutiongaming"   %% "sstream"                   % "1.0.1"
+  val sstream                     = "com.evolutiongaming"   %% "sstream"                   % "1.0.2"
 
   object Cats {
     private val version = "2.10.0"
@@ -39,7 +39,7 @@ object Dependencies {
   }
 
   object Logback {
-    private val version = "1.5.6"
+    private val version = "1.5.3"
     val core            = "ch.qos.logback" % "logback-core"    % version
     val classic         = "ch.qos.logback" % "logback-classic" % version
   }
