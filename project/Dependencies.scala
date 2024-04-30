@@ -13,9 +13,7 @@ object Dependencies {
 
   object Cats {
     private val version = "2.10.0"
-    val core            = "org.typelevel" %% "cats-core"   % version
-    val kernel          = "org.typelevel" %% "cats-kernel" % version
-    val macros          = "org.typelevel" %% "cats-macros" % version
+    val core            = "org.typelevel" %% "cats-core" % version
   }
 
   object CatsEffect {
@@ -30,10 +28,8 @@ object Dependencies {
     val stream              = "com.typesafe.akka" %% "akka-stream"            % version
     val persistence         = "com.typesafe.akka" %% "akka-persistence"       % version
     val `persistence-query` = "com.typesafe.akka" %% "akka-persistence-query" % version
-    val `persistence-tck`   = "com.typesafe.akka" %% "akka-persistence-tck"   % version
     val cluster             = "com.typesafe.akka" %% "akka-cluster"           % version
     val `cluster-sharding`  = "com.typesafe.akka" %% "akka-cluster-sharding"  % version
-    val `cluster-tools`     = "com.typesafe.akka" %% "akka-cluster-tools"     % version
     val slf4j               = "com.typesafe.akka" %% "akka-slf4j"             % version
   }
 

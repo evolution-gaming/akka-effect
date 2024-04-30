@@ -9,7 +9,7 @@ lazy val commonSettings = Seq(
 
   scalaVersion := "2.13.13",
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
-  scalacOptions := Seq("-release:17", "-Xsource:3-cross"),
+  scalacOptions := Seq("-release:17", "-Xsource:3-cross", "-deprecation"),
   releaseCrossBuild := true,
   publishTo := Some(Resolver.evolutionReleases),
   versionScheme := Some("semver-spec"),
