@@ -4,7 +4,6 @@ object Dependencies {
 
   val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.18"
   val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "3.10.3"
-  val `executor-tools`            = "com.evolutiongaming"   %% "executor-tools"            % "1.0.4"
   val retry                       = "com.evolutiongaming"   %% "retry"                     % "3.0.2"
   val `akka-persistence-inmemory` = "com.github.dnvriend"   %% "akka-persistence-inmemory" % "2.5.15.2"
   val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.3"

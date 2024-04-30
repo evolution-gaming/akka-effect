@@ -52,7 +52,6 @@ lazy val actor = (project in file("actor")
     Slf4j.api % Test,
     Slf4j.`log4j-over-slf4j` % Test,
     `cats-helper`,
-    `executor-tools`,
     scalatest % Test)))
 
 lazy val `actor-tests` = (project in file("actor-tests")
