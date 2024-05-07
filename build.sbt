@@ -7,7 +7,7 @@ lazy val commonSettings = Seq(
   homepage := Some(url("http://github.com/evolution-gaming/akka-effect")),
   startYear := Some(2019),
 
-  scalaVersion := "2.13.13",
+  scalaVersion := "2.13.14",
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   scalacOptions := Seq("-release:17", "-Xsource:3-cross", "-deprecation"),
   releaseCrossBuild := true,
