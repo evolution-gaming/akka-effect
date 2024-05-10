@@ -10,7 +10,7 @@ import com.evolutiongaming.catshelper.{SerialRef, ToTry}
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration._
 
-/** Representation of actor capable of constructing result from multiple messages passed into the actor. Inspired by [[PromiseActorRef]] but
+/** Representation of actor capable of constructing result from multiple messages passed into the actor. Inspired by [[PromiseActorRef]], but
   * result [[R]] is an aggregate from incoming messages rather that first message. Can be used only locally, does _not_ tolerate.
   * [[ActorRef.provider]] and [[ActorRef.path]] functions.
   * @tparam F
@@ -20,7 +20,7 @@ import scala.concurrent.duration._
   */
 private[persistence] trait LocalActorRef[F[_], R] {
 
-  /** Not actual [[ActorRef]]! It is not serialisable thus chould not be passed via network. Under the hood it implements [[ActorRef]] trait
+  /** Not actual [[ActorRef]]! It is not serialisable, thus can not be passed over network. Under the hood it implements [[ActorRef]] trait
     * by providing function `!` that updates internal state using provided function `receive`. Please check [[LocalActorRef.apply]] docs
     */
   def ref: ActorRef
@@ -29,13 +29,10 @@ private[persistence] trait LocalActorRef[F[_], R] {
     */
   def res: F[R]
 
-  /** Immidiately get currect state:
-    *
-    * \- [[None]] if aggregating not finished yet
-    *
-    * \- [[Some(Left(Throwable))]] if aggregation failed or timeout happened
-    *
-    * \- [[Some(Right(r))]] if aggregation completed successfully
+  /** Immediately get current state:
+    *  - [[None]] if aggregating not finished yet
+    *  - [[Some(Left(Throwable))]] if aggregation failed or timeout happened
+    *  - [[Some(Right(r))]] if aggregation completed successfully
     */
   def get: F[Option[Either[Throwable, R]]]
 }
@@ -81,9 +78,9 @@ private[persistence] object LocalActorRef {
 
         type Delay = FiniteDuration
 
-        /** If state was not updated for more than [[#timeout]] - complete [[#defer]] with failed result and exid tailRecM loop.
+        /** If state was not updated for more than [[#timeout]] - completes [[#defer]] with failed result and exits tailRecM loop.
           *
-          * Otherwise calculate [[#delay]] til next timeout and continue loop.
+          * Otherwise calculate [[#delay]] till next timeout and continue loop.
           *
           * @param delay
           *   time before next timeout

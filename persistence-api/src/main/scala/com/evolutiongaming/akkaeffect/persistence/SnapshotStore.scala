@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import java.time.Instant
 
-/** Persistent snapshot store API used in event-sourced actors [[EventSourcedActorOf]]. The API consists of two parts:
+/** Persistent snapshot-store API used in event-sourced actors [[EventSourcedActorOf]]. The API consists of two parts:
   * [[SnapshotStore.Read]] and [[SnapshotStore.Write]] that represents looking up and persisting snapshots.
   */
 trait SnapshotStore[F[_], A] extends SnapshotStore.Read[F, A] with SnapshotStore.Write[F, A]
@@ -21,7 +21,7 @@ object SnapshotStore {
 
   trait Write[F[_], -A] {
 
-    /** Persist snapshot that represents state also achievable by applying events (on empty state) til sequence number.
+    /** Persist snapshot that represents state also achievable by applying events (on empty state) till sequence number.
       *
       * @param seqNr
       *   sequence number of last event used to recover state equal to snapshot
@@ -32,10 +32,10 @@ object SnapshotStore {
       */
     def save(seqNr: SeqNr, snapshot: A): F[F[Instant]]
 
-    /** Delete snapshots til the sequence number (including)
+    /** Delete snapshots till the sequence number (including)
       *
       * @param seqNr
-      *   til which snapshots will be deleted
+      *   till which snapshots will be deleted
       * @return
       *   outer F represents request send while inner F represents request complete
       */

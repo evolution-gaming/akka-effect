@@ -14,7 +14,7 @@ trait CloseOnError[F[_]] {
 
   /** Wrap an effectful value.
     *
-    * This method is fine to be called serveral times, but all of the wrapped
+    * This method is fine to be called several times, but all of the wrapped
     * values will use a single latch, so if one of them fails, all others will
     * return the same error.
     */

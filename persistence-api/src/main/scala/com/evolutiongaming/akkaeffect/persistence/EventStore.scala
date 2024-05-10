@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import com.evolutiongaming.sstream
 
-/** Persistent event store API used in event-sourced actors [[EventSourcedActorOf]]. The API consists of two parts: [[EventStore.Read]] and
+/** Persistent event-store API used in event-sourced actors [[EventSourcedActorOf]]. The API consists of two parts: [[EventStore.Read]] and
   * [[EventStore.Write]] that represents reading (actually streaming) and persisting events.
   */
 trait EventStore[F[_], A] extends EventStore.Read[F, A] with EventStore.Write[F, A]

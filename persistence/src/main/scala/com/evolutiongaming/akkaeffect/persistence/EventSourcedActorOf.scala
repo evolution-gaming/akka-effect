@@ -16,10 +16,10 @@ object EventSourcedActorOf {
 
   // format: off
   /** Describes lifecycle of entity with regards to event sourcing & PersistentActor Lifecycle phases:
-    * 1. RecoveryStarted: we have id in place and can decide whether we should continue with recovery 
-    * 2. Recovering : reading snapshot and replaying events 
-    * 3. Receiving : receiving commands and potentially storing events & snapshots 
-    * 4. Termination : triggers all release hooks of allocated resources within previous phases
+    * 1. RecoveryStarted: we have id in place and can decide whether we should continue with recovery
+    * 2. Recovering: reading snapshot and replaying events
+    * 3. Receiving: receiving commands and potentially storing events & snapshots
+    * 4. Termination: triggers all release hooks of allocated resources within previous phases
     *
     * Types, describing each phase, are (simplified) a functions from data (available on the current phase) to next phase: 
     * RecoveryStarted -> Recovering -> Receiving. 
@@ -38,8 +38,8 @@ object EventSourcedActorOf {
     *
     * Actor's lifecycle is described by type [[Lifecycle]] and consists of multiple phases, such as recovering, receiving messages and
     * terminating. Recovery happens on actor's startup and is about constructing latest actor state from snapshot and followed events. On
-    * receiving phase actor handles incoming commands and chages its state. Each state' change represented by events, that are persisted and
-    * later used in recovery phase. Terminating happeneds on actor shutdown (technically it happens as part of [[Actor.postStop]], check
+    * receiving phase actor handles incoming commands and changes its state. Each state change is represented by events, that are persisted and
+    * later used in recovery phase. Termination happens on actor's shutdown (technically it happens as part of [[Actor.postStop]], check
     * [[ActorOf]] for more details).
     *
     * Persistence layer, used to store/recover events and snapshots, provided by [[EventSourcedPersistence]].
@@ -94,7 +94,7 @@ object EventSourcedActorOf {
           replay = recovering.replay
 
           seqNr <- replay.use { replay =>
-            // used to recover snapshot, ie the snapshot stored with [[snapSeqNr]] will be loaded if any
+            // used to recover snapshot, i.e. the snapshot stored with [[snapSeqNr]] will be loaded, if any
             val snapSeqNr = snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min)
             // used to recover events _following_ the snapshot OR if no snapshot available then [[SeqNr.Min]]
             val fromSeqNr = snapshot.map(_.metadata.seqNr + 1).getOrElse(SeqNr.Min)
