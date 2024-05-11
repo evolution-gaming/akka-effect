@@ -10,8 +10,8 @@ import com.evolutiongaming.catshelper.{SerialRef, ToTry}
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration._
 
-/** Representation of actor capable of constructing result from multiple messages passed into the actor. Inspired by [[PromiseActorRef]], but
-  * result [[R]] is an aggregate from incoming messages rather that first message. Can be used only locally, does _not_ tolerate.
+/** Representation of actor capable of constructing result from multiple messages passed into the actor. Inspired by [[PromiseActorRef]],
+  * but result [[R]] is an aggregate from incoming messages rather that first message. Can be used only locally, does _not_ tolerate.
   * [[ActorRef.provider]] and [[ActorRef.path]] functions.
   * @tparam F
   *   The effect type.
@@ -30,9 +30,9 @@ private[persistence] trait LocalActorRef[F[_], R] {
   def res: F[R]
 
   /** Immediately get current state:
-    *  - [[None]] if aggregating not finished yet
-    *  - [[Some(Left(Throwable))]] if aggregation failed or timeout happened
-    *  - [[Some(Right(r))]] if aggregation completed successfully
+    *   - [[None]] if aggregating not finished yet
+    *   - [[Some(Left(Throwable))]] if aggregation failed or timeout happened
+    *   - [[Some(Right(r))]] if aggregation completed successfully
     */
   def get: F[Option[Either[Throwable, R]]]
 }

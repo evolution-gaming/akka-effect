@@ -19,10 +19,7 @@ trait ActorSuite extends BeforeAndAfterAll { self: Suite =>
       config      <- config.toResource
       actorSystem <- TestActorSystem[IO](getClass.getSimpleName, config)
     } yield actorSystem
-    result
-      .allocated
-      .toTry
-      .get
+    result.allocated.toTry.get
   }
 
   override def beforeAll(): Unit = {

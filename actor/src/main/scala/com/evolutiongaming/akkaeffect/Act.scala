@@ -6,39 +6,32 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{Serial, ToTry}
 
-/**
-  * Act executes function in `receive` thread of an actor
+/** Act executes function in `receive` thread of an actor
   */
 private[akkaeffect] trait Act[F[_]] {
 
   def apply[A](f: => A): F[A]
 }
 
-
 private[akkaeffect] object Act {
 
   def empty[F[_]: Sync]: Act[F] = {
     class Empty
     new Empty with Act[F] {
-      def apply[A](f: => A) = Sync[F].delay { f }
+      def apply[A](f: => A) = Sync[F].delay(f)
     }
   }
 
-  def serial[F[_]: Async: ToTry]: F[Act[F]] = {
+  def serial[F[_]: Async: ToTry]: F[Act[F]] =
     Serial
       .of[F]
       .map { serial =>
         class Serial
         new Serial with Act[F] {
-          def apply[A](f: => A) = {
-            serial { Sync[F].delay { f } }
-              .toTry
-              .get
-          }
+          def apply[A](f: => A) =
+            serial(Sync[F].delay(f)).toTry.get
         }
       }
-  }
-
 
   sealed trait AdapterLike
 
@@ -62,31 +55,29 @@ private[akkaeffect] object Act {
       apply(tell)
     }
 
-
     def apply[F[_]: Async](tell: Any => Unit): Adapter[F] = {
 
       case class Msg(f: () => Unit)
 
       new Adapter[F] { self =>
-
         private val selfOpt = self.some
 
         def syncReceive(receive: Actor.Receive): Actor.Receive = new Actor.Receive {
 
           def isDefinedAt(a: Any) = receive.isDefinedAt(a)
 
-          def apply(a: Any) = sync { receive(a) }
+          def apply(a: Any) = sync(receive(a))
         }
 
         val value = {
           class Main
           new Main with Act[F] {
-            def apply[A](f: => A) = {
+            def apply[A](f: => A) =
               for {
-                adapter <- Sync[F].delay { threadLocal.get() }
-                result  <- {
+                adapter <- Sync[F].delay(threadLocal.get())
+                result <- {
                   if (adapter.contains(self: Adapter[F])) {
-                    Sync[F].delay { f }
+                    Sync[F].delay(f)
                   } else {
                     Async[F].async[A] { callback =>
                       val f1 = () => {
@@ -105,7 +96,6 @@ private[akkaeffect] object Act {
                   }
                 }
               } yield result
-            }
           }
         }
 
@@ -116,7 +106,8 @@ private[akkaeffect] object Act {
 
         def sync[A](f: => A) = {
           threadLocal.set(selfOpt)
-          try f finally threadLocal.set(None)
+          try f
+          finally threadLocal.set(None)
         }
       }
     }

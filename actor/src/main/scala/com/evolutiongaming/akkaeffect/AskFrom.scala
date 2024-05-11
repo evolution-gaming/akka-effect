@@ -9,8 +9,7 @@ import com.evolutiongaming.catshelper.FromFuture
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
 
-/**
-  * AskFrom is similar to `ask`, however enables to pass `sender` as part of outgoing message
+/** AskFrom is similar to `ask`, however enables to pass `sender` as part of outgoing message
   */
 trait AskFrom[F[_]] {
 
@@ -35,15 +34,13 @@ object AskFrom {
 
     val props = Props(actor())
     actorRefOf(props).map { actorRef =>
-
       val timeout1 = Timeout(timeout)
 
       new AskFrom[F] {
-        def apply[A, B: ClassTag](to: ActorRef)(f: ActorRef => A) = {
+        def apply[A, B: ClassTag](to: ActorRef)(f: ActorRef => A) =
           Sync[F]
-            .delay { akka.pattern.ask(actorRef, Msg(to, f), from)(timeout1) }
-            .map { future => FromFuture[F].apply { future.mapTo[B] } }
-        }
+            .delay(akka.pattern.ask(actorRef, Msg(to, f), from)(timeout1))
+            .map(future => FromFuture[F].apply(future.mapTo[B]))
       }
     }
   }

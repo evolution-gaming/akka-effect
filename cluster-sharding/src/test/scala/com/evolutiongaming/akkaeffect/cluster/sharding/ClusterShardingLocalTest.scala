@@ -18,7 +18,6 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.collection.immutable.IndexedSeq
 
-
 class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("clusterShardingLocal") {
@@ -61,49 +60,42 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
     }
 
     val result = for {
-      probe                   <- Probe.of[IO](actorRefOf)
-      actor                    = () => new Actor {
-        def receive = {
-          case msg =>
-            probe
-              .actorEffect
-              .toUnsafe
-              .tell(msg, sender())
+      probe <- Probe.of[IO](actorRefOf)
+      actor = () =>
+        new Actor {
+          def receive = {
+            case msg =>
+              probe.actorEffect.toUnsafe
+                .tell(msg, sender())
+          }
         }
-      }
       props                    = Props(actor())
       clusterShardingLocal    <- ClusterShardingLocal.of[IO](actorSystem)
-      clusterShardingSettings <- IO { ClusterShardingSettings(actorSystem) }.toResource
-      actorRef                <- clusterShardingLocal.clusterSharding.start(
-        TypeName("typeName"),
-        props,
-        clusterShardingSettings,
-        extractEntityId,
-        uniform(2),
-        noopAllocationStrategy,
-        HandOffStopMsg)
+      clusterShardingSettings <- IO(ClusterShardingSettings(actorSystem)).toResource
+      actorRef <- clusterShardingLocal.clusterSharding
+        .start(TypeName("typeName"), props, clusterShardingSettings, extractEntityId, uniform(2), noopAllocationStrategy, HandOffStopMsg)
 
-      actorEffect              = ActorEffect.fromActor[IO](actorRef)
+      actorEffect = ActorEffect.fromActor[IO](actorRef)
     } yield for {
       a <- probe.expect[Int]
       b <- actorEffect.ask(ShardedMsg("id", 0), 1.second)
       a <- a
-      _ <- IO { a.msg shouldEqual 0 }
-      _ <- IO { a.from.tell(a.msg.toString, ActorRef.noSender) }
+      _ <- IO(a.msg shouldEqual 0)
+      _ <- IO(a.from.tell(a.msg.toString, ActorRef.noSender))
       b <- b
-      _ <- IO { b shouldEqual "0" }
+      _ <- IO(b shouldEqual "0")
       a <- probe.expect[HandOffStopMsg.type]
       _ <- clusterShardingLocal.rebalance
       a <- a
-      _ <- IO { a.msg shouldEqual HandOffStopMsg }
+      _ <- IO(a.msg shouldEqual HandOffStopMsg)
       r <- clusterShardingLocal.clusterSharding.regions
-      _ <- IO { r shouldEqual Set(TypeName("typeName")) }
+      _ <- IO(r shouldEqual Set(TypeName("typeName")))
       s <- clusterShardingLocal.clusterSharding.shards(r.head)
-      _ <- IO { s shouldEqual Set(ShardState("1", Set.empty)) }
+      _ <- IO(s shouldEqual Set(ShardState("1", Set.empty)))
     } yield {}
 
     result
-      .use { identity }
+      .use(identity)
       .run()
   }
 }

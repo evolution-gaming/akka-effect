@@ -27,8 +27,8 @@ trait ClusterShardingLocal[F[_]] {
 
   /** Simulate cluster rebalacing.
     *
-    * I.e. send `handOffStopMessage` from [[ClusterSharding#startProxy]] to the
-    * actors that need rebalancing according to `shardAllocationStrategy`.
+    * I.e. send `handOffStopMessage` from [[ClusterSharding#startProxy]] to the actors that need rebalancing according to
+    * `shardAllocationStrategy`.
     */
   def rebalance: F[Unit]
 }
@@ -43,15 +43,13 @@ object ClusterShardingLocal {
 
     case class ShardingMsg(f: ActorContext => Unit)
 
-
     sealed trait RegionMsg
 
     object RegionMsg {
 
       final case object Rebalance extends RegionMsg
-      final case object State extends RegionMsg
+      final case object State     extends RegionMsg
     }
-
 
     def shardingActor(): Actor = new Actor {
 
@@ -66,35 +64,32 @@ object ClusterShardingLocal {
     actorRefOf
       .apply(Props(shardingActor()))
       .map { shardingRef =>
-
-        def withActorContext[A](f: ActorContext => A) = {
+        def withActorContext[A](f: ActorContext => A) =
           FromFuture[F].apply {
             val promise = Promise[A]()
 
             def f1(context: ActorContext): Unit = {
-              val result = Try { f(context) }
+              val result = Try(f(context))
               promise.complete(result)
             }
 
             shardingRef.tell(ShardingMsg(f1), ActorRef.noSender)
             promise.future
           }
-        }
 
-        def actorOf(name: String, props: => Props) = {
+        def actorOf(name: String, props: => Props) =
           Resource.make {
             withActorContext { actorContext =>
               actorContext
                 .child(name)
-                .getOrElse { actorContext.actorOf(props, name) }
+                .getOrElse(actorContext.actorOf(props, name))
             }
           } { actorRef =>
             for {
-              _ <- withActorContext { _.stop(actorRef) }
+              _ <- withActorContext(_.stop(actorRef))
               _ <- terminated(actorRef)
             } yield {}
           }
-        }
 
         new ClusterShardingLocal[F] {
 
@@ -118,45 +113,41 @@ object ClusterShardingLocal {
 
                   case a: ShardRegion.Msg if extractEntityId.isDefinedAt(a) =>
                     val (entityId, msg) = extractEntityId(a)
-                    val entityName = actorNameOf(entityId)
+                    val entityName      = actorNameOf(entityId)
                     context
                       .child(entityId)
-                      .getOrElse { context.actorOf(props, entityName) }
+                      .getOrElse(context.actorOf(props, entityName))
                       .forward(msg)
                 }
               }
 
-
               def regionActor(): Actor = new Actor {
 
-                private implicit val executor: ExecutionContextExecutor = context.dispatcher
+                implicit private val executor: ExecutionContextExecutor = context.dispatcher
 
                 def allocation(): Map[ActorRef, Vector[ShardId]] = {
-                  val shardIds = context
-                    .children
-                    .toList
-                    .map { _.path.name }
-                    .toVector
+                  val shardIds = context.children.toList.map(_.path.name).toVector
                   Map((self, shardIds))
                 }
 
                 def receive: Receive = {
 
-                  case RegionMsg.Rebalance => allocationStrategy
-                    .rebalance(allocation(), Set.empty)
-                    .onComplete { _ =>
-                      context
-                        .actorSelection("*/*")
-                        .tell(handOffStopMessage, self)
-                    }
+                  case RegionMsg.Rebalance =>
+                    allocationStrategy
+                      .rebalance(allocation(), Set.empty)
+                      .onComplete { _ =>
+                        context
+                          .actorSelection("*/*")
+                          .tell(handOffStopMessage, self)
+                      }
 
                   case RegionMsg.State =>
                     val shards = allocation().values.flatten.toList
                     context.sender().tell(shards, context.self)
 
                   case msg: ShardRegion.Msg =>
-                    val sender = context.sender()
-                    val shardId = extractShardId(msg)
+                    val sender    = context.sender()
+                    val shardId   = extractShardId(msg)
                     val shardName = actorNameOf(shardId)
 
                     def allocate = allocationStrategy.allocateShard(sender, shardId, allocation())
@@ -171,9 +162,7 @@ object ClusterShardingLocal {
                       } { shard =>
                         shard.pure[Try]
                       }
-                      .fold(
-                        error => sender.tell(Status.Failure(error), sender),
-                        shard => shard.tell(msg, sender))
+                      .fold(error => sender.tell(Status.Failure(error), sender), shard => shard.tell(msg, sender))
                 }
               }
 
@@ -197,7 +186,7 @@ object ClusterShardingLocal {
                   case _: RegionMsg =>
 
                   case msg: ShardRegion.Msg =>
-                    val shardId = extractShardId(msg)
+                    val shardId   = extractShardId(msg)
                     val shardName = actorNameOf(shardId)
                     context
                       .actorSelection(s"../$regionName/$shardName")
@@ -205,22 +194,22 @@ object ClusterShardingLocal {
                 }
               }
 
-              val regionProxyName = s"${ regionName }Proxy"
+              val regionProxyName = s"${regionName}Proxy"
               actorOf(regionProxyName, Props(regionProxyActor()))
             }
 
             def regions: F[Set[TypeName]] =
               withActorContext { ref =>
-                ref
-                  .children
+                ref.children
                   .map(_.path.name)
                   .filterNot(_.endsWith("Proxy"))
-                  .map(TypeName(_)).toSet
+                  .map(TypeName(_))
+                  .toSet
               }
 
             def shards(typeName: TypeName): F[Set[ShardState]] =
               for {
-                region <- withActorContext { ref => ref.children.find(_.path.name == typeName.value) }
+                region <- withActorContext(ref => ref.children.find(_.path.name == typeName.value))
                 shards <- region.toList.traverse { region =>
                   val ask = Ask.fromActorRef[F](region)
                   for {
@@ -231,13 +220,12 @@ object ClusterShardingLocal {
               } yield shards.toSet.flatten
           }
 
-          def rebalance = {
+          def rebalance =
             withActorContext { actorContext =>
               actorContext
                 .actorSelection("*")
                 .tell(RegionMsg.Rebalance, ActorRef.noSender)
             }
-          }
         }
       }
   }

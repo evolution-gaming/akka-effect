@@ -15,9 +15,8 @@ object DeleteEventsToInterop {
   def apply[F[_]: Sync: FromFuture](
     eventsourced: Eventsourced,
     timeout: FiniteDuration
-  ): Resource[F, DeleteEventsTo[F]] = {
+  ): Resource[F, DeleteEventsTo[F]] =
     apply(Interop(eventsourced), timeout)
-  }
 
   private[persistence] def apply[F[_]: Sync: FromFuture](
     eventsourced: Interop,
@@ -29,23 +28,20 @@ object DeleteEventsToInterop {
     AskFrom
       .of[F](actorRefOf, eventsourced.self, timeout)
       .map { askFrom =>
-
         def persistenceId = eventsourced.persistenceId
 
         def journal = eventsourced.journal
 
-        (seqNr: SeqNr) => {
-          askFrom[DeleteMessagesTo, Any](journal) { from => DeleteMessagesTo(persistenceId, seqNr, from) }
+        (seqNr: SeqNr) =>
+          askFrom[DeleteMessagesTo, Any](journal)(from => DeleteMessagesTo(persistenceId, seqNr, from))
             .map { result =>
               result.flatMap {
                 case _: DeleteMessagesSuccess => ().pure[F]
                 case a: DeleteMessagesFailure => a.cause.raiseError[F, Unit]
               }
             }
-        }
       }
   }
-
 
   trait Interop {
 

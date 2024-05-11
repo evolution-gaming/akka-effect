@@ -14,7 +14,7 @@ import scala.concurrent.duration.FiniteDuration
 
 object SnapshotterInterop {
 
-  def apply[F[_] : Sync : FromFuture, A](
+  def apply[F[_]: Sync: FromFuture, A](
     snapshotter: Snapshotter,
     timeout: FiniteDuration
   ): akkaeffect.persistence.Snapshotter[F, A] = {
@@ -27,44 +27,38 @@ object SnapshotterInterop {
 
     def metadata(seqNr: SeqNr) = SnapshotMetadata(snapshotterId, seqNr)
 
-    def ask[B](a: Request)(pf: PartialFunction[Any, F[B]]): F[F[B]] = {
+    def ask[B](a: Request)(pf: PartialFunction[Any, F[B]]): F[F[B]] =
       Sync[F]
-        .delay { akka.pattern.ask(snapshotStore, a, snapshotter.self)(timeout1) }
+        .delay(akka.pattern.ask(snapshotStore, a, snapshotter.self)(timeout1))
         .map { future =>
           FromFuture
             .summon[F]
-            .apply { future }
+            .apply(future)
             .flatMap { a =>
-              Sync[F]
-                .catchNonFatal { pf(a) }
-                .flatten
+              Sync[F].catchNonFatal(pf(a)).flatten
             }
         }
-    }
 
     class Main
     new Main with akkaeffect.persistence.Snapshotter[F, A] {
 
-      def save(seqNr: SeqNr, snapshot: A) = {
+      def save(seqNr: SeqNr, snapshot: A) =
         ask(SaveSnapshot(metadata(seqNr), snapshot)) {
           case a: SaveSnapshotSuccess => Instant.ofEpochMilli(a.metadata.timestamp).pure[F]
           case a: SaveSnapshotFailure => a.cause.raiseError[F, Instant]
         }
-      }
 
-      def delete(seqNr: SeqNr) = {
+      def delete(seqNr: SeqNr) =
         ask(DeleteSnapshot(metadata(seqNr))) {
           case _: DeleteSnapshotSuccess => ().pure[F]
           case a: DeleteSnapshotFailure => a.cause.raiseError[F, Unit]
         }
-      }
 
-      def delete(criteria: SnapshotSelectionCriteria) = {
+      def delete(criteria: SnapshotSelectionCriteria) =
         ask(DeleteSnapshots(snapshotterId, criteria)) {
           case _: DeleteSnapshotsSuccess => ().pure[F]
           case a: DeleteSnapshotsFailure => a.cause.raiseError[F, Unit]
         }
-      }
     }
   }
 }

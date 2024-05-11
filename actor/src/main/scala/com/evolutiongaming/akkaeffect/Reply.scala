@@ -6,10 +6,10 @@ import cats.effect.Sync
 import cats.syntax.all._
 import cats.{Applicative, Contravariant, FlatMap, ~>}
 
-/**
-  * Typesafe api for replying part of "ask pattern"
+/** Typesafe api for replying part of "ask pattern"
   *
-  * @tparam A reply
+  * @tparam A
+  *   reply
   */
 trait Reply[F[_], -A] {
 
@@ -24,7 +24,6 @@ object Reply {
 
   def apply[F[_], A](f: A => F[Unit]): Reply[F, A] = a => f(a)
 
-
   implicit def contravariantReply[F[_]]: Contravariant[Reply[F, *]] = new Contravariant[Reply[F, *]] {
 
     def contramap[A, B](fa: Reply[F, A])(f: B => A) = msg => fa(f(msg))
@@ -32,32 +31,28 @@ object Reply {
 
   def fromActorRef[F[_]: Sync](
     to: ActorRef,
-    from: ActorRef,
-  ): Reply[F, Any] = {
+    from: ActorRef
+  ): Reply[F, Any] =
     fromActorRef(to = to, from = from.some)
-  }
 
   def fromActorRef[F[_]: Sync](
     to: ActorRef,
-    from: Option[ActorRef],
-  ): Reply[F, Any] = {
+    from: Option[ActorRef]
+  ): Reply[F, Any] =
     new Reply[F, Any] {
 
-      def apply(msg: Any): F[Unit] = {
-        Sync[F].delay { to.tell(msg, from.orNull) }
-      }
+      def apply(msg: Any): F[Unit] =
+        Sync[F].delay(to.tell(msg, from.orNull))
 
       override def toString = {
 
         def str(actorRef: ActorRef) = actorRef.path.toString
 
-        val fromStr = from.fold("")(from => s", ${ str(from) }")
-        val stStr = str(to)
+        val fromStr = from.fold("")(from => s", ${str(from)}")
+        val stStr   = str(to)
         s"Reply($stStr$fromStr)"
       }
     }
-  }
-
 
   implicit class ReplyOps[F[_], A](val self: Reply[F, A]) extends AnyVal {
 
@@ -68,19 +63,15 @@ object Reply {
       override def toString = self.toString
     }
 
-
-    def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Reply[F, B] = {
-      (msg: B) =>
-        for {
-          a <- f(msg)
-          a <- self(a)
-        } yield a
+    def convert[B](f: B => F[A])(implicit F: FlatMap[F]): Reply[F, B] = { (msg: B) =>
+      for {
+        a <- f(msg)
+        a <- self(a)
+      } yield a
     }
-
 
     def narrow[B <: A]: Reply[F, B] = self
   }
-
 
   implicit class ReplyAnyOps[F[_]](val self: Reply[F, Any]) extends AnyVal {
 

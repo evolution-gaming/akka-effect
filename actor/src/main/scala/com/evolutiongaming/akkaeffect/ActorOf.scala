@@ -9,13 +9,11 @@ import com.evolutiongaming.akkaeffect.Fail.implicits._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ToFuture
 
-/**
-  * Creates instance of [[akka.actor.Actor]] out of [[ReceiveOf]]
+/** Creates instance of [[akka.actor.Actor]] out of [[ReceiveOf]]
   */
 object ActorOf {
 
   type Stop = Boolean
-
 
   def apply[F[_]: Async: ToFuture](
     receiveOf: ReceiveOf[F, Envelope[Any], Stop]
@@ -23,32 +21,30 @@ object ActorOf {
 
     type State = Receive[F, Envelope[Any], Stop]
 
-    def onPreStart(actorCtx: ActorCtx[F])(implicit fail: Fail[F]) = {
+    def onPreStart(actorCtx: ActorCtx[F])(implicit fail: Fail[F]) =
       receiveOf(actorCtx)
         .handleErrorWith { (error: Throwable) =>
           s"failed to allocate receive".fail[F, State](error).toResource
         }
-    }
 
-    def onReceive(a: Any, sender: ActorRef)(implicit fail: Fail[F]) = {
-      (state: State) =>
-        val stop = a match {
-          case ReceiveTimeout => state.timeout
-          case a              => state(Envelope(a, sender))
+    def onReceive(a: Any, sender: ActorRef)(implicit fail: Fail[F]) = { (state: State) =>
+      val stop = a match {
+        case ReceiveTimeout => state.timeout
+        case a              => state(Envelope(a, sender))
+      }
+      stop
+        .map {
+          case false => Directive.ignore[Releasable[F, State]]
+          case true  => Directive.stop[Releasable[F, State]]
         }
-        stop
-          .map {
-            case false => Directive.ignore[Releasable[F, State]]
-            case true  => Directive.stop[Releasable[F, State]]
-          }
-          .handleErrorWith { error =>
-            s"failed on $a from $sender".fail[F, Directive[Releasable[F, State]]](error)
-          }
+        .handleErrorWith { error =>
+          s"failed on $a from $sender".fail[F, Directive[Releasable[F, State]]](error)
+        }
     }
 
     new Actor {
 
-      private implicit val fail: Fail[F] = Fail.fromActorRef[F](self)
+      implicit private val fail: Fail[F] = Fail.fromActorRef[F](self)
 
       private val act = Act.Adapter(self)
 
@@ -65,7 +61,7 @@ object ActorOf {
       }
 
       def receive: Receive = act.receive {
-        case a => actorVar.receive { onReceive(a, sender = sender()) }
+        case a => actorVar.receive(onReceive(a, sender = sender()))
       }
 
       override def postStop(): Unit = {

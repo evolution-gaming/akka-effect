@@ -21,8 +21,8 @@ object EventStoreInterop {
     *
     * Journal plugin uses "push" model to recover events (i.e. read events from underline DB) while [[EventStore]] provides "pull" API via
     * [[sstream.Stream]]. To overcome this limitation, the interop uses internal buffer to hold events provided by Akka' journal plugin
-    * before they will be consumed (i.e. deleted from buffer) as [[EventStore.events]] stream. The output stream is lazy by itself and actual
-    * event consumption from the buffer will happened only on the stream materialization.
+    * before they will be consumed (i.e. deleted from buffer) as [[EventStore.events]] stream. The output stream is lazy by itself and
+    * actual event consumption from the buffer will happened only on the stream materialization.
     *
     * @param persistence
     *   Akka persistence [[Persistence]]

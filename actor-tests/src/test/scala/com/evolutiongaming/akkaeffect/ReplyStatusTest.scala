@@ -24,41 +24,40 @@ class ReplyStatusTest extends AsyncFunSuite with ActorSuite with Matchers {
     `fromActorRef`[IO](actorSystem).run()
   }
 
-  private def `toString`[F[_] : Async](actorSystem: ActorSystem) = {
+  private def `toString`[F[_]: Async](actorSystem: ActorSystem) = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
-    val actorRef = actorRefOf(TestActors.blackholeProps)
-    (actorRef, actorRef).tupled.use { case (to, from) =>
-      val reply = ReplyStatus.fromActorRef[F](to, from.some)
-      Sync[F].delay {
-        reply.toString shouldEqual s"Reply(${ to.path }, ${ from.path })"
-      }
+    val actorRef   = actorRefOf(TestActors.blackholeProps)
+    (actorRef, actorRef).tupled.use {
+      case (to, from) =>
+        val reply = ReplyStatus.fromActorRef[F](to, from.some)
+        Sync[F].delay {
+          reply.toString shouldEqual s"Reply(${to.path}, ${from.path})"
+        }
     }
   }
 
-  private def `fromActorRef`[F[_] : Async : ToFuture : FromFuture](actorSystem: ActorSystem) = {
+  private def `fromActorRef`[F[_]: Async: ToFuture: FromFuture](actorSystem: ActorSystem) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     val resources = for {
-      probe <- Probe.of[F](actorRefOf)
+      probe    <- Probe.of[F](actorRefOf)
       actorRef <- actorRefOf(TestActors.blackholeProps)
-    } yield {
-      (probe, actorRef)
-    }
+    } yield (probe, actorRef)
 
-    resources.use { case (probe, from) =>
-      val reply = ReplyStatus.fromActorRef[F](probe.actorEffect.toUnsafe, from.some).mapK(FunctionK.id)
-      val error: Throwable = new RuntimeException with NoStackTrace
-      for {
-        a <- probe.expect[Status.Status]
-        _ <- reply.success("msg")
-        a <- a
-        _  = a shouldEqual Envelope(Status.Success("msg"), from)
-        a <- probe.expect[Status.Status]
-        _ <- reply.fail(error)
-        a <- a
-        _  = a shouldEqual Envelope(Status.Failure(error), from)
-      } yield {}
+    resources.use {
+      case (probe, from) =>
+        val reply            = ReplyStatus.fromActorRef[F](probe.actorEffect.toUnsafe, from.some).mapK(FunctionK.id)
+        val error: Throwable = new RuntimeException with NoStackTrace
+        for {
+          a <- probe.expect[Status.Status]
+          _ <- reply.success("msg")
+          a <- a
+          _  = a shouldEqual Envelope(Status.Success("msg"), from)
+          a <- probe.expect[Status.Status]
+          _ <- reply.fail(error)
+          a <- a
+          _  = a shouldEqual Envelope(Status.Failure(error), from)
+        } yield {}
     }
   }
 }
-
