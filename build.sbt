@@ -16,13 +16,22 @@ lazy val commonSettings = Seq(
 
   /*testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))*/
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
+
+  // TODO remove after 4.0.7 is released
+  versionPolicyIgnored := Seq(
+    "com.evolutiongaming" %% "random", // removed as was not used
+    "com.evolutiongaming" %% "executor-tools", // removed as was not used
+    "com.evolutiongaming" %% "smetrics", // due to update from 2.0.0 to 2.2.0
+  ),
+
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
 )
 
 val alias: Seq[sbt.Def.Setting[_]] =
-  addCommandAlias("fmt", "scalafixEnable; scalafixAll; all scalafmtAll scalafmtSbt") ++
-    addCommandAlias("check", "scalafixEnable; scalafixAll --check; all scalafmtCheckAll scalafmtSbtCheck") ++
-    addCommandAlias("build", "all compile test")
+//  addCommandAlias("fmt", "scalafixEnable; scalafixAll; all scalafmtAll scalafmtSbt") ++
+  //  addCommandAlias("check", "scalafixEnable; scalafixAll --check; all scalafmtCheckAll scalafmtSbtCheck") ++
+    addCommandAlias("check", "versionPolicyCheck") ++
+  addCommandAlias("build", "all compile test")
 
 lazy val root = project
   .in(file("."))
