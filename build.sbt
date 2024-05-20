@@ -9,7 +9,7 @@ lazy val commonSettings = Seq(
 
   scalaVersion := "2.13.14",
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
-  scalacOptions := Seq("-release:17", "-Xsource:3-cross", "-deprecation"),
+  scalacOptions := Seq("-release:17", "-Xsource:3", "-deprecation"),
   releaseCrossBuild := true,
   publishTo := Some(Resolver.evolutionReleases),
   versionScheme := Some("semver-spec"),
@@ -21,14 +21,17 @@ lazy val commonSettings = Seq(
 )
 
 val alias: Seq[sbt.Def.Setting[_]] =
-  addCommandAlias("build", "all compile test")
+  addCommandAlias("fmt", "scalafixAll; all scalafmtAll scalafmtSbt") ++
+    addCommandAlias("check", "scalafixEnable; scalafixAll --check; all scalafmtCheckAll scalafmtSbtCheck") ++
+    addCommandAlias("build", "all compile test")
 
-lazy val root = (project in file(".")
-  settings (name := "akka-effect")
-  settings commonSettings
-  settings (publish / skip := true)
-  settings alias
-  aggregate(
+lazy val root = project
+  .in(file("."))
+  .settings (name := "akka-effect")
+  .settings (commonSettings)
+  .settings (publish / skip := true)
+  .settings(alias)
+  .aggregate(
     actor,
     `actor-tests`,
     testkit,
@@ -36,12 +39,14 @@ lazy val root = (project in file(".")
     `persistence-api`,
     eventsourcing,
     cluster,
-    `cluster-sharding`))
+    `cluster-sharding`,
+  )
 
-lazy val actor = (project in file("actor")
-  settings (name := "akka-effect-actor")
-  settings commonSettings
-  settings (libraryDependencies ++= Seq(
+lazy val actor = project
+  .in(file("actor"))
+  .settings (name := "akka-effect-actor")
+  .settings (commonSettings)
+  .settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.slf4j   % Test,
     Akka.testkit % Test,
@@ -52,32 +57,40 @@ lazy val actor = (project in file("actor")
     Slf4j.api % Test,
     Slf4j.`log4j-over-slf4j` % Test,
     `cats-helper`,
-    scalatest % Test)))
+    scalatest % Test,
+  ),
+)
 
-lazy val `actor-tests` = (project in file("actor-tests")
-  settings (name := "akka-effect-actor-tests")
-  settings commonSettings
-  settings (publish / skip := true)
-  dependsOn(actor % "test->test;compile->compile", testkit % "test->test;test->compile")
-  settings (libraryDependencies ++= Seq(
-    Akka.testkit % Test)))
-
-lazy val testkit = (project in file("testkit")
-  settings (name := "akka-effect-testkit")
-  settings commonSettings
-  dependsOn actor
-  settings (libraryDependencies ++= Seq(
+lazy val `actor-tests` = project
+  .in (file("actor-tests"))
+  .settings (name := "akka-effect-actor-tests")
+  .settings (commonSettings)
+  .settings (publish / skip := true)
+  .dependsOn(actor % "test->test;compile->compile", testkit % "test->test;test->compile")
+  .settings (libraryDependencies ++= Seq(
     Akka.testkit % Test,
-    scalatest % Test)))
+  ))
 
-lazy val `persistence-api` = (project in file("persistence-api")
-  settings (name := "akka-effect-persistence-api")
-  settings commonSettings
-  dependsOn(
+lazy val testkit = project
+  .in (file("testkit"))
+  .settings (name := "akka-effect-testkit")
+  .settings (commonSettings)
+  .dependsOn (actor)
+  .settings (libraryDependencies ++= Seq(
+    Akka.testkit % Test,
+    scalatest % Test,
+))
+
+lazy val `persistence-api` = project
+  .in (file("persistence-api"))
+  .settings (name := "akka-effect-persistence-api")
+  .settings (commonSettings)
+  .dependsOn(
     actor % "test->test;compile->compile",
     testkit % "test->test;test->compile",
-    `actor-tests` % "test->test")
-  settings (
+    `actor-tests` % "test->test",
+  )
+  .settings (
     libraryDependencies ++= Seq(
       Cats.core,
       CatsEffect.effect,
@@ -85,17 +98,19 @@ lazy val `persistence-api` = (project in file("persistence-api")
       sstream,
       Akka.slf4j % Test,
       Akka.testkit % Test,
-      scalatest % Test)))
+      scalatest % Test,
+    ))
 
-lazy val persistence = (project in file("persistence")
-  settings (name := "akka-effect-persistence")
-  settings commonSettings
-  dependsOn(
-  `persistence-api` % "test->test;compile->compile",
+lazy val persistence = project
+  .in (file("persistence"))
+  .settings (name := "akka-effect-persistence")
+  .settings (commonSettings)
+  .dependsOn(
+    `persistence-api` % "test->test;compile->compile",
     actor           % "test->test;compile->compile",
     testkit         % "test->test;test->compile",
     `actor-tests`   % "test->test")
-  settings (
+  .settings (
     libraryDependencies ++= Seq(
       Akka.actor,
       Akka.stream,
@@ -109,35 +124,43 @@ lazy val persistence = (project in file("persistence")
       pureconfig,
       smetrics,
       scalatest % Test,
-      `akka-persistence-inmemory` % Test)))
+      `akka-persistence-inmemory` % Test,
+    ))
 
-lazy val eventsourcing = (project in file("eventsourcing")
-  settings (name := "akka-effect-eventsourcing")
-  settings commonSettings
-  dependsOn persistence % "test->test;compile->compile"
-  settings (
+lazy val eventsourcing = project
+  .in (file("eventsourcing"))
+  .settings (name := "akka-effect-eventsourcing")
+  .settings (commonSettings)
+  .dependsOn (persistence % "test->test;compile->compile")
+  .settings (
     libraryDependencies ++= Seq(
       Akka.stream,
-      retry)))
+      retry,
+    ))
 
-lazy val cluster = (project in file("cluster")
-  settings (name := "akka-effect-cluster")
-  settings commonSettings
-  dependsOn(
+lazy val cluster = project
+  .in (file("cluster"))
+  .settings (name := "akka-effect-cluster")
+  .settings (commonSettings)
+  .dependsOn(
     actor         % "test->test;compile->compile",
     testkit       % "test->test;test->compile",
     `actor-tests` % "test->test")
-  settings (
+  .settings (
     libraryDependencies ++= Seq(
       Akka.cluster,
-      pureconfig)))
+      pureconfig,
+    ))
 
-lazy val `cluster-sharding` = (project in file("cluster-sharding")
-  settings (name := "akka-effect-cluster-sharding")
-  settings commonSettings
-  dependsOn (
+lazy val `cluster-sharding` = project
+  .in (file("cluster-sharding"))
+  .settings (name := "akka-effect-cluster-sharding")
+  .settings (commonSettings)
+  .dependsOn (
     cluster % "test->test;compile->compile",
-    persistence % "test->test;compile->compile")
-  settings (
+    persistence % "test->test;compile->compile",
+  )
+  .settings (
     libraryDependencies ++= Seq(
-      Akka.`cluster-sharding`)))
+      Akka.`cluster-sharding`,
+    ))

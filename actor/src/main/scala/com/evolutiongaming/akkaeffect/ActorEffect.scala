@@ -97,7 +97,7 @@ object ActorEffect {
 
       val ask = self.ask.narrow[A1, B1](f)
 
-      val tell = self.tell
+      val tell: Tell[F, A1] = self.tell
 
       def toUnsafe = self.toUnsafe
     }

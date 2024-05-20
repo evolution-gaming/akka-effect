@@ -44,7 +44,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
 
         def snapshotSequenceNr = 0
 
-        def receive = PartialFunction.empty
+        def receive: Receive = PartialFunction.empty
       }
     }
 

@@ -1,14 +1,14 @@
 package akka.persistence
 
-import akka.actor.{ActorRef, MinimalActorRef}
+import akka.actor.{ActorPath, ActorRef, ActorRefProvider, MinimalActorRef}
 import cats.effect.Temporal
-import cats.effect.syntax.all._
-import cats.syntax.all._
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.CatsHelper.OpsCatsHelper
 import com.evolutiongaming.catshelper.{SerialRef, ToTry}
 
 import java.util.concurrent.TimeoutException
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Representation of actor capable of constructing result from multiple messages passed into the actor. Inspired by [[PromiseActorRef]], but
   * result [[R]] is an aggregate from incoming messages rather that first message. Can be used only locally, does _not_ tolerate.
@@ -111,9 +111,9 @@ private[persistence] object LocalActorRef {
 
       override def ref: ActorRef = new MinimalActorRef {
 
-        override def provider = throw new UnsupportedOperationException()
+        override def provider: ActorRefProvider = throw new UnsupportedOperationException()
 
-        override def path = throw new UnsupportedOperationException()
+        override def path: ActorPath = throw new UnsupportedOperationException()
 
         override def !(m: M)(implicit sender: ActorRef): Unit =
           state

@@ -76,7 +76,7 @@ object Append {
 
         new Main with Adapter[F, A] {
 
-          val value = new Main with Append[F, A] {
+          val value: Append[F, A] = new Main with Append[F, A] {
 
             def apply(events: Events[A]) = {
               val size = events.size

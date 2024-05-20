@@ -49,7 +49,7 @@ class DeleteEventsToInteropTest extends AsyncFunSuite with ActorSuite with Match
           ()
         }
 
-        def receive = PartialFunction.empty
+        def receive: Receive = PartialFunction.empty
       }
     }
 

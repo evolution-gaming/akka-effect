@@ -85,7 +85,7 @@ object ActorCtx {
 
       def children = act { actorContext.children.toList }
 
-      def actorRefFactory = actorContext
+      def actorRefFactory: ActorRefFactory = actorContext
 
       def watch[A](actorRef: ActorRef, msg: A) = act { actorContext.watchWith(actorRef, msg); () }
 
@@ -111,7 +111,7 @@ object ActorCtx {
 
       def children = List.empty[ActorRef].pure[F]
 
-      def actorRefFactory = actorContext
+      def actorRefFactory: ActorRefFactory = actorContext
 
       def watch[A](actorRef: ActorRef, msg: A) = Sync[F].delay { actorContext.watchWith(actorRef, msg); () }
 
@@ -137,7 +137,7 @@ object ActorCtx {
 
       def children = actorCtx.flatMap { _.children }
 
-      def actorRefFactory = actorContext
+      def actorRefFactory: ActorRefFactory = actorContext
 
       def watch[A](actorRef: ActorRef, msg: A) = actorCtx.flatMap { _.watch(actorRef, msg) }
 
