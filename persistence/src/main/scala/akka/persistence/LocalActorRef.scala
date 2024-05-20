@@ -10,9 +10,9 @@ import com.evolutiongaming.catshelper.{SerialRef, ToTry}
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.*
 
-/** Representation of actor capable of constructing result from multiple messages passed into the actor. Inspired by [[PromiseActorRef]], but
-  * result [[R]] is an aggregate from incoming messages rather that first message. Can be used only locally, does _not_ tolerate.
-  * [[ActorRef.provider]] and [[ActorRef.path]] functions.
+/** Representation of actor capable of constructing result from multiple messages passed into the actor. Inspired by
+  * [[PromiseActorRef]], but result [[R]] is an aggregate from incoming messages rather that first message. Can be used
+  * only locally, does _not_ tolerate. [[ActorRef.provider]] and [[ActorRef.path]] functions.
   * @tparam F
   *   The effect type.
   * @tparam R
@@ -20,8 +20,9 @@ import scala.concurrent.duration.*
   */
 private[persistence] trait LocalActorRef[F[_], R] {
 
-  /** Not actual [[ActorRef]]! It is not serialisable, thus can not be passed over network. Under the hood it implements [[ActorRef]] trait
-    * by providing function `!` that updates internal state using provided function `receive`. Please check [[LocalActorRef.apply]] docs
+  /** Not actual [[ActorRef]]! It is not serialisable, thus can not be passed over network. Under the hood it implements
+    * [[ActorRef]] trait by providing function `!` that updates internal state using provided function `receive`. Please
+    * check [[LocalActorRef.apply]] docs
     */
   def ref: ActorRef
 
@@ -30,9 +31,9 @@ private[persistence] trait LocalActorRef[F[_], R] {
   def res: F[R]
 
   /** Immediately get current state:
-    *  - [[None]] if aggregating not finished yet
-    *  - [[Some(Left(Throwable))]] if aggregation failed or timeout happened
-    *  - [[Some(Right(r))]] if aggregation completed successfully
+    *   - [[None]] if aggregating not finished yet
+    *   - [[Some(Left(Throwable))]] if aggregation failed or timeout happened
+    *   - [[Some(Right(r))]] if aggregation completed successfully
     */
   def get: F[Option[Either[Throwable, R]]]
 }
@@ -48,8 +49,8 @@ private[persistence] object LocalActorRef {
     * @param timeout
     *   [[TimeoutException]] will be thrown if no incoming messages received within the timeout.
     * @param receive
-    *   The aggregate function defining how to apply incoming message on state or produce final result: [[Left]] for continue aggregating
-    *   while [[Right]] for the result.
+    *   The aggregate function defining how to apply incoming message on state or produce final result: [[Left]] for
+    *   continue aggregating while [[Right]] for the result.
     * @tparam F
     *   The effect type.
     * @tparam S
@@ -59,7 +60,7 @@ private[persistence] object LocalActorRef {
     * @return
     */
   def apply[F[_]: Temporal: ToTry, S, R](initial: S, timeout: FiniteDuration)(
-    receive: PartialFunction[(S, M), F[Either[S, R]]]
+    receive: PartialFunction[(S, M), F[Either[S, R]]],
   ): F[LocalActorRef[F, R]] = {
 
     val F = Temporal[F]
@@ -78,7 +79,8 @@ private[persistence] object LocalActorRef {
 
         type Delay = FiniteDuration
 
-        /** If state was not updated for more than [[#timeout]] - completes [[#defer]] with failed result and exits tailRecM loop.
+        /** If state was not updated for more than [[#timeout]] - completes [[#defer]] with failed result and exits
+          * tailRecM loop.
           *
           * Otherwise calculate [[#delay]] till next timeout and continue loop.
           *

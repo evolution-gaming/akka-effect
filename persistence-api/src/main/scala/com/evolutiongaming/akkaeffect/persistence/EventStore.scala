@@ -2,8 +2,8 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import com.evolutiongaming.sstream
 
-/** Persistent event-store API used in event-sourced actors [[EventSourcedActorOf]]. The API consists of two parts: [[EventStore.Read]] and
-  * [[EventStore.Write]] that represents reading (actually streaming) and persisting events.
+/** Persistent event-store API used in event-sourced actors [[EventSourcedActorOf]]. The API consists of two parts:
+  * [[EventStore.Read]] and [[EventStore.Write]] that represents reading (actually streaming) and persisting events.
   */
 trait EventStore[F[_], A] extends EventStore.Read[F, A] with EventStore.Write[F, A]
 
@@ -23,8 +23,8 @@ object EventStore {
 
   trait Write[F[_], A] {
 
-    /** Persist events in batches. Outer [[NonEmptyList]] of [[Events#values]] can be used for batching while inner [[NonEmptyList]] must be
-      * persisted atomically.
+    /** Persist events in batches. Outer [[NonEmptyList]] of [[Events#values]] can be used for batching while inner
+      * [[NonEmptyList]] must be persisted atomically.
       *
       * @param events
       *   events to be persisted
@@ -47,8 +47,8 @@ object EventStore {
     */
   sealed trait Persisted[+A]
 
-  /** Highest persisted [[SeqNr]] representation. Used as marker of sequence persisted number in case if events not available (were
-    * deleted).
+  /** Highest persisted [[SeqNr]] representation. Used as marker of sequence persisted number in case if events not
+    * available (were deleted).
     *
     * @param seqNr
     *   (highest) persisted [[SeqNr]]

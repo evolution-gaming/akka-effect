@@ -1,14 +1,14 @@
 package com.evolutiongaming.akkaeffect.util
 
-import cats.effect.{Sync, Async, Concurrent}
-import cats.syntax.all._
+import cats.effect.{Async, Concurrent, Sync}
+import cats.syntax.all.*
+
 import java.util.concurrent.atomic.AtomicReference
 
 /** Provides serial access to an internal state.
   *
-  * The class differs from [[cats.effect.kernel.Ref]] by the ability to execute
-  * an effect and a guarantee that the operations will be executed in the same
-  * order these arrived given these were called from the same thread.
+  * The class differs from [[cats.effect.kernel.Ref]] by the ability to execute an effect and a guarantee that the
+  * operations will be executed in the same order these arrived given these were called from the same thread.
   */
 private[akkaeffect] trait Serially[F[_], A] {
   def apply(f: A => F[A]): F[Unit]
@@ -23,47 +23,44 @@ private[akkaeffect] object Serially {
     sealed abstract class S
 
     object S {
-      final case class Idle(value: A) extends S
+      final case class Idle(value: A)     extends S
       final case class Active(task: Task) extends S
-      final case object Active extends S
+      final case object Active            extends S
     }
 
     val ref = new AtomicReference[S](S.Idle(value))
 
     val unit = ().asRight[(A, Task)]
 
-    def start(a: A, task: Task) = {
-      (a, task).tailRecM { case (a, task) =>
-        for {
-          a <- task(a)
-          s <- Sync[F].delay {
-            ref.getAndUpdate {
-              case _: S.Active => S.Active
-              case S.Active    => S.Idle(a)
-              case _: S.Idle   => S.Idle(a)
+    def start(a: A, task: Task) =
+      (a, task).tailRecM {
+        case (a, task) =>
+          for {
+            a <- task(a)
+            s <- Sync[F].delay {
+              ref.getAndUpdate {
+                case _: S.Active => S.Active
+                case S.Active    => S.Idle(a)
+                case _: S.Idle   => S.Idle(a)
+              }
             }
+          } yield s match {
+            case s: S.Active => (a, s.task).asLeft[Unit]
+            case S.Active    => unit
+            case _: S.Idle   => unit
           }
-        } yield s match {
-          case s: S.Active => (a, s.task).asLeft[Unit]
-          case S.Active    => unit
-          case _: S.Idle   => unit
-        }
       }
-    }
 
     class Main
     new Main with Serially[F, A] {
-      def apply(f: A => F[A]) = {
+      def apply(f: A => F[A]) =
         for {
           d <- Concurrent[F].deferred[Either[Throwable, Unit]]
-          t = (a: A) => {
+          t = (a: A) =>
             for {
               b <- f(a).attempt
               _ <- d.complete(b.void)
-            } yield {
-              b.getOrElse(a)
-            }
-          }
+            } yield b.getOrElse(a)
           s <- Sync[F].delay {
             ref.getAndUpdate {
               case _: S.Idle => S.Active
@@ -87,7 +84,6 @@ private[akkaeffect] object Serially {
           a <- d.get
           a <- a.liftTo[F]
         } yield a
-      }
     }
   }
 }

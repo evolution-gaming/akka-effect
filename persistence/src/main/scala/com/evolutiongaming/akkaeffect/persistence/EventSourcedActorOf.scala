@@ -5,8 +5,8 @@ import akka.persistence.SnapshotSelectionCriteria
 import cats.Monad
 import cats.effect.implicits.effectResourceOps
 import cats.effect.{Async, Ref, Resource}
-import cats.syntax.all._
-import com.evolutiongaming.akkaeffect._
+import cats.syntax.all.*
+import com.evolutiongaming.akkaeffect.*
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.catshelper.{LogOf, ToFuture}
 
@@ -58,14 +58,14 @@ object EventSourcedActorOf {
   // format: on
   def actor[F[_]: Async: ToFuture: LogOf, S, E](
     eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, Any]],
-    persistence: EventSourcedPersistence[F, S, E]
+    persistence: EventSourcedPersistence[F, S, E],
   ): Actor = ActorOf[F] {
     receiveOf(eventSourcedOf, persistence)
   }
 
   private[evolutiongaming] def receiveOf[F[_]: Async: LogOf, S, E](
     eventSourcedOf: EventSourcedOf[F, Lifecycle[F, S, E, Any]],
-    persistence: EventSourcedPersistence[F, S, E]
+    persistence: EventSourcedPersistence[F, S, E],
   ): ReceiveOf[F, Envelope[Any], ActorOf.Stop] = { actorCtx =>
     LogOf
       .log[F, EventSourcedActorOf.type]
@@ -88,7 +88,7 @@ object EventSourcedActorOf {
 
           recovering <- recoveryStarted(
             snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min),
-            snapshot.map(_.asOffer)
+            snapshot.map(_.asOffer),
           )
 
           replay = recovering.replay
@@ -132,7 +132,7 @@ object EventSourcedActorOf {
     def asOffer: SnapshotOffer[S] =
       SnapshotOffer(
         SnapshotMetadata(snapshot.metadata.seqNr, snapshot.metadata.timestamp),
-        snapshot.snapshot
+        snapshot.snapshot,
       )
 
   }
@@ -150,7 +150,7 @@ object EventSourcedActorOf {
           maxSequenceNr = criteria.maxSequenceNr,
           maxTimestamp = criteria.maxTimestamp,
           minSequenceNr = criteria.minSequenceNr,
-          minTimestamp = criteria.minTimestamp
+          minTimestamp = criteria.minTimestamp,
         )
       }
     }

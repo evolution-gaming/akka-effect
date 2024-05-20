@@ -1,28 +1,31 @@
 package akka.persistence
 
-import cats.effect.syntax.all._
+import cats.effect.syntax.all.*
 import cats.effect.{Async, Sync}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.ActorEffect
 import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, EventStore, Events, SeqNr}
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToTry}
 import com.evolutiongaming.sstream
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 
 object EventStoreInterop {
 
   final class BufferOverflowException(bufferCapacity: Int, persistenceId: String)
-      extends Exception(s"Events buffer with capacity $bufferCapacity was overflowed, recovery for $persistenceId failed")
+      extends Exception(
+        s"Events buffer with capacity $bufferCapacity was overflowed, recovery for $persistenceId failed",
+      )
       with NoStackTrace
 
   /** Create instance of [[EventStore]] that uses Akka Persistence journal plugin under the hood.
     *
-    * Journal plugin uses "push" model to recover events (i.e. read events from underline DB) while [[EventStore]] provides "pull" API via
-    * [[sstream.Stream]]. To overcome this limitation, the interop uses internal buffer to hold events provided by Akka' journal plugin
-    * before they will be consumed (i.e. deleted from buffer) as [[EventStore.events]] stream. The output stream is lazy by itself and actual
-    * event consumption from the buffer will happened only on the stream materialization.
+    * Journal plugin uses "push" model to recover events (i.e. read events from underline DB) while [[EventStore]]
+    * provides "pull" API via [[sstream.Stream]]. To overcome this limitation, the interop uses internal buffer to hold
+    * events provided by Akka' journal plugin before they will be consumed (i.e. deleted from buffer) as
+    * [[EventStore.events]] stream. The output stream is lazy by itself and actual event consumption from the buffer
+    * will happened only on the stream materialization.
     *
     * @param persistence
     *   Akka persistence [[Persistence]]
@@ -42,7 +45,7 @@ object EventStoreInterop {
     timeout: FiniteDuration,
     capacity: Int,
     journalPluginId: String,
-    eventSourcedId: EventSourcedId
+    eventSourcedId: EventSourcedId,
   ): F[EventStore[F, Any]] =
     for {
       log <- LogOf.log[F, EventStoreInterop.type]
@@ -72,11 +75,14 @@ object EventStoreInterop {
 
         }
 
-        def event(persisted: PersistentRepr): EventStore.Event[Any] = EventStore.Event(persisted.payload, persisted.sequenceNr)
+        def event(persisted: PersistentRepr): EventStore.Event[Any] =
+          EventStore.Event(persisted.payload, persisted.sequenceNr)
 
         def bufferOverflow =
           for {
-            _ <- log.error(s"events buffer overflow on recovery for entity $persistenceId. Buffer capacity is $capacity")
+            _ <- log.error(
+              s"events buffer overflow on recovery for entity $persistenceId. Buffer capacity is $capacity",
+            )
             _ <- new BufferOverflowException(capacity, persistenceId).raiseError[F, Unit]
           } yield {}
 
@@ -171,7 +177,7 @@ object EventStoreInterop {
             toSequenceNr = SeqNr.Max,
             max = Long.MaxValue,
             persistenceId = persistenceId,
-            persistentActor = actor.ref
+            persistentActor = actor.ref,
           )
           _ <- journaller.tell(request)
           _ <- log.debug("recovery: events from Akka percictence requested")
@@ -224,7 +230,8 @@ object EventStoreInterop {
 
         val messages = events.values.toList.map { events =>
           val persistent = events.toList.map {
-            case EventStore.Event(event, seqNr) => PersistentRepr(event, persistenceId = persistenceId, sequenceNr = seqNr)
+            case EventStore.Event(event, seqNr) =>
+              PersistentRepr(event, persistenceId = persistenceId, sequenceNr = seqNr)
           }
           AtomicWrite(persistent)
         }

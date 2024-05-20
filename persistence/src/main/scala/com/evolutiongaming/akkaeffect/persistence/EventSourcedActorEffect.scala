@@ -3,7 +3,7 @@ package com.evolutiongaming.akkaeffect.persistence
 import akka.actor.Props
 import cats.effect.{Async, Resource}
 import com.evolutiongaming.akkaeffect.{ActorEffect, ActorRefOf}
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture, LogOf}
+import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 
 object EventSourcedActorEffect {
 
@@ -11,7 +11,7 @@ object EventSourcedActorEffect {
     actorRefOf: ActorRefOf[F],
     eventSourcedOf: EventSourcedOf[F, EventSourcedActorOf.Lifecycle[F, S, E, Any]],
     persistence: EventSourcedPersistence[F, S, E],
-    name: Option[String] = None
+    name: Option[String] = None,
   ): Resource[F, ActorEffect[F, Any, Any]] = {
 
     def actor = EventSourcedActorOf.actor[F, S, E](eventSourcedOf, persistence)

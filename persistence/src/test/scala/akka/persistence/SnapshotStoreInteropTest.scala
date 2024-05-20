@@ -1,22 +1,19 @@
 package akka.persistence
 
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
-
-import cats.syntax.all._
+import akka.pattern.AskTimeoutException
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-
+import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, SeqNr, SnapshotStore}
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
 import com.evolutiongaming.catshelper.LogOf
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-import scala.util.Random
-
-import scala.concurrent.Future
-import scala.concurrent.duration._
-import akka.pattern.AskTimeoutException
 import java.time.Instant
+import scala.concurrent.Future
+import scala.concurrent.duration.*
+import scala.util.Random
 
 class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
 
@@ -151,7 +148,7 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
           case Left(_: AskTimeoutException) => succeed
           case Left(other)                  => fail(other)
           case Right(_)                     => fail("the test should fail with AskTimeoutException but did no")
-        }
+        },
       )
 
     io.unsafeRunSync()
@@ -234,7 +231,8 @@ class FailingSnapshotter extends akka.persistence.snapshot.SnapshotStore {
   override def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] =
     Future.failed(FailingSnapshotter.exception)
 
-  override def saveAsync(metadata: SnapshotMetadata, snapshot: Any): Future[Unit] = Future.failed(FailingSnapshotter.exception)
+  override def saveAsync(metadata: SnapshotMetadata, snapshot: Any): Future[Unit] =
+    Future.failed(FailingSnapshotter.exception)
 
   override def deleteAsync(metadata: SnapshotMetadata): Future[Unit] = Future.failed(FailingSnapshotter.exception)
 
@@ -245,7 +243,8 @@ class FailingSnapshotter extends akka.persistence.snapshot.SnapshotStore {
 
 class InfiniteSnapshotter extends akka.persistence.snapshot.SnapshotStore {
 
-  override def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] = Future.never
+  override def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] =
+    Future.never
 
   override def saveAsync(metadata: SnapshotMetadata, snapshot: Any): Future[Unit] = Future.never
 

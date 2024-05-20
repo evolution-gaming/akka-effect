@@ -3,11 +3,8 @@ package akka.persistence
 import akka.persistence.journal.AsyncWriteJournal
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import cats.syntax.all._
-import com.evolutiongaming.akkaeffect.persistence.EventSourcedId
-import com.evolutiongaming.akkaeffect.persistence.EventStore
-import com.evolutiongaming.akkaeffect.persistence.Events
-import com.evolutiongaming.akkaeffect.persistence.SeqNr
+import cats.syntax.all.*
+import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, EventStore, Events, SeqNr}
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
 import com.evolutiongaming.catshelper.LogOf
 import org.scalatest.funsuite.AnyFunSuite
@@ -16,7 +13,7 @@ import org.scalatest.matchers.should.Matchers
 import java.util.concurrent.TimeoutException
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 class EventStoreInteropTest extends AnyFunSuite with Matchers {
@@ -40,7 +37,11 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           _       = seqNr shouldEqual 2L
           events <- store.events(SeqNr.Min)
           events <- events.toList
-          _       = events shouldEqual List(EventStore.Event("first", 1L), EventStore.Event("second", 2L), EventStore.HighestSeqNr(2L))
+          _ = events shouldEqual List(
+            EventStore.Event("first", 1L),
+            EventStore.Event("second", 2L),
+            EventStore.HighestSeqNr(2L),
+          )
           _      <- store.deleteTo(2L).flatten
           events <- store.events(SeqNr.Min)
           events <- events.toList
@@ -116,7 +117,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
         } yield error match {
           case Left(_: TimeoutException) => succeed
           case Left(e)                   => fail(e)
-          case Right(r)                  => fail(s"the test should fail with TimeoutException while actual result is $r")
+          case Right(r) => fail(s"the test should fail with TimeoutException while actual result is $r")
         }
       }
 
@@ -163,7 +164,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
         } yield error match {
           case Left(_: TimeoutException) => succeed
           case Left(e)                   => fail(e)
-          case Right(r)                  => fail(s"the test should fail with TimeoutException while actual result is $r")
+          case Right(r) => fail(s"the test should fail with TimeoutException while actual result is $r")
         }
       }
 
@@ -184,7 +185,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
         } yield error match {
           case Left(_: TimeoutException) => succeed
           case Left(e)                   => fail(e)
-          case Right(r)                  => fail(s"the test should fail with TimeoutException while actual result is $r")
+          case Right(r) => fail(s"the test should fail with TimeoutException while actual result is $r")
         }
       }
 
@@ -199,22 +200,24 @@ object FailingJournal {
 class FailingJournal extends AsyncWriteJournal {
 
   override def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(
-    recoveryCallback: PersistentRepr => Unit
+    recoveryCallback: PersistentRepr => Unit,
   ): Future[Unit] = Future.failed(FailingJournal.exception)
 
   override def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] =
     Future.failed(FailingJournal.exception)
 
-  override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = Future.failed(FailingJournal.exception)
+  override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] =
+    Future.failed(FailingJournal.exception)
 
-  override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] = Future.failed(FailingJournal.exception)
+  override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] =
+    Future.failed(FailingJournal.exception)
 
 }
 
 class InfiniteJournal extends AsyncWriteJournal {
 
   override def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(
-    recoveryCallback: PersistentRepr => Unit
+    recoveryCallback: PersistentRepr => Unit,
   ): Future[Unit] = Future.never
 
   override def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] = Future.never

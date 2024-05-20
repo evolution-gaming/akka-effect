@@ -4,14 +4,13 @@ import akka.actor.ActorSystem
 import akka.testkit.TestActors
 import cats.arrow.FunctionK
 import cats.effect.{Async, IO, Sync}
-import cats.syntax.all._
-import com.evolutiongaming.akkaeffect.IOSuite._
+import cats.syntax.all.*
+import com.evolutiongaming.akkaeffect.IOSuite.*
 import com.evolutiongaming.catshelper.FromFuture
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.duration._
-
+import scala.concurrent.duration.*
 
 class AskTest extends AsyncFunSuite with ActorSuite with Matchers {
 
@@ -28,13 +27,13 @@ class AskTest extends AsyncFunSuite with ActorSuite with Matchers {
     actorRefOf(TestActors.echoActorProps).use { actorRef =>
       val ask = Ask.fromActorRef[F](actorRef)
       Sync[F].delay {
-        ask.toString shouldEqual s"Ask(${ actorRef.path })"
+        ask.toString shouldEqual s"Ask(${actorRef.path})"
       }
     }
   }
 
   private def `apply`[F[_]: Async: FromFuture](actorSystem: ActorSystem) = {
-    val timeout = 1.second
+    val timeout    = 1.second
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     actorRefOf(TestActors.echoActorProps).use { actorRef =>
       val ask = Ask.fromActorRef[F](actorRef).mapK(FunctionK.id)

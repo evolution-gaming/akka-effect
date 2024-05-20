@@ -2,7 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import cats.effect.Sync
 import cats.effect.kernel.Ref
-import cats.syntax.all._
+import cats.syntax.all.*
 
 trait ReplayStateful[F[_], S, E] {
 
@@ -13,7 +13,7 @@ trait ReplayStateful[F[_], S, E] {
 
 object ReplayStateful {
 
-  def of[F[_]: Sync, S, E](initial: S)(f: (S, E, SeqNr) => F[S]): F[ReplayStateful[F, S, E]] = {
+  def of[F[_]: Sync, S, E](initial: S)(f: (S, E, SeqNr) => F[S]): F[ReplayStateful[F, S, E]] =
     Ref[F]
       .of(initial)
       .map { stateRef =>
@@ -30,5 +30,4 @@ object ReplayStateful {
           }
         }
       }
-  }
 }

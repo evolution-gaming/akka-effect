@@ -2,11 +2,12 @@ package akka.persistence
 
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import cats.syntax.all._
-import org.scalatest.matchers.should.Matchers
+import cats.syntax.all.*
 import org.scalatest.funsuite.AnyFunSuite
-import scala.concurrent.duration._
+import org.scalatest.matchers.should.Matchers
+
 import java.util.concurrent.TimeoutException
+import scala.concurrent.duration.*
 
 class LocalActorRefTest extends AnyFunSuite with Matchers {
 
