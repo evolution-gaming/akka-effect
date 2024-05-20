@@ -11,6 +11,7 @@ lazy val commonSettings = Seq(
   scalacOptions ++= Seq("-release:17", "-Xsource:3", "-deprecation"),
   releaseCrossBuild := true,
   publishTo         := Some(Resolver.evolutionReleases),
+  versionPolicyIntention := Compatibility.BinaryCompatible, // sbt-version-policy
   versionScheme     := Some("semver-spec"),
 
   /*testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))*/
