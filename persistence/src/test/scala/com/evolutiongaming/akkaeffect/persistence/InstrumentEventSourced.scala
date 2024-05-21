@@ -30,103 +30,99 @@ object InstrumentEventSourced {
       for {
         eventSourced <- eventSourcedOf(actorCtx)
         _ <- record(Action.Created(eventSourced.eventSourcedId, eventSourced.recovery, eventSourced.pluginIds))
-      } yield {
-        eventSourced.map { recoveryStarted =>
+      } yield eventSourced.map { recoveryStarted =>
+        for {
+          recoveryStarted <- recoveryStarted
+          _               <- resource(Action.Started, Action.Released)
+        } yield RecoveryStarted[S] { (seqNr, snapshotOffer) =>
+          val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
+            val metadata = snapshotOffer.metadata.copy(timestamp = Instant.ofEpochMilli(0))
+            snapshotOffer.copy(metadata = metadata)
+          }
+
           for {
-            recoveryStarted <- recoveryStarted
-            _               <- resource(Action.Started, Action.Released)
-          } yield {
-            RecoveryStarted[S] { (seqNr, snapshotOffer) =>
-              val snapshotOffer1 = snapshotOffer.map { snapshotOffer =>
-                val metadata = snapshotOffer.metadata.copy(timestamp = Instant.ofEpochMilli(0))
-                snapshotOffer.copy(metadata = metadata)
-              }
-
+            recovering <- recoveryStarted(seqNr, snapshotOffer)
+            _          <- resource(Action.RecoveryAllocated(seqNr, snapshotOffer1), Action.RecoveryReleased)
+          } yield Recovering[S] {
+            for {
+              _      <- resource(Action.ReplayAllocated, Action.ReplayReleased)
+              replay <- recovering.replay
+            } yield Replay[E] { (event, seqNr) =>
               for {
-                recovering <- recoveryStarted(seqNr, snapshotOffer)
-                _          <- resource(Action.RecoveryAllocated(seqNr, snapshotOffer1), Action.RecoveryReleased)
-              } yield Recovering[S] {
+                _ <- replay(event, seqNr)
+                _ <- record(Action.Replayed(event, seqNr))
+              } yield {}
+            }
+          } { (seqNr, journaller, snapshotter) =>
+            val journaller1 = new Instrument with Journaller[F, E] {
+
+              def append = events =>
                 for {
-                  _      <- resource(Action.ReplayAllocated, Action.ReplayReleased)
-                  replay <- recovering.replay
-                } yield Replay[E] { (event, seqNr) =>
-                  for {
-                    _ <- replay(event, seqNr)
-                    _ <- record(Action.Replayed(event, seqNr))
-                  } yield {}
-                }
-              } { (seqNr, journaller, snapshotter) =>
-                val journaller1 = new Instrument with Journaller[F, E] {
+                  _     <- record(Action.AppendEvents(events))
+                  seqNr <- journaller.append(events)
+                  _     <- record(Action.AppendEventsOuter)
+                } yield for {
+                  seqNr <- seqNr
+                  _     <- record(Action.AppendEventsInner(seqNr))
+                } yield seqNr
 
-                  def append = events =>
-                    for {
-                      _     <- record(Action.AppendEvents(events))
-                      seqNr <- journaller.append(events)
-                      _     <- record(Action.AppendEventsOuter)
-                    } yield for {
-                      seqNr <- seqNr
-                      _     <- record(Action.AppendEventsInner(seqNr))
-                    } yield seqNr
-
-                  def deleteTo = (seqNr: SeqNr) =>
-                    for {
-                      _ <- record(Action.DeleteEventsTo(seqNr))
-                      a <- journaller.deleteTo(seqNr)
-                      _ <- record(Action.DeleteEventsToOuter)
-                    } yield for {
-                      a <- a
-                      _ <- record(Action.DeleteEventsToInner)
-                    } yield a
-                }
-
-                val snapshotter1 = new Instrument with Snapshotter[F, S] {
-
-                  def save(seqNr: SeqNr, snapshot: S) =
-                    for {
-                      _ <- record(Action.SaveSnapshot(seqNr, snapshot))
-                      a <- snapshotter.save(seqNr, snapshot)
-                      _ <- record(Action.SaveSnapshotOuter)
-                    } yield for {
-                      a <- a
-                      _ <- record(Action.SaveSnapshotInner)
-                    } yield a
-
-                  def delete(seqNr: SeqNr) =
-                    for {
-                      _ <- record(Action.DeleteSnapshot(seqNr))
-                      a <- snapshotter.delete(seqNr)
-                      _ <- record(Action.DeleteSnapshotOuter)
-                    } yield for {
-                      a <- a
-                      _ <- record(Action.DeleteSnapshotInner)
-                    } yield a
-
-                  def delete(criteria: SnapshotSelectionCriteria) =
-                    for {
-                      _ <- record(Action.DeleteSnapshots(criteria))
-                      a <- snapshotter.delete(criteria)
-                      _ <- record(Action.DeleteSnapshotsOuter)
-                    } yield for {
-                      a <- a
-                      _ <- record(Action.DeleteSnapshotsInner)
-                    } yield a
-                }
-
+              def deleteTo = (seqNr: SeqNr) =>
                 for {
-                  receive <- recovering.completed(seqNr, journaller1, snapshotter1)
-                  _       <- resource(Action.ReceiveAllocated(seqNr), Action.ReceiveReleased)
-                } yield Receive[Envelope[C]] { envelope =>
-                  for {
-                    stop <- receive(envelope)
-                    _    <- record(Action.Received(envelope.msg, envelope.from, stop))
-                  } yield stop
-                } {
-                  for {
-                    stop <- receive.timeout
-                    _    <- record(Action.ReceiveTimeout)
-                  } yield stop
-                }
-              }
+                  _ <- record(Action.DeleteEventsTo(seqNr))
+                  a <- journaller.deleteTo(seqNr)
+                  _ <- record(Action.DeleteEventsToOuter)
+                } yield for {
+                  a <- a
+                  _ <- record(Action.DeleteEventsToInner)
+                } yield a
+            }
+
+            val snapshotter1 = new Instrument with Snapshotter[F, S] {
+
+              def save(seqNr: SeqNr, snapshot: S) =
+                for {
+                  _ <- record(Action.SaveSnapshot(seqNr, snapshot))
+                  a <- snapshotter.save(seqNr, snapshot)
+                  _ <- record(Action.SaveSnapshotOuter)
+                } yield for {
+                  a <- a
+                  _ <- record(Action.SaveSnapshotInner)
+                } yield a
+
+              def delete(seqNr: SeqNr) =
+                for {
+                  _ <- record(Action.DeleteSnapshot(seqNr))
+                  a <- snapshotter.delete(seqNr)
+                  _ <- record(Action.DeleteSnapshotOuter)
+                } yield for {
+                  a <- a
+                  _ <- record(Action.DeleteSnapshotInner)
+                } yield a
+
+              def delete(criteria: SnapshotSelectionCriteria) =
+                for {
+                  _ <- record(Action.DeleteSnapshots(criteria))
+                  a <- snapshotter.delete(criteria)
+                  _ <- record(Action.DeleteSnapshotsOuter)
+                } yield for {
+                  a <- a
+                  _ <- record(Action.DeleteSnapshotsInner)
+                } yield a
+            }
+
+            for {
+              receive <- recovering.completed(seqNr, journaller1, snapshotter1)
+              _       <- resource(Action.ReceiveAllocated(seqNr), Action.ReceiveReleased)
+            } yield Receive[Envelope[C]] { envelope =>
+              for {
+                stop <- receive(envelope)
+                _    <- record(Action.Received(envelope.msg, envelope.from, stop))
+              } yield stop
+            } {
+              for {
+                stop <- receive.timeout
+                _    <- record(Action.ReceiveTimeout)
+              } yield stop
             }
           }
         }
