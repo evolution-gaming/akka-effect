@@ -3,7 +3,7 @@ package akka.persistence
 import akka.actor.{ActorContext, ActorRef}
 import akka.persistence.JournalProtocol.DeleteMessagesTo
 import cats.effect.{Resource, Sync}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.persistence.{DeleteEventsTo, SeqNr}
 import com.evolutiongaming.akkaeffect.{ActorRefOf, AskFrom}
 import com.evolutiongaming.catshelper.FromFuture
@@ -14,14 +14,13 @@ object DeleteEventsToInterop {
 
   def apply[F[_]: Sync: FromFuture](
     eventsourced: Eventsourced,
-    timeout: FiniteDuration
-  ): Resource[F, DeleteEventsTo[F]] = {
+    timeout: FiniteDuration,
+  ): Resource[F, DeleteEventsTo[F]] =
     apply(Interop(eventsourced), timeout)
-  }
 
   private[persistence] def apply[F[_]: Sync: FromFuture](
     eventsourced: Interop,
-    timeout: FiniteDuration
+    timeout: FiniteDuration,
   ): Resource[F, DeleteEventsTo[F]] = {
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](eventsourced.context.system)
@@ -29,23 +28,20 @@ object DeleteEventsToInterop {
     AskFrom
       .of[F](actorRefOf, eventsourced.self, timeout)
       .map { askFrom =>
-
         def persistenceId = eventsourced.persistenceId
 
         def journal = eventsourced.journal
 
-        (seqNr: SeqNr) => {
-          askFrom[DeleteMessagesTo, Any](journal) { from => DeleteMessagesTo(persistenceId, seqNr, from) }
+        (seqNr: SeqNr) =>
+          askFrom[DeleteMessagesTo, Any](journal)(from => DeleteMessagesTo(persistenceId, seqNr, from))
             .map { result =>
               result.flatMap {
                 case _: DeleteMessagesSuccess => ().pure[F]
                 case a: DeleteMessagesFailure => a.cause.raiseError[F, Unit]
               }
             }
-        }
       }
   }
-
 
   trait Interop {
 

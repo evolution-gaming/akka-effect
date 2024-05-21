@@ -1,9 +1,9 @@
 package com.evolutiongaming.akkaeffect.util
 
-import org.scalatest.funsuite.AsyncFunSuite
 import cats.effect.IO
-import cats.syntax.all._
-import com.evolutiongaming.akkaeffect.IOSuite._
+import cats.syntax.all.*
+import com.evolutiongaming.akkaeffect.IOSuite.*
+import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.util.control.NoStackTrace

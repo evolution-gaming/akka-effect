@@ -2,67 +2,66 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.{ActorContext, ActorRef, ActorRefFactory}
 import cats.effect.Sync
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Monad, ~>}
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
 
-/**
-  * Refined for ActorContext
-  * Unlike the original ActorContext, all methods of ActorCtx are thread-safe
+/** Refined for [[ActorContext]]. Unlike the original ActorContext, all methods of ActorCtx are thread-safe
   *
-  * @see [[akka.actor.ActorContext]]
+  * @see
+  *   [[akka.actor.ActorContext]]
   */
 trait ActorCtx[F[_]] {
 
-  /**
-    * @see [[akka.actor.ActorContext.self]]
+  /** @see
+    *   [[akka.actor.ActorContext.self]]
     */
   def self: ActorRef
 
-  /**
-    * @see [[akka.actor.ActorContext.parent]]
+  /** @see
+    *   [[akka.actor.ActorContext.parent]]
     */
   def parent: ActorRef
 
-  /**
-    * @see [[akka.actor.ActorContext.dispatcher]]
+  /** @see
+    *   [[akka.actor.ActorContext.dispatcher]]
     */
   def executor: ExecutionContextExecutor
 
-  /**
-    * @see [[akka.actor.ActorContext.setReceiveTimeout]]
+  /** @see
+    *   [[akka.actor.ActorContext.setReceiveTimeout]]
     */
   def setReceiveTimeout(timeout: Duration): F[Unit]
 
-  /**
-    * @see [[akka.actor.ActorContext.child]]
+  /** @see
+    *   [[akka.actor.ActorContext.child]]
     */
   def child(name: String): F[Option[ActorRef]]
 
-  /**
-    * @see [[akka.actor.ActorContext.children]]
+  /** @see
+    *   [[akka.actor.ActorContext.children]]
     */
   def children: F[List[ActorRef]]
 
-  /**
-    * @see [[akka.actor.ActorContext.actorOf]]
+  /** @see
+    *   [[akka.actor.ActorContext.actorOf]]
     */
   def actorRefFactory: ActorRefFactory
 
-  /**
-    * @see [[akka.actor.ActorContext.watchWith]]
+  /** @see
+    *   [[akka.actor.ActorContext.watchWith]]
     */
   def watch[A](actorRef: ActorRef, msg: A): F[Unit]
 
-  /**
-    * @see [[akka.actor.ActorContext.unwatch]]
+  /** @see
+    *   [[akka.actor.ActorContext.unwatch]]
     */
   def unwatch(actorRef: ActorRef): F[Unit]
 
-  /**
-    * @see [[akka.actor.ActorContext.stop]]
+  /** @see
+    *   [[akka.actor.ActorContext.stop]]
     */
   def stop: F[Unit]
 }
@@ -79,19 +78,19 @@ object ActorCtx {
 
       def executor = actorContext.dispatcher
 
-      def setReceiveTimeout(timeout: Duration) = act { actorContext.setReceiveTimeout(timeout) }
+      def setReceiveTimeout(timeout: Duration) = act(actorContext.setReceiveTimeout(timeout))
 
-      def child(name: String) = act { actorContext.child(name) }
+      def child(name: String) = act(actorContext.child(name))
 
-      def children = act { actorContext.children.toList }
+      def children = act(actorContext.children.toList)
 
-      def actorRefFactory = actorContext
+      def actorRefFactory: ActorRefFactory = actorContext
 
       def watch[A](actorRef: ActorRef, msg: A) = act { actorContext.watchWith(actorRef, msg); () }
 
       def unwatch(actorRef: ActorRef) = act { actorContext.unwatch(actorRef); () }
 
-      def stop = act { actorContext.stop(actorContext.self) }
+      def stop = act(actorContext.stop(actorContext.self))
     }
   }
 
@@ -105,19 +104,19 @@ object ActorCtx {
 
       def executor = actorContext.dispatcher
 
-      def setReceiveTimeout(timeout: Duration) = Sync[F].delay { actorContext.setReceiveTimeout(timeout) }
+      def setReceiveTimeout(timeout: Duration) = Sync[F].delay(actorContext.setReceiveTimeout(timeout))
 
       def child(name: String) = none[ActorRef].pure[F]
 
       def children = List.empty[ActorRef].pure[F]
 
-      def actorRefFactory = actorContext
+      def actorRefFactory: ActorRefFactory = actorContext
 
       def watch[A](actorRef: ActorRef, msg: A) = Sync[F].delay { actorContext.watchWith(actorRef, msg); () }
 
       def unwatch(actorRef: ActorRef) = Sync[F].delay { actorContext.unwatch(actorRef); () }
 
-      def stop = Sync[F].delay { actorContext.stop(actorContext.self) }
+      def stop = Sync[F].delay(actorContext.stop(actorContext.self))
     }
   }
 
@@ -131,22 +130,21 @@ object ActorCtx {
 
       def executor = actorContext.dispatcher
 
-      def setReceiveTimeout(timeout: Duration) = actorCtx.flatMap { _.setReceiveTimeout(timeout) }
+      def setReceiveTimeout(timeout: Duration) = actorCtx.flatMap(_.setReceiveTimeout(timeout))
 
-      def child(name: String) = actorCtx.flatMap { _.child(name) }
+      def child(name: String) = actorCtx.flatMap(_.child(name))
 
-      def children = actorCtx.flatMap { _.children }
+      def children = actorCtx.flatMap(_.children)
 
-      def actorRefFactory = actorContext
+      def actorRefFactory: ActorRefFactory = actorContext
 
-      def watch[A](actorRef: ActorRef, msg: A) = actorCtx.flatMap { _.watch(actorRef, msg) }
+      def watch[A](actorRef: ActorRef, msg: A) = actorCtx.flatMap(_.watch(actorRef, msg))
 
-      def unwatch(actorRef: ActorRef) = actorCtx.flatMap { _.unwatch(actorRef) }
+      def unwatch(actorRef: ActorRef) = actorCtx.flatMap(_.unwatch(actorRef))
 
-      def stop = actorCtx.flatMap { _.stop }
+      def stop = actorCtx.flatMap(_.stop)
     }
   }
-
 
   implicit class ActorCtxOps[F[_]](val actorCtx: ActorCtx[F]) extends AnyVal {
 

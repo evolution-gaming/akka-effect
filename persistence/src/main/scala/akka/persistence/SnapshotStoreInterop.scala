@@ -2,13 +2,13 @@ package akka.persistence
 
 import akka.persistence.SnapshotSelectionCriteria
 import cats.effect.Sync
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.ActorEffect
 import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, SeqNr, SnapshotStore}
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object SnapshotStoreInterop {
 
@@ -16,7 +16,7 @@ object SnapshotStoreInterop {
     persistence: Persistence,
     timeout: FiniteDuration,
     snapshotPluginId: String,
-    eventSourcedId: EventSourcedId
+    eventSourcedId: EventSourcedId,
   ): F[SnapshotStore[F, Any]] =
     for {
       log <- LogOf.log[F, SnapshotStoreInterop.type]
@@ -95,7 +95,7 @@ object SnapshotStoreInterop {
           maxSequenceNr = criteria.maxSequenceNr,
           maxTimestamp = criteria.maxTimestamp,
           minSequenceNr = criteria.minSequenceNr,
-          minTimestamp = criteria.minTimestamp
+          minTimestamp = criteria.minTimestamp,
         )
         val request = SnapshotProtocol.DeleteSnapshots(persistenceId, query)
         snapshotter

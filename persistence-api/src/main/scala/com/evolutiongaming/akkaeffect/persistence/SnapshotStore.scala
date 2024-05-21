@@ -59,6 +59,6 @@ object SnapshotStore {
     maxSequenceNr: Long = Long.MaxValue,
     maxTimestamp: Long = Long.MaxValue,
     minSequenceNr: Long = 0L,
-    minTimestamp: Long = 0L
+    minTimestamp: Long = 0L,
   )
 }

@@ -1,22 +1,21 @@
 package com.evolutiongaming.akkaeffect
 
 import akka.actor.ActorContext
-import cats.effect._
-import cats.syntax.all._
+import cats.effect.*
+import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.util.Serially
-import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.catshelper.ToFuture
 
 import scala.util.control.NoStackTrace
-
 
 private[akkaeffect] trait ActorVar[F[_], A] {
   import ActorVar.Directive
 
   def preStart(resource: Resource[F, A]): Unit
 
-  /**
-    * @param f takes current state and returns tuple from next state and optional release callback
+  /** @param f
+    *   takes current state and returns tuple from next state and optional release callback
     */
   def receive(f: A => F[Directive[Releasable[F, A]]]): Unit
 
@@ -29,10 +28,9 @@ private[akkaeffect] object ActorVar {
 
   type Stop = () => Unit
 
-
   def apply[F[_]: Async: ToFuture, A](
     act: Act[F],
-    context: ActorContext
+    context: ActorContext,
   ): ActorVar[F, A] = {
     val stop = () => context.stop(context.self)
     apply(act, stop)
@@ -40,7 +38,7 @@ private[akkaeffect] object ActorVar {
 
   def apply[F[_]: Async: ToFuture, A](
     act: Act[F],
-    stop: Stop
+    stop: Stop,
   ): ActorVar[F, A] = {
 
     val unit = ().pure[F]
@@ -50,38 +48,33 @@ private[akkaeffect] object ActorVar {
     val serially = Serially[F, Option[State]](none)
 
     def update(f: Option[State] => F[Option[State]]): Unit = {
-      serially
-        .apply { state =>
-          val result = for {
-            a <- f(state)
-            _ <- a match {
-              case Some(_) => unit
-              case None    => act { stop() }
-            }
-          } yield a
-          result.handleErrorWith { error =>
-            for {
-              _ <- state.foldMapM { _.release }
-              _ <- act[Any] { throw error }
-              a <- error.raiseError[F, Option[State]]
-            } yield a
+      serially.apply { state =>
+        val result = for {
+          a <- f(state)
+          _ <- a match {
+            case Some(_) => unit
+            case None    => act(stop())
           }
+        } yield a
+        result.handleErrorWith { error =>
+          for {
+            _ <- state.foldMapM(_.release)
+            _ <- act[Any](throw error)
+            a <- error.raiseError[F, Option[State]]
+          } yield a
         }
-        .toFuture
+      }.toFuture
       ()
     }
 
     new ActorVar[F, A] {
 
-      def preStart(resource: Resource[F, A]) = {
+      def preStart(resource: Resource[F, A]) =
         update { _ =>
-          resource
-            .allocated
-            .flatMap { case (a, release) => State(a, release).some.pure[F] }
+          resource.allocated.flatMap { case (a, release) => State(a, release).some.pure[F] }
         }
-      }
 
-      def receive(f: A => F[Directive[Releasable[F, A]]]) = {
+      def receive(f: A => F[Directive[Releasable[F, A]]]) =
         update {
           case Some(state) =>
             f(state.value).flatMap {
@@ -90,40 +83,27 @@ private[akkaeffect] object ActorVar {
                   case Some(release) => release *> state.release
                   case None          => state.release
                 }
-                State(a.value, release1)
-                  .some
-                  .pure[F]
+                State(a.value, release1).some.pure[F]
 
               case Directive.Ignore =>
-                state
-                  .some
-                  .pure[F]
+                state.some.pure[F]
 
               case Directive.Stop =>
-                state
-                  .release
-                  .handleError { _ => () }
-                  .as(none[State])
+                state.release.handleError(_ => ()).as(none[State])
             }
-          case None        =>
+          case None =>
             none[State].pure[F]
         }
-      }
 
-      def postStop() = {
+      def postStop() =
         serially {
           case Some(state) =>
-            state
-              .release
-              .as(none[State])
-              .handleError { _ => none[State] }
-          case None        =>
+            state.release.as(none[State]).handleError(_ => none[State])
+          case None =>
             none[State].pure[F]
         }
-      }
     }
   }
-
 
   sealed trait Directive[+A]
 
@@ -135,13 +115,11 @@ private[akkaeffect] object ActorVar {
 
     def stop[A]: Directive[A] = Stop
 
-
     final case class Update[A](value: A) extends Directive[A]
 
     final case object Ignore extends Directive[Nothing]
 
     final case object Stop extends Directive[Nothing]
-
 
     implicit class DirectiveOps[A](val self: Directive[A]) extends AnyVal {
 
@@ -152,7 +130,6 @@ private[akkaeffect] object ActorVar {
       }
     }
   }
-
 
   final class Released extends RuntimeException with NoStackTrace
 }

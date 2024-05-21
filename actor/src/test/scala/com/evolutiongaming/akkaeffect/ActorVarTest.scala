@@ -1,16 +1,16 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.effect.implicits._
+import cats.effect.*
+import cats.effect.implicits.*
 import cats.effect.kernel.Deferred
-import cats.effect.{Async, GenSpawn, IO, Ref, Resource, Sync}
-import cats.syntax.all._
+import cats.effect.unsafe.implicits.global
+import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.ActorVar.Directive
-import com.evolutiongaming.akkaeffect.IOSuite._
-import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.akkaeffect.IOSuite.*
+import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.catshelper.{ToFuture, ToTry}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
-import cats.effect.unsafe.implicits.global
 
 class ActorVarTest extends AsyncFunSuite with Matchers {
 
@@ -23,10 +23,10 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
     sealed trait Action
 
     object Action {
-      final case object Allocated extends Action
-      final case object Released extends Action
+      final case object Allocated                                  extends Action
+      final case object Released                                   extends Action
       final case class Updated(before: Int, after: Directive[Int]) extends Action
-      final case class Released(state: Int) extends Action
+      final case class Released(state: Int)                        extends Action
     }
 
     trait Actions {
@@ -37,24 +37,23 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
     }
 
     object Actions {
-      
-      def apply(): F[Actions] = {
+
+      def apply(): F[Actions] =
         Ref[F]
           .of(List.empty[Action])
           .map { ref =>
             new Actions {
 
-              def add(a: Action) = ref.update { a :: _ }
+              def add(a: Action) = ref.update(a :: _)
 
-              def get = ref.get.map { _.reverse }
+              def get = ref.get.map(_.reverse)
             }
           }
-      }
     }
 
     def actorVar(stop: F[Unit]) = Sync[F].delay {
       val act = new Act[F] {
-        def apply[A](f: => A) = Sync[F].delay { f }
+        def apply[A](f: => A) = Sync[F].delay(f)
       }
       ActorVar[F, Int](act, () => stop.toTry.get)
     }
@@ -64,7 +63,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
       actorVar <- actorVar(stopped.complete(()).void)
       deferred <- Deferred[F, Unit]
       actions  <- Actions()
-      resource  = Resource.make {
+      resource = Resource.make {
         for {
           _ <- deferred.get
           _ <- actions.add(Action.Allocated)
@@ -72,19 +71,20 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
       } { _ =>
         actions.add(Action.Released)
       }
-      _        <- Sync[F].delay { actorVar.preStart(resource) }
-      set       = (state: Directive[Int]) => Sync[F].delay {
-        actorVar.receive { state0 =>
-          for {
-            _ <- actions.add(Action.Updated(state0, state))
-          } yield for {
-            state <- state
-          } yield {
-            val release = actions.add(Action.Released(state))
-            Releasable(state, release.some)
+      _ <- Sync[F].delay(actorVar.preStart(resource))
+      set = (state: Directive[Int]) =>
+        Sync[F].delay {
+          actorVar.receive { state0 =>
+            for {
+              _ <- actions.add(Action.Updated(state0, state))
+            } yield for {
+              state <- state
+            } yield {
+              val release = actions.add(Action.Released(state))
+              Releasable(state, release.some)
+            }
           }
         }
-      }
       _       <- GenSpawn[F].cede
       _       <- set(Directive.update(1))
       _       <- GenSpawn[F].cede
@@ -99,7 +99,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
       _       <- deferred.complete(())
       _       <- stopped.get
       actions <- actions.get
-      _        = actions shouldEqual List(
+      _ = actions shouldEqual List(
         Action.Allocated,
         Action.Updated(0, Directive.update(1)),
         Action.Updated(1, Directive.update(2)),
@@ -107,7 +107,8 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
         Action.Updated(2, Directive.stop),
         Action.Released(2),
         Action.Released(1),
-        Action.Released)
+        Action.Released,
+      )
     } yield {}
   }
 }

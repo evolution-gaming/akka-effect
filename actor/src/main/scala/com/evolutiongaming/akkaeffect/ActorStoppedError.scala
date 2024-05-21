@@ -1,14 +1,14 @@
 package com.evolutiongaming.akkaeffect
 
-import cats.syntax.all._
+import cats.syntax.all.*
 
 import scala.util.control.NoStackTrace
 
-
 final case class ActorStoppedError(
   msg: String,
-  cause: Option[Throwable] = None
-) extends RuntimeException(msg, cause.orNull) with NoStackTrace
+  cause: Option[Throwable] = None,
+) extends RuntimeException(msg, cause.orNull)
+    with NoStackTrace
 
 object ActorStoppedError {
 

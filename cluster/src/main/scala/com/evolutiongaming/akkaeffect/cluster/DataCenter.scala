@@ -11,9 +11,9 @@ final case class DataCenter(value: String) {
 
 object DataCenter {
 
-  implicit val orderDataCenter: Order[DataCenter] = Order.by { (a: DataCenter) => a.value }
+  implicit val orderDataCenter: Order[DataCenter] = Order.by((a: DataCenter) => a.value)
 
   implicit val showDataCenter: Show[DataCenter] = Show.fromToString
 
-  implicit val configReaderDataCenter: ConfigReader[DataCenter] = ConfigReader[String].map { a => DataCenter(a) }
+  implicit val configReaderDataCenter: ConfigReader[DataCenter] = ConfigReader[String].map(a => DataCenter(a))
 }
