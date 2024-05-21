@@ -14,13 +14,6 @@ lazy val commonSettings = Seq(
   versionPolicyIntention := Compatibility.BinaryCompatible, // sbt-version-policy
   versionScheme          := Some("semver-spec"),
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
-
-  // TODO remove after 4.0.7 is released
-  versionPolicyIgnored := Seq(
-    "com.evolutiongaming" %% "random",         // removed as was not used
-    "com.evolutiongaming" %% "executor-tools", // removed as was not used
-    "com.evolutiongaming" %% "smetrics",       // due to update from 2.0.0 to 2.2.0
-  ),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
 )
 
