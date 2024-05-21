@@ -79,16 +79,16 @@ private[persistence] object LocalActorRef {
 
         type Delay = FiniteDuration
 
-        /** If state was not updated for more than [[#timeout]] - completes [[#defer]] with failed result and exits
-          * tailRecM loop.
-          *
-          * Otherwise calculate [[#delay]] till next timeout and continue loop.
-          *
-          * @param delay
-          *   time before next timeout
-          * @return
-          *   exid or continue loop
-          */
+        /* If state was not updated for more than [[#timeout]] - completes [[#defer]] with failed result and exits
+         * tailRecM loop.
+         *
+         * Otherwise calculate [[#delay]] till next timeout and continue loop.
+         *
+         * @param delay
+         *   time before next timeout
+         * @return
+         *   exid or continue loop
+         */
         def failOnTimeout(delay: Delay): F[Either[Delay, Unit]] =
           for {
             _     <- F.sleep(delay)

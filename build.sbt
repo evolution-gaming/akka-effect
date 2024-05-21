@@ -13,8 +13,6 @@ lazy val commonSettings = Seq(
   publishTo              := Some(Resolver.evolutionReleases),
   versionPolicyIntention := Compatibility.BinaryCompatible, // sbt-version-policy
   versionScheme          := Some("semver-spec"),
-
-  /*testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))*/
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
 
   // TODO remove after 4.0.7 is released
@@ -30,7 +28,7 @@ val alias: Seq[sbt.Def.Setting[_]] =
   addCommandAlias("fmt", "scalafixEnable; scalafixAll; all scalafmtAll scalafmtSbt") ++
     addCommandAlias(
       "check",
-      "versionPolicyCheck; scalafixEnable; scalafixAll --check; all scalafmtCheckAll scalafmtSbtCheck",
+      "all Compile/doc versionPolicyCheck scalafmtCheckAll scalafmtSbtCheck; scalafixEnable; scalafixAll --check",
     ) ++
     addCommandAlias("build", "all compile test")
 

@@ -292,13 +292,13 @@ object Engine {
     case class Wrapped(state: State[S], stopped: Boolean = false)
 
     val engine: F[Engine[F, S, E]] = for {
-      /** Mutable variable of [[Engine.State]] wrapped together with boolean stopped var */
+      /* Mutable variable of [[Engine.State]] wrapped together with boolean stopped var */
       ref <- Ref.of[F, Wrapped](Wrapped(initial))
-      /** Effective state representing last persisted state of [[ref]] */
+      /* Effective state representing last persisted state of [[ref]] */
       eff <- Ref.of[F, State[S]](initial)
-      /** Effect executor that guarantee sequential execution of tasks within one key */
+      /* Effect executor that guarantee sequential execution of tasks within one key */
       queue <- SerParQueue.of[F, Key]
-      /** Latch that closes on error and continue raising the error on each execution */
+      /* Latch that closes on error and continue raising the error on each execution */
       close <- CloseOnError.of[F]
     } yield new Engine[F, S, E] {
 
@@ -332,7 +332,7 @@ object Engine {
         0.tailRecM { _ =>
           ref.access.flatMap {
             case (Wrapped(state0, stopped), update) =>
-              /** await for `load` stage to complete & run `validate` stage */
+              /* await for `load` stage to complete & run `validate` stage */
               val directive =
                 for {
                   validate  <- load
@@ -341,7 +341,7 @@ object Engine {
 
               directive.attempt.flatMap {
 
-                /** on error reply to user & exit loop */
+                /* on error reply to user & exit loop */
                 case Left(error) =>
                   for {
                     _ <- reply.complete(error.asLeft[A])
@@ -350,7 +350,7 @@ object Engine {
                 case Right(directive) =>
                   if (stopped) {
 
-                    /** if Engine already stopped then execute side effects with [[Engine.stopped]] error */
+                    /* if Engine already stopped then execute side effects with [[Engine.stopped]] error */
                     val effect =
                       for {
                         e <- close.error
@@ -363,7 +363,7 @@ object Engine {
                     directive.change match {
 
                       case None =>
-                        /** if state not changed - execute side effects */
+                        /* if state not changed - execute side effects */
                         val effect =
                           for {
                             e <- close.error
@@ -376,7 +376,7 @@ object Engine {
                         } yield if (updated) ().asRight[Int] else 0.asLeft[Unit]
 
                       case Some(change) =>
-                        /** if state was changed then: persist events & execute side effects */
+                        /* if state was changed then: persist events & execute side effects */
                         val state1 = State(change.state, state0.seqNr + change.events.size)
                         update(Wrapped(state1, directive.stop)).flatMap { updated =>
                           if (updated) {
