@@ -4,7 +4,6 @@ import akka.actor.{Actor, Props}
 import akka.cluster.sharding.ClusterShardingSettings
 import akka.cluster.sharding.ShardCoordinator.LeastShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.Msg
-import cats.effect.implicits.effectResourceOps
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Resource}
 import cats.syntax.all.*

@@ -5,7 +5,6 @@ import akka.cluster.sharding.ShardCoordinator.ShardAllocationStrategy
 import akka.cluster.sharding.ShardRegion.{ShardId, ShardState}
 import akka.cluster.sharding.{ClusterShardingSettings, ShardRegion}
 import cats.effect.IO
-import cats.effect.implicits.effectResourceOps
 import cats.effect.unsafe.implicits.global
 import com.evolutiongaming.akkaeffect.IOSuite.*
 import com.evolutiongaming.akkaeffect.persistence.TypeName
