@@ -99,7 +99,7 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
       _ <- IO(r shouldEqual Set(typeName))
       s <- clusterShardingLocal.clusterSharding.shards(r.head)
       _ <- IO(s shouldEqual Set(ShardState("1", Set.empty)))
-      r <- clusterShardingLocal.region(typeName)
+      r <- clusterShardingLocal.clusterSharding.shardRegion(typeName)
       _ <- IO(r shouldEqual actorRef)
     } yield {}
 

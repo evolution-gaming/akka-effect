@@ -33,16 +33,6 @@ trait ClusterShardingLocal[F[_]] {
     */
   def rebalance: F[Unit]
 
-  /** Provide cluster region [[ActorRef]] by the [[TypeName]].
-    *
-    * The region must be started upfront with [[ClusterSharding#start]] or [[ClusterSharding#startProxy]].
-    *
-    * @param typeName
-    *   region type name
-    * @return
-    *   region [[ActorRef]] or raise [[IllegalStateException]] if the region is not found
-    */
-  def region(typeName: TypeName): F[ActorRef]
 }
 
 object ClusterShardingLocal {
@@ -237,6 +227,15 @@ object ClusterShardingLocal {
                 } yield s.map(ShardState(_, Set.empty)).toSet
               }
             } yield shards.toSet.flatten
+
+          def shardRegion(typeName: TypeName): F[ActorRef] =
+            for {
+              regions <- regionRefs.get
+              regionRef <- regions
+                .get(typeName)
+                .liftTo[F](new IllegalStateException(s"Region $typeName was not found"))
+            } yield regionRef
+
         }
 
         def rebalance =
@@ -246,13 +245,6 @@ object ClusterShardingLocal {
               .tell(RegionMsg.Rebalance, ActorRef.noSender)
           }
 
-        def region(typeName: TypeName) =
-          for {
-            regions <- regionRefs.get
-            regionRef <- regions
-              .get(typeName)
-              .liftTo[F](new IllegalStateException(s"Region $typeName was not found"))
-          } yield regionRef
       }
     }
   }

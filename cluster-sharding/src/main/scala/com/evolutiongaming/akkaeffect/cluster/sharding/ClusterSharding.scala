@@ -45,6 +45,11 @@ trait ClusterSharding[F[_]] {
   def regions: F[Set[TypeName]]
 
   def shards(typeName: TypeName): F[Set[ShardState]]
+
+  /** @see
+    *   [[akka.cluster.sharding.ClusterSharding.shardRegion]]
+    */
+  def shardRegion(typeName: TypeName): F[ActorRef]
 }
 
 object ClusterSharding {
@@ -62,7 +67,7 @@ object ClusterSharding {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
     val terminated = Terminated[F](actorRefOf)
 
-    def shardRegion(actorRef: => ActorRef) =
+    def createShardRegion(actorRef: => ActorRef) =
       Resource.make {
         Sync[F].blocking(actorRef)
       } { actorRef =>
@@ -85,7 +90,7 @@ object ClusterSharding {
         allocationStrategy: ShardAllocationStrategy,
         handOffStopMessage: A,
       ) =
-        shardRegion {
+        createShardRegion {
           clusterSharding.start(
             typeName = typeName.value,
             entityProps = props,
@@ -104,7 +109,7 @@ object ClusterSharding {
         extractEntityId: ShardRegion.ExtractEntityId,
         extractShardId: ShardRegion.ExtractShardId,
       ) =
-        shardRegion {
+        createShardRegion {
           clusterSharding.startProxy(
             typeName = typeName.value,
             role = role.map(_.value),
@@ -126,6 +131,11 @@ object ClusterSharding {
           stat <- resp.castM[F, CurrentShardRegionState]
         } yield stat.shards
       }
+
+      def shardRegion(typeName: TypeName): F[ActorRef] =
+        Sync[F].delay {
+          clusterSharding.shardRegion(typeName.value)
+        }
     }
   }
 
@@ -205,6 +215,14 @@ object ClusterSharding {
             r <- self.shards(typeName)
             d <- d
             _ <- log.info(s"get local shards in ${d.toMillis}ms")
+          } yield r
+
+        def shardRegion(typeName: TypeName): F[ActorRef] =
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.shardRegion(typeName)
+            d <- d
+            _ <- log.info(s"get local shard region in ${d.toMillis}ms")
           } yield r
       }
     }
