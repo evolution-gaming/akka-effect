@@ -69,10 +69,11 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
           }
         }
       props                    = Props(actor())
+      typeName                 = TypeName("typeName")
       clusterShardingLocal    <- ClusterShardingLocal.of[IO](actorSystem)
       clusterShardingSettings <- IO(ClusterShardingSettings(actorSystem)).toResource
       actorRef <- clusterShardingLocal.clusterSharding.start(
-        TypeName("typeName"),
+        typeName,
         props,
         clusterShardingSettings,
         extractEntityId,
@@ -95,9 +96,11 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
       a <- a
       _ <- IO(a.msg shouldEqual HandOffStopMsg)
       r <- clusterShardingLocal.clusterSharding.regions
-      _ <- IO(r shouldEqual Set(TypeName("typeName")))
+      _ <- IO(r shouldEqual Set(typeName))
       s <- clusterShardingLocal.clusterSharding.shards(r.head)
       _ <- IO(s shouldEqual Set(ShardState("1", Set.empty)))
+      r <- clusterShardingLocal.region(typeName)
+      _ <- IO(r shouldEqual actorRef)
     } yield {}
 
     result
