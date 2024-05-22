@@ -168,6 +168,7 @@ lazy val `cluster-sharding` = project
     persistence % "test->test;compile->compile",
   )
   .settings(
+    versionPolicyCheck / skip := true, // TODO: remove after 4.0.8 release
     libraryDependencies ++= Seq(
       Akka.`cluster-sharding`,
     ),
