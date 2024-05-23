@@ -53,6 +53,9 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
 
     def actorVar(stop: F[Unit]) = Sync[F].delay {
       val act = new Act[F] {
+
+        def postStop(): Unit = {}
+
         def apply[A](f: => A) = Sync[F].delay(f)
       }
       ActorVar[F, Int](act, () => stop.toTry.get)

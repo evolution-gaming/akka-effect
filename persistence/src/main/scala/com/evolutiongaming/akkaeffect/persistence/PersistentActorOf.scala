@@ -16,19 +16,19 @@ import scala.concurrent.duration.*
 
 object PersistentActorOf {
 
+  // format: off
   /** Describes lifecycle of entity with regards to event sourcing & PersistentActor Lifecycle phases:
     *
-    *   1. RecoveryStarted: we have id in place and can decide whether we should continue with recovery 2. Recovering :
-    *      reading snapshot and replaying events 3. Receiving : receiving commands and potentially storing events &
-    *      snapshots 4. Termination : triggers all release hooks of allocated resources within previous phases
+    *   1. RecoveryStarted: we have id in place and can decide whether we should continue with recovery 
+    *   2. Recovering: reading snapshot and replaying events 
+    *   3. Receiving: receiving commands and potentially storing events & snapshots 
+    *   4. Termination: triggers all release hooks of allocated resources within previous phases
     *
-    * @tparam S
-    *   snapshot
-    * @tparam E
-    *   event
-    * @tparam C
-    *   command
+    * @tparam S snapshot
+    * @tparam E event
+    * @tparam C command
     */
+    // format: on
   type Type[F[_], S, E, C] =
     EventSourcedOf[F, Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[C], ActorOf.Stop]]]]
 

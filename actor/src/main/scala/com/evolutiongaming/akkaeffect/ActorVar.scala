@@ -69,12 +69,12 @@ private[akkaeffect] object ActorVar {
 
     new ActorVar[F, A] {
 
-      def preStart(resource: Resource[F, A]) =
+      def preStart(resource: Resource[F, A]): Unit =
         update { _ =>
           resource.allocated.flatMap { case (a, release) => State(a, release).some.pure[F] }
         }
 
-      def receive(f: A => F[Directive[Releasable[F, A]]]) =
+      def receive(f: A => F[Directive[Releasable[F, A]]]): Unit =
         update {
           case Some(state) =>
             f(state.value).flatMap {
@@ -95,7 +95,7 @@ private[akkaeffect] object ActorVar {
             none[State].pure[F]
         }
 
-      def postStop() =
+      def postStop(): F[Unit] =
         serially {
           case Some(state) =>
             state.release.as(none[State]).handleError(_ => none[State])
