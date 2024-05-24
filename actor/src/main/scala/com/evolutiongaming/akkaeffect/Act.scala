@@ -86,7 +86,7 @@ private[akkaeffect] object Act {
             def postStop(): Unit =
               stopped = true
 
-            def apply[A](f: => A) =
+            def apply[A](f: => A): F[A] =
               for {
                 adapter <- Sync[F].delay(threadLocal.get())
                 result <- {
