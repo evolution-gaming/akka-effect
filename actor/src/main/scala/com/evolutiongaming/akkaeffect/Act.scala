@@ -82,7 +82,7 @@ private[akkaeffect] object Act {
           new Main with Act[F] {
 
             // flag used to prevent async (i.e. `tell` to self ) operations after actor is stopped
-            // because they will be lost as message will goto dead letters
+            // because they will be lost as message will goto dead 
             @volatile var stopped = false
 
             def postStop(): Unit =
