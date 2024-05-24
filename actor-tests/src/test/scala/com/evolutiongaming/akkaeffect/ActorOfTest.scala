@@ -2,10 +2,9 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.*
 import akka.testkit.TestActors
-import cats.effect.implicits.effectResourceOps
-import cats.effect.kernel.{Deferred, Ref}
+import cats.effect.*
+import cats.effect.syntax.all.*
 import cats.effect.unsafe.implicits.global
-import cats.effect.{Async, IO, Resource, Sync, Temporal}
 import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.IOSuite.*
 import com.evolutiongaming.akkaeffect.testkit.Probe
@@ -567,8 +566,6 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     import akka.pattern.ask
     import akka.util.Timeout
-    import cats.effect.syntax.all.*
-    import cats.effect.implicits.effectResourceOps
 
     implicit val timeout: Timeout = 1.second
 
