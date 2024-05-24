@@ -11,6 +11,8 @@ import com.evolutiongaming.catshelper.{Serial, ToTry}
 private[akkaeffect] trait Act[F[_]] {
 
   def apply[A](f: => A): F[A]
+
+  def postStop(): Unit
 }
 
 private[akkaeffect] object Act {
@@ -19,6 +21,8 @@ private[akkaeffect] object Act {
     class Empty
     new Empty with Act[F] {
       def apply[A](f: => A) = Sync[F].delay(f)
+
+      def postStop(): Unit = {}
     }
   }
 
@@ -30,6 +34,8 @@ private[akkaeffect] object Act {
         new Serial with Act[F] {
           def apply[A](f: => A) =
             serial(Sync[F].delay(f)).toTry.get
+
+          def postStop(): Unit = {}
         }
       }
 
@@ -45,6 +51,8 @@ private[akkaeffect] object Act {
   }
 
   object Adapter {
+
+    private[akkaeffect] def stoppedError = ActorStoppedError("actor already stopped, no more operations are possible")
 
     private val threadLocal: ThreadLocal[Option[AdapterLike]] = new ThreadLocal[Option[AdapterLike]] {
       override def initialValue() = none[AdapterLike]
@@ -72,12 +80,22 @@ private[akkaeffect] object Act {
         val value = {
           class Main
           new Main with Act[F] {
-            def apply[A](f: => A) =
+
+            // flag used to prevent async (i.e. `tell` to self ) operations after actor is stopped
+            // because they will be lost as message will goto dead letters
+            @volatile var stopped = false
+
+            def postStop(): Unit =
+              stopped = true
+
+            def apply[A](f: => A): F[A] =
               for {
                 adapter <- Sync[F].delay(threadLocal.get())
                 result <- {
                   if (adapter.contains(self: Adapter[F])) {
                     Sync[F].delay(f)
+                  } else if (stopped) {
+                    stoppedError.raiseError[F, A]
                   } else {
                     Async[F].async[A] { callback =>
                       val f1 = () => {

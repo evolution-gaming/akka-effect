@@ -2,10 +2,9 @@ package com.evolutiongaming.akkaeffect
 
 import akka.actor.*
 import akka.testkit.TestActors
-import cats.effect.implicits.effectResourceOps
-import cats.effect.kernel.{Deferred, Ref}
+import cats.effect.*
+import cats.effect.syntax.all.*
 import cats.effect.unsafe.implicits.global
-import cats.effect.{Async, IO, Resource, Sync, Temporal}
 import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.IOSuite.*
 import com.evolutiongaming.akkaeffect.testkit.Probe
@@ -66,6 +65,10 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
 
     test(s"$prefix watch & unwatch") {
       `watch & unwatch`[IO](actorSystem, shift).run()
+    }
+
+    test(s"$prefix ActorCtx effectful methods should always terminate") {
+      `ActorCtx effectful methods should always terminate`[IO].run()
     }
   }
 
@@ -555,6 +558,54 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       } yield result
       result <- result.use(_.pure[F])
     } yield result
+  }
+
+  private def `ActorCtx effectful methods should always terminate`[F[_]: Async: ToFuture: FromFuture] = {
+
+    // This test checks that using [[ActorCtx]] effectful methods after the actor is stopped will always terminate
+
+    import akka.pattern.ask
+    import akka.util.Timeout
+
+    implicit val timeout: Timeout = 1.second
+
+    object Command
+
+    def actor = ActorOf(
+      ReceiveOf[F] { context =>
+        // schedule actor stop in 50 ms
+        context.stop
+          .delayBy(50.millis)
+          .start
+          .toResource
+          .as {
+            Receive[Envelope[Any]] { envelope =>
+              envelope.msg match {
+                case Command =>
+                  // on command get children after 100 ms
+                  // the operation will fail because the actor will be stopped
+                  // thus fork & timeout after 200 ms, catch error and then return result
+                  context.children.void
+                    .delayBy(100.millis)
+                    .timeout(200.millis)
+                    .attempt
+                    .map(result => envelope.from ! result)
+                    .start
+                    .as(false)
+              }
+            } {
+              true.pure[F]
+            }
+          }
+      },
+    )
+
+    val ref = actorSystem.actorOf(Props(actor))
+    val res = ref ? Command
+
+    FromFuture[F].apply(res).map {
+      _ shouldBe Act.Adapter.stoppedError.asLeft[Unit]
+    }
   }
 }
 
