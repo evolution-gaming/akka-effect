@@ -133,9 +133,16 @@ object ClusterShardingLocal {
                 Map((self, shardIds))
               }
 
+              var rebalancing = false
+              var stashed     = Vector.empty[ShardRegion.Msg]
+
+              object Unstash
+
               def receive: Receive = {
 
                 case RegionMsg.Rebalance =>
+                  rebalancing = true
+                  context.system.scheduler.scheduleOnce(1.second, self, Unstash)
                   allocationStrategy
                     .rebalance(allocation(), Set.empty)
                     .onComplete { _ =>
@@ -147,6 +154,14 @@ object ClusterShardingLocal {
                 case RegionMsg.State =>
                   val shards = allocation().values.flatten.toList
                   context.sender().tell(shards, context.self)
+
+                case Unstash =>
+                  rebalancing = false
+                  stashed.foreach(self.tell(_, context.self))
+                  stashed = Vector.empty
+
+                case msg: ShardRegion.Msg if rebalancing =>
+                  stashed = stashed :+ msg
 
                 case msg: ShardRegion.Msg =>
                   val sender    = context.sender()
