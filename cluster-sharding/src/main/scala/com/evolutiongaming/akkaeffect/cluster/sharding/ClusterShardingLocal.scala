@@ -133,8 +133,10 @@ object ClusterShardingLocal {
                 Map((self, shardIds))
               }
 
+              case class Stashed(msg: ShardRegion.Msg, sender: ActorRef)
+
               var rebalancing = false
-              var stashed     = Vector.empty[ShardRegion.Msg]
+              var stashed     = Vector.empty[Stashed]
 
               object Unstash
 
@@ -157,11 +159,13 @@ object ClusterShardingLocal {
 
                 case Unstash =>
                   rebalancing = false
-                  stashed.foreach(self.tell(_, context.self))
+                  stashed.foreach {
+                    case Stashed(msg, sender) => self.tell(msg, sender)
+                  }
                   stashed = Vector.empty
 
                 case msg: ShardRegion.Msg if rebalancing =>
-                  stashed = stashed :+ msg
+                  stashed = Stashed(msg, sender()) +: stashed
 
                 case msg: ShardRegion.Msg =>
                   val sender    = context.sender()
