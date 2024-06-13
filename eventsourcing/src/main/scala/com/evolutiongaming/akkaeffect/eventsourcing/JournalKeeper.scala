@@ -71,7 +71,7 @@ object JournalKeeper {
     */
   def of[F[_]: Concurrent: Clock, Sn, St](
     candidate: Candidate[St],
-    snapshotOffer0: Option[SnapshotMetadata],
+    metadata: Option[SnapshotMetadata],
     journaller: Journaller[F],
     snapshotter: Snapshotter[F, Sn],
     snapshotOf: SnapshotOf[F, St, Sn],
@@ -234,7 +234,7 @@ object JournalKeeper {
       timestamp    <- Clock[F].millis
       check         = Check(timestamp)
       save          = Save(check, deletedTo)
-      snapshotOffer = snapshotOffer0.filter(_.persisted)
+      snapshotOffer = metadata.filter(_.persisted)
       (s, f) = {
         if (check(snapshotOffer, timestamp, candidate)) {
           val s = S.saving(none)

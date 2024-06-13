@@ -21,6 +21,10 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
     `save snapshot on startup`[IO].run()
   }
 
+  test("ignore non-persisted snapshot") {
+    `ignore non-persisted snapshot`[IO].run()
+  }
+
   test("save snapshot every n events") {
     `save snapshot every n events`[IO].run()
   }
@@ -89,6 +93,23 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       _             <- deferred.get
       actions       <- actions.get
       _              = actions.take(2) shouldEqual List(Action.SaveSnapshot(4), Action.DeleteSnapshot(2))
+    } yield {}
+  }
+
+  private def `ignore non-persisted snapshot`[F[_]: Async]: F[Unit] = {
+
+    type S = F[Unit]
+
+    val config = JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis)
+
+    for {
+      deferred <- Deferred[F, Unit]
+      actions  <- Actions.of[F, S]
+      metadata  = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0), persisted = false)
+      _        <- journalKeeperOf(2, deferred.complete(()).void, metadata.some, config, actions)
+      _        <- deferred.get
+      actions  <- actions.get
+      _         = actions shouldEqual List(Action.SaveSnapshot(2))
     } yield {}
   }
 
@@ -466,13 +487,13 @@ object JournalKeeperTest {
   def journalKeeperOf[F[_]: Async](
     seqNr: SeqNr,
     state: F[Unit],
-    snapshotOffer: Option[SnapshotMetadata],
+    metadata: Option[SnapshotMetadata],
     config: JournalKeeper.Config,
     actions: Actions[F],
   ): F[JournalKeeper[F, F[Unit], F[Unit]]] =
     JournalKeeper.of[F, F[Unit], F[Unit]](
       JournalKeeper.Candidate(seqNr, state),
-      snapshotOffer,
+      metadata,
       journallerOf(actions),
       snapshotterOf[F, Unit](actions),
       _.value.some.pure[F],
