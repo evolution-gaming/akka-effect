@@ -355,7 +355,8 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       _ = recover shouldEqual List(
         Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
-        Action.RecoveryAllocated(1L, SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
+        Action
+          .RecoveryAllocated(1L, SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0), persisted = true), 1).some),
         Action.ReplayAllocated,
         Action.ReplayReleased,
         Action.AppendEvents(Events.of(0L)),
@@ -451,7 +452,8 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       _ = recover shouldEqual List(
         Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
-        Action.RecoveryAllocated(1L, SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
+        Action
+          .RecoveryAllocated(1L, SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0), persisted = true), 1).some),
         Action.ReplayAllocated,
         Action.ReplayReleased,
         Action.AppendEvents(Events.of(0L)),
@@ -738,7 +740,8 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       _ = recover shouldEqual List(
         Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
-        Action.RecoveryAllocated(1L, SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
+        Action
+          .RecoveryAllocated(1L, SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0), persisted = true), 1).some),
         Action.ReplayAllocated,
         Action.Replayed(1, 2),
         Action.ReplayReleased,

@@ -20,7 +20,7 @@ import scala.concurrent.duration.*
   */
 private[persistence] trait LocalActorRef[F[_], R] {
 
-  /** Not actual [[ActorRef]]! It is not serialisable, thus can not be passed over network. Under the hood it implements
+  /** Not actual [[ActorRef]]! It is not serializable, thus can not be passed over network. Under the hood it implements
     * [[ActorRef]] trait by providing function `!` that updates internal state using provided function `receive`. Please
     * check [[LocalActorRef.apply]] docs
     */
@@ -87,7 +87,7 @@ private[persistence] object LocalActorRef {
          * @param delay
          *   time before next timeout
          * @return
-         *   exid or continue loop
+         *   exit or continue loop
          */
         def failOnTimeout(delay: Delay): F[Either[Delay, Unit]] =
           for {

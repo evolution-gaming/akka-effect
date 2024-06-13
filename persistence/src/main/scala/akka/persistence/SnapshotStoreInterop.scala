@@ -44,7 +44,7 @@ object SnapshotStoreInterop {
                   case Some(offer) =>
                     val payload   = offer.snapshot
                     val timestamp = Instant.ofEpochMilli(offer.metadata.timestamp)
-                    val metadata  = SnapshotStore.Metadata(offer.metadata.sequenceNr, timestamp)
+                    val metadata  = SnapshotStore.Metadata(offer.metadata.sequenceNr, timestamp, persisted = true)
 
                     for {
                       _ <- log.debug(s"recovery: receive offer $offer")

@@ -51,7 +51,7 @@ object SnapshotStore {
     def delete(criteria: Criteria): F[F[Unit]]
   }
 
-  final case class Metadata(seqNr: SeqNr, timestamp: Instant)
+  final case class Metadata(seqNr: SeqNr, timestamp: Instant, persisted: Boolean)
 
   final case class Offer[A](snapshot: A, metadata: Metadata)
 

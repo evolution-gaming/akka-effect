@@ -82,7 +82,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
     for {
       deferred      <- Deferred[F, Unit]
       actions       <- Actions.of[F, S]
-      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
+      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0), persisted = true)
       journalKeeper <- journalKeeperOf(4, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.eventsSaved(5, ().pure[F])
       _             <- journalKeeper.eventsSaved(6, deferred.complete(()).void)
@@ -167,7 +167,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
     for {
       deferred      <- Deferred[F, Unit]
       actions       <- Actions.of[F, S]
-      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
+      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0), persisted = true)
       journalKeeper <- journalKeeperOf(4, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.eventsSaved(6, deferred.complete(()).void)
       _             <- deferred.get
@@ -185,7 +185,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
     for {
       deferred      <- Deferred[F, Unit]
       actions       <- Actions.of[F, S]
-      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
+      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0), persisted = true)
       journalKeeper <- journalKeeperOf(2, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.snapshotter.save(3, ().pure[F]).flatten
       _             <- journalKeeper.eventsSaved(4, ().pure[F])
@@ -205,7 +205,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
     for {
       deferred      <- Deferred[F, Unit]
       actions       <- Actions.of[F, S]
-      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
+      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0), persisted = true)
       journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.snapshotter.delete(2).flatten
       _             <- journalKeeper.eventsSaved(4, ().pure[F])
@@ -225,7 +225,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
     for {
       deferred      <- Deferred[F, Unit]
       actions       <- Actions.of[F, S]
-      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
+      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0), persisted = true)
       journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
       criteria       = SnapshotSelectionCriteria(maxSequenceNr = 3)
       _             <- journalKeeper.snapshotter.delete(criteria).flatten
@@ -252,7 +252,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
     for {
       deferred      <- Deferred[F, Unit]
       actions       <- Actions.of[F, S]
-      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
+      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0), persisted = true)
       journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.eventsSaved(4, ().pure[F])
       _             <- journalKeeper.eventsSaved(6, deferred.complete(()).void)
@@ -276,7 +276,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       deferred0     <- Deferred[F, Unit]
       deferred1     <- Deferred[F, Unit]
       actions       <- Actions.of[F, S]
-      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
+      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0), persisted = true)
       journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.journaller.deleteTo(3).flatten
       _             <- journalKeeper.eventsSaved(4, ().pure[F])
@@ -366,7 +366,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       deferred      <- Deferred[F, Unit]
       actions       <- Actions.of[F, S]
       timestamp     <- Clock[F].instant
-      metadata       = SnapshotMetadata(seqNr = 2, timestamp = timestamp)
+      metadata       = SnapshotMetadata(seqNr = 2, timestamp = timestamp, persisted = true)
       journalKeeper <- journalKeeperOf(2, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.eventsSaved(4, ().pure[F])
       _             <- Temporal[F].sleep((config.saveSnapshotCooldown * 1.1).asInstanceOf[FiniteDuration])

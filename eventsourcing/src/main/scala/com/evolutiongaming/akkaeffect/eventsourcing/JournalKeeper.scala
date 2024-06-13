@@ -57,8 +57,12 @@ object JournalKeeper {
   }
 
   /** JournalKeeper is responsible for
-    *   1. taking snapshots according to config 2. deleting previous snapshots 3. deleting events prior snapshot Does
-    *      not take more than one snapshot at a time, useful for loaded entities
+    *   1. taking snapshots according to config 
+    *   2. deleting previous snapshots 
+    *   3. deleting events prior snapshot 
+    * 
+    * Does not take more than one snapshot at a time, useful for loaded entities.
+    * Snapshot from state-transfer will be ignored as non-persisted.
     *
     * @tparam Sn
     *   snapshot
@@ -67,7 +71,7 @@ object JournalKeeper {
     */
   def of[F[_]: Concurrent: Clock, Sn, St](
     candidate: Candidate[St],
-    snapshotOffer: Option[SnapshotMetadata],
+    snapshotOffer0: Option[SnapshotMetadata],
     journaller: Journaller[F],
     snapshotter: Snapshotter[F, Sn],
     snapshotOf: SnapshotOf[F, St, Sn],
@@ -91,6 +95,15 @@ object JournalKeeper {
     }
 
     trait Check {
+
+      /**
+        * Check if snapshot should be saved
+        *
+        * @param last last saved snapshot metadata
+        * @param now current time
+        * @param candidate new candidate to be saved
+        * @return true if snapshot should be saved
+        */
       def apply(last: Option[SnapshotMetadata], now: Long, candidate: Candidate[St]): Boolean
     }
 
@@ -162,7 +175,7 @@ object JournalKeeper {
         a <- snapshotter0.save(ctx.candidate.seqNr, snapshot).flatten
         _ <- deleteOldSnapshots
         _ <- deleteOldEvents
-      } yield SnapshotMetadata(ctx.candidate.seqNr, a)
+      } yield SnapshotMetadata(ctx.candidate.seqNr, a, persisted = true)
     }
 
     trait Save {
@@ -188,7 +201,7 @@ object JournalKeeper {
                       timestamp <- Clock[F].millis
                       result <- ref.modify {
                         case S.Saving(Some(candidate)) if check(metadata, timestamp, candidate) =>
-                          (S.saving(none), Ctx(candidate, metadata).asLeft)
+                          (S.saving(none), Ctx(candidate, metadata).asLeft) // save candidate from ref on next step
                         case _ =>
                           (S.idle(metadata), ().asRight[Ctx])
                       }
@@ -217,10 +230,11 @@ object JournalKeeper {
     }
 
     for {
-      deletedTo <- Ref[F].of(none[SeqNr])
-      timestamp <- Clock[F].millis
-      check      = Check(timestamp)
-      save       = Save(check, deletedTo)
+      deletedTo    <- Ref[F].of(none[SeqNr])
+      timestamp    <- Clock[F].millis
+      check         = Check(timestamp)
+      save          = Save(check, deletedTo)
+      snapshotOffer = snapshotOffer0.filter(_.persisted)
       (s, f) = {
         if (check(snapshotOffer, timestamp, candidate)) {
           val s = S.saving(none)
@@ -276,7 +290,7 @@ object JournalKeeper {
                 .flatTap { timestamp =>
                   ref.update {
                     case a: S.Idle if a.last.forall(_.seqNr < seqNr) =>
-                      S.Idle(SnapshotMetadata(seqNr, timestamp).some)
+                      S.Idle(SnapshotMetadata(seqNr, timestamp, persisted = true).some)
                     case a =>
                       a
                   }

@@ -52,7 +52,9 @@ class SnapshotStoreInteropTest extends AnyFunSuite with Matchers {
           store    <- SnapshotStoreInterop[IO](Persistence(system), 1.second, emptyPluginId, persistenceId)
           _        <- store.save(SeqNr.Min, payload).flatten
           snapshot <- store.latest
-          _         = snapshot.get.snapshot should equal(payload)
+          offer    <- snapshot.liftTo[IO](new IllegalStateException)
+          _         = offer.snapshot should equal(payload)
+          _         = offer.metadata.persisted shouldBe true
           _        <- store.delete(SeqNr.Min).flatten
           snapshot <- store.latest
           _         = snapshot shouldEqual none

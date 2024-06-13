@@ -131,7 +131,7 @@ object EventSourcedActorOf {
 
     def asOffer: SnapshotOffer[S] =
       SnapshotOffer(
-        SnapshotMetadata(snapshot.metadata.seqNr, snapshot.metadata.timestamp),
+        SnapshotMetadata(snapshot.metadata.seqNr, snapshot.metadata.timestamp, snapshot.metadata.persisted),
         snapshot.snapshot,
       )
 
