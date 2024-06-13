@@ -13,7 +13,6 @@ lazy val commonSettings = Seq(
   publishTo              := Some(Resolver.evolutionReleases),
   versionPolicyIntention := Compatibility.BinaryCompatible, // sbt-version-policy
   versionScheme          := Some("semver-spec"),
-  versionPolicyCheck     := false,                          // TODO: delete after releasing v5.0.0
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
 )
