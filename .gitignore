@@ -29,4 +29,6 @@ metals.sbt
 .metals
 .bloop
 
+.vscode/
+
 ignored

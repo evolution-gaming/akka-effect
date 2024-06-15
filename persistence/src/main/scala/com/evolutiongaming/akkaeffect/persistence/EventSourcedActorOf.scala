@@ -2,13 +2,13 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.Actor
 import akka.persistence.SnapshotSelectionCriteria
-import cats.Monad
+import cats.MonadThrow
 import cats.effect.implicits.effectResourceOps
 import cats.effect.{Async, Ref, Resource}
 import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.*
 import com.evolutiongaming.akkaeffect.persistence.SeqNr
-import com.evolutiongaming.catshelper.{LogOf, ToFuture}
+import com.evolutiongaming.catshelper.{Log, LogOf, ToFuture}
 
 import java.time.Instant
 
@@ -70,12 +70,11 @@ object EventSourcedActorOf {
     LogOf
       .log[F, EventSourcedActorOf.type]
       .toResource
-      .map { log =>
-        log
-          .prefixed(actorCtx.self.path.name)
-          .mapK(Resource.liftK[F])
-      }
-      .flatMap { implicit log =>
+      .flatMap { implicit log0 =>
+        implicit val log =
+          log0
+            .prefixed(actorCtx.self.path.name)
+            .mapK(Resource.liftK[F])
         val receive = for {
           eventSourced    <- eventSourcedOf(actorCtx).toResource
           recoveryStarted <- eventSourced.value
@@ -118,7 +117,11 @@ object EventSourcedActorOf {
 
           _        <- log.debug(s"recovery completed with seqNr $seqNr")
           seqNrRef <- Ref[F].of(seqNr).toResource
-          receive  <- recovering.completed(seqNr, eventStore.asJournaller(seqNrRef), snapshotStore.asSnapshotter)
+          receive <- recovering.completed(
+            seqNr,
+            eventStore.asJournaller(seqNrRef, actorCtx),
+            snapshotStore.asSnapshotter,
+          )
         } yield receive
 
         receive.onError {
@@ -158,7 +161,10 @@ object EventSourcedActorOf {
 
   implicit final private class EventStoreOps[F[_], E](val store: EventStore[F, E]) extends AnyVal {
 
-    def asJournaller(seqNrRef: Ref[F, SeqNr])(implicit F: Monad[F]): Journaller[F, E] = new Journaller[F, E] {
+    def asJournaller(
+      seqNrRef: Ref[F, SeqNr],
+      actorCtx: ActorCtx[F],
+    )(implicit F: MonadThrow[F], log: Log[F]): Journaller[F, E] = new Journaller[F, E] {
 
       val append = new Append[F, E] {
 
@@ -172,8 +178,17 @@ object EventSourcedActorOf {
               }
             }
             .flatMap { events =>
-              store.save(events)
+              store
+                .save(events)
+                .onError(stopActor)
+                .flatTap(_.onError(stopActor))
             }
+
+        private def stopActor(error: Throwable) =
+          for {
+            _ <- log.error(s"failed to append events, stopping actor", error)
+            _ <- actorCtx.stop
+          } yield {}
 
       }
 
