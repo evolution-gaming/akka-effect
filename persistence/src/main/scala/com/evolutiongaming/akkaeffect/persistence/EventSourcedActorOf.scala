@@ -162,10 +162,10 @@ object EventSourcedActorOf {
       } yield new Journaller[F, E] {
         val append = new Append[F, E] {
 
-          def apply(events0: Events[E]): F[F[SeqNr]] =
+          def apply(events: Events[E]): F[F[SeqNr]] =
             seqNrRef
               .modify { seqNr =>
-                events0.mapAccumulate(seqNr) {
+                events.mapAccumulate(seqNr) {
                   case (seqNr0, event) =>
                     val seqNr1 = seqNr0 + 1
                     seqNr1 -> EventStore.Event(event, seqNr1)
