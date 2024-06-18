@@ -111,7 +111,8 @@ object InstrumentEventSourced {
             }
 
             for {
-              receive <- recovering.completed(seqNr, journaller1, snapshotter1)
+              context <- Recovering.RecoveryContext(seqNr, journaller1, snapshotter1).pure[Resource[F, *]]
+              receive <- recovering.completed(context)
               _       <- resource(Action.ReceiveAllocated(seqNr), Action.ReceiveReleased)
             } yield Receive[Envelope[C]] { envelope =>
               for {

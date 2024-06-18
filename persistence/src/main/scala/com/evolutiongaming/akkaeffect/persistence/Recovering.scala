@@ -5,6 +5,8 @@ import cats.effect.Resource
 import cats.implicits.catsSyntaxApplicativeId
 import com.evolutiongaming.akkaeffect.{Envelope, Receive}
 
+import scala.annotation.nowarn
+
 /** Describes "Recovery" phase
   *
   * @tparam S
@@ -25,14 +27,53 @@ trait Recovering[F[_], S, E, +A] {
     * @see
     *   [[akka.persistence.RecoveryCompleted]]
     */
+  @deprecated("Use completed with RecoveryContext", "4.1.5")
   def completed(
     seqNr: SeqNr,
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S],
   ): Resource[F, A]
+
+  /** Called when recovery completed, resource will be released upon actor termination
+    *
+    * @see
+    *   [[akka.persistence.RecoveryCompleted]]
+    */
+  def completed(context: Recovering.RecoveryContext[F, S, E]): Resource[F, A] = {
+    @nowarn("msg=deprecated")
+    val a = completed(context.seqNr, context.journaller, context.snapshotter)
+    a
+  }
+
 }
 
 object Recovering {
+
+  /** Context containing information about recovery and provides access to journaller and snapshotter
+    */
+  trait RecoveryContext[F[_], -S, -E] {
+    def seqNr: SeqNr
+    def journaller: Journaller[F, E]
+    def snapshotter: Snapshotter[F, S]
+    def recoveredFromPersistence: Boolean
+  }
+  object RecoveryContext {
+
+    private case class Impl[F[_], S, E](
+      seqNr: SeqNr,
+      journaller: Journaller[F, E],
+      snapshotter: Snapshotter[F, S],
+      recoveredFromPersistence: Boolean,
+    ) extends RecoveryContext[F, S, E]
+
+    def apply[F[_], S, E](
+      seqNr: SeqNr,
+      journaller: Journaller[F, E],
+      snapshotter: Snapshotter[F, S],
+      recoveredFromPersistence: Boolean = true,
+    ): RecoveryContext[F, S, E] = Impl(seqNr, journaller, snapshotter, recoveredFromPersistence)
+
+  }
 
   def apply[S]: Apply[S] = new Apply[S]
 
@@ -91,9 +132,8 @@ object Recovering {
       ) = {
         val journaller1  = journaller.convert(ef)
         val snapshotter1 = snapshotter.convert(sf)
-        self
-          .completed(seqNr, journaller1, snapshotter1)
-          .flatMap(af)
+        val context1     = RecoveryContext(seqNr, journaller1, snapshotter1)
+        self.completed(context1).flatMap(af)
       }
     }
 
@@ -105,10 +145,10 @@ object Recovering {
         seqNr: SeqNr,
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S],
-      ) =
-        self
-          .completed(seqNr, journaller, snapshotter)
-          .map(f)
+      ) = {
+        val context = RecoveryContext(seqNr, journaller, snapshotter)
+        self.completed(context).map(f)
+      }
     }
 
     def mapM[A1](
@@ -121,10 +161,10 @@ object Recovering {
         seqNr: SeqNr,
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S],
-      ) =
-        self
-          .completed(seqNr, journaller, snapshotter)
-          .flatMap(f)
+      ) = {
+        val context = RecoveryContext(seqNr, journaller, snapshotter)
+        self.completed(context).flatMap(f)
+      }
     }
   }
 
@@ -143,10 +183,10 @@ object Recovering {
           seqNr: SeqNr,
           journaller: Journaller[F, E1],
           snapshotter: Snapshotter[F, S1],
-        ) =
-          self
-            .completed(seqNr, journaller, snapshotter)
-            .map(_.convert(cf, _.pure[F]))
+        ) = {
+          val context = RecoveryContext(seqNr, journaller, snapshotter)
+          self.completed(context).map(_.convert(cf, _.pure[F]))
+        }
       }
 
     def typeless(ef: Any => F[E], cf: Any => F[C])(implicit
