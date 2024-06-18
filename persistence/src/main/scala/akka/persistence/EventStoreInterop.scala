@@ -180,7 +180,7 @@ object EventStoreInterop {
             persistentActor = actor.ref,
           )
           _ <- journaller.tell(request)
-          _ <- log.debug("recovery: events from Akka percictence requested")
+          _ <- log.debug("recovery: events from Akka persistence requested")
         } yield new sstream.Stream[F, EventStore.Persisted[Any]] {
 
           override def foldWhileM[L, R](l: L)(f: (L, EventStore.Persisted[Any]) => F[Either[L, R]]): F[Either[L, R]] = {
