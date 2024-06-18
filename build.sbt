@@ -17,16 +17,6 @@ lazy val commonSettings = Seq(
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
 )
 
-// TODO remove after 4.1.4 is released
-// https://github.com/lightbend-labs/mima/issues/738
-// should be fixed by https://github.com/lightbend-labs/mima/issues/778
-import com.typesafe.tools.mima.core._
-val mimaExclude = Seq(
-  "com.evolutiongaming.akkaeffect.persistence.EventSourcedActorOf#EventStoreOps.asJournaller",
-  "com.evolutiongaming.akkaeffect.persistence.EventSourcedActorOf#EventStoreOps.asJournaller$extension",
-).map(ProblemFilters.exclude[DirectMissingMethodProblem])
-ThisBuild / mimaBinaryIssueFilters ++= mimaExclude
-
 val alias: Seq[sbt.Def.Setting[_]] =
   addCommandAlias("fmt", "scalafixEnable; scalafixAll; all scalafmtAll scalafmtSbt") ++
     addCommandAlias(
