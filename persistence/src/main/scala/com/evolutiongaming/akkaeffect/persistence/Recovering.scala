@@ -4,6 +4,7 @@ import cats.Monad
 import cats.effect.Resource
 import cats.implicits.catsSyntaxApplicativeId
 import com.evolutiongaming.akkaeffect.{Envelope, Receive}
+
 import scala.annotation.nowarn
 
 /** Describes "Recovery" phase
