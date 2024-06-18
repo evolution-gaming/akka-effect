@@ -143,8 +143,13 @@ object EventStoreInterop {
                       consumer <- state.consumer
                       consumer <- consumer.onEvent(event(persisted))
                     } yield consumer
-                    val state1 = State.Consuming(consumer): State
-                    state1.asLeft[Consumer].pure[F]
+                    for {
+                      fiber <- consumer.start
+                    } yield {
+                      val joined = fiber.join.flatMap(_.embedError)
+                      val state1 = State.Consuming(joined): State
+                      state1.asLeft[Consumer]
+                    }
 
                   case JournalProtocol.RecoverySuccess(seqNr) =>
                     for {
