@@ -125,7 +125,7 @@ object EventSourcedActorOf {
       }
   }
 
-  implicit final private class SnapshotOps[S](val snapshot: SnapshotStore.Offer[S]) extends AnyVal {
+  implicit final private[evolutiongaming] class SnapshotOps[S](val snapshot: SnapshotStore.Offer[S]) extends AnyVal {
 
     def asOffer: SnapshotOffer[S] =
       SnapshotOffer(
@@ -135,7 +135,8 @@ object EventSourcedActorOf {
 
   }
 
-  implicit final private class SnapshotStoreOps[F[_], A](val store: SnapshotStore[F, A]) extends AnyVal {
+  implicit final private[evolutiongaming] class SnapshotStoreOps[F[_], A](val store: SnapshotStore[F, A])
+      extends AnyVal {
 
     def asSnapshotter: Snapshotter[F, A] = new Snapshotter[F, A] {
 
@@ -154,7 +155,7 @@ object EventSourcedActorOf {
     }
   }
 
-  implicit final private class EventStoreOps[F[_], E](val store: EventStore[F, E]) extends AnyVal {
+  implicit final private[evolutiongaming] class EventStoreOps[F[_], E](val store: EventStore[F, E]) extends AnyVal {
 
     def asJournaller(actorCtx: ActorCtx[F], seqNr: SeqNr)(implicit F: Concurrent[F], log: Log[F]): F[Journaller[F, E]] =
       for {

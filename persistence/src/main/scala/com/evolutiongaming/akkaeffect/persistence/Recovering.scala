@@ -30,9 +30,26 @@ trait Recovering[F[_], S, E, +A] {
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S],
   ): Resource[F, A]
+
+  /** Called when recovery completed, resource will be released upon actor termination
+    *
+    * @see
+    *   [[akka.persistence.RecoveryCompleted]]
+    */
+  def completed(context: Recovering.RecoveryContext[F, S, E]): Resource[F, A] =
+    completed(context.seqNr, context.journaller, context.snapshotter)
 }
 
 object Recovering {
+
+  /** Context containing information about recovery and provides access to journaller and snapshotter
+    */
+  trait RecoveryContext[F[_], S, E] {
+    def seqNr: SeqNr
+    def journaller: Journaller[F, E]
+    def snapshotter: Snapshotter[F, S]
+    def recoveredFromPersistence: Boolean
+  }
 
   def apply[S]: Apply[S] = new Apply[S]
 
