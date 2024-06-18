@@ -116,7 +116,8 @@ object EventSourcedActorOf {
 
           _          <- log.debug(s"recovery completed with seqNr $seqNr")
           journaller <- eventStore.asJournaller(actorCtx, seqNr).toResource
-          receive    <- recovering.completed(seqNr, journaller, snapshotStore.asSnapshotter)
+          context     = Recovering.RecoveryContext(seqNr, journaller, snapshotStore.asSnapshotter)
+          receive    <- recovering.completed(context)
         } yield receive
 
         receive.onError {
