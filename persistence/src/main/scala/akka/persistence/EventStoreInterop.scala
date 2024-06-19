@@ -65,114 +65,95 @@ object EventStoreInterop {
           def onEvent(event: EventStore.Persisted[Any]): F[Consumer]
         }
 
-        sealed trait State
+        trait State
         object State {
-
-          object Empty                                                                   extends State
-          case class Buffering(events: Vector[EventStore.Event[Any]])                    extends State
-          case class Consuming(consumer: F[Consumer])                                    extends State
-          case class Finishing(events: Vector[EventStore.Event[Any]], finalSeqNr: SeqNr) extends State
-
+          type Buffer = Vector[EventStore.Event[Any]]
+          case class Buff(buffer: Buffer)               extends State
+          case class Idle(consumer: Consumer)           extends State
+          case class Done(buffer: Buffer, seqNr: SeqNr) extends State
         }
 
-        def event(persisted: PersistentRepr): EventStore.Event[Any] =
+        def asEvent(persisted: PersistentRepr): EventStore.Event[Any] =
           EventStore.Event(persisted.payload, persisted.sequenceNr)
 
-        def bufferOverflow =
+        def bufferOverflow[A] =
           for {
-            _ <- log.error(
-              s"events buffer overflow on recovery for entity $persistenceId. Buffer capacity is $capacity",
-            )
-            _ <- new BufferOverflowException(capacity, persistenceId).raiseError[F, Unit]
-          } yield {}
+            m <- s"events buffer overflow on recovery for entity $persistenceId. Buffer capacity is $capacity".pure[F]
+            _ <- log.error(m)
+            a <- new BufferOverflowException(capacity, persistenceId).raiseError[F, A]
+          } yield a
 
-        val actor = LocalActorRef[F, State, Consumer](State.Empty, timeout) {
-          case (state, message) =>
-            val effect: F[Either[State, Consumer]] = state match {
+        def fail[A](msg: String) =
+          new IllegalStateException(s"$msg received after [RecoverySuccess]").raiseError[F, A]
 
-              case State.Empty =>
-                message match {
-                  case consumer: Consumer =>
-                    State.Consuming(consumer.pure[F]).asLeft[Consumer].leftWiden[State].pure[F]
+        val state = State.Buff(Vector.empty)
+        val actor = LocalActorRef.of[F, State, Consumer](state, timeout) { self =>
+          {
 
-                  case JournalProtocol.ReplayedMessage(persisted) =>
-                    val events = Vector(event(persisted))
-                    val state1 = State.Buffering(events): State
-                    state1.asLeft[Consumer].pure[F]
+            case (state, consumer: Consumer) =>
+              state match {
 
-                  case JournalProtocol.RecoverySuccess(seqNr) =>
-                    val state1 = State.Finishing(Vector.empty, seqNr): State
-                    state1.asLeft[Consumer].pure[F]
+                case State.Idle(_) => fail(s"consumer cannot be received if state is [Idle]")
 
-                  case JournalProtocol.ReplayMessagesFailure(error) =>
-                    error.raiseError[F, Either[State, Consumer]]
-                }
+                case State.Buff(buffer) if buffer.isEmpty =>
+                  val state = State.Idle(consumer): State
+                  state.asLeft[Consumer].pure[F]
 
-              case state: State.Buffering =>
-                message match {
-                  case consumer: Consumer =>
-                    for {
-                      fiber <- state.events.foldLeftM(consumer) { case (c, e) => c.onEvent(e) }.start
-                    } yield {
-                      val joined = fiber.join.flatMap(_.embedError)
-                      val state1 = State.Consuming(joined): State
-                      state1.asLeft[Consumer]
-                    }
+                case State.Buff(buffer) =>
+                  val task = for {
+                    consumer <- buffer.foldLeftM(consumer)((consumer, event) => consumer.onEvent(event))
+                    _        <- self(consumer)
+                  } yield {}
+                  for {
+                    _ <- task.start
+                  } yield State.Buff(Vector.empty).asLeft[Consumer]
 
-                  case JournalProtocol.ReplayedMessage(persisted) =>
-                    for {
-                      _ <- if (state.events.length >= capacity) bufferOverflow else ().pure[F]
-                    } yield {
-                      val events = state.events :+ event(persisted)
-                      val state1 = State.Buffering(events): State
-                      state1.asLeft[Consumer]
-                    }
+                case State.Done(buffer, seqNr) =>
+                  for {
+                    consumer <- buffer.foldLeftM(consumer)((consumer, event) => consumer.onEvent(event))
+                    consumer <- consumer.onEvent(EventStore.HighestSeqNr(seqNr))
+                  } yield consumer.asRight[State]
+              }
 
-                  case JournalProtocol.RecoverySuccess(seqNr) =>
-                    val state1 = State.Finishing(state.events, seqNr): State
-                    state1.asLeft[Consumer].pure[F]
+            case (state, message: JournalProtocol.ReplayedMessage) =>
+              def event = asEvent(message.persistent)
+              state match {
 
-                  case JournalProtocol.ReplayMessagesFailure(error) =>
-                    error.raiseError[F, Either[State, Consumer]]
-                }
+                case State.Done(_, _) => fail(s"$message received after [RecoverySuccess]")
 
-              case state: State.Consuming =>
-                message match {
-                  case JournalProtocol.ReplayedMessage(persisted) =>
-                    val consumer = for {
-                      consumer <- state.consumer
-                      consumer <- consumer.onEvent(event(persisted))
-                    } yield consumer
-                    for {
-                      fiber <- consumer.start
-                    } yield {
-                      val joined = fiber.join.flatMap(_.embedError)
-                      val state1 = State.Consuming(joined): State
-                      state1.asLeft[Consumer]
-                    }
+                case State.Buff(buffer) =>
+                  for {
+                    _ <- if (buffer.length >= capacity) bufferOverflow else ().pure[F]
+                  } yield {
+                    val state = State.Buff(buffer :+ event): State
+                    state.asLeft[Consumer]
+                  }
 
-                  case JournalProtocol.RecoverySuccess(seqNr) =>
-                    for {
-                      consumer <- state.consumer
-                      consumer <- consumer.onEvent(EventStore.HighestSeqNr(seqNr))
-                    } yield consumer.asRight[State]
+                case State.Idle(consumer) =>
+                  for {
+                    consumer <- consumer.onEvent(event)
+                  } yield State.Idle(consumer).asLeft[Consumer]
+              }
 
-                  case JournalProtocol.ReplayMessagesFailure(error) =>
-                    error.raiseError[F, Either[State, Consumer]]
-                }
+            case (state, success: JournalProtocol.RecoverySuccess) =>
+              state match {
 
-              case state: State.Finishing =>
-                message match {
-                  case consumer: Consumer =>
-                    for {
-                      consumer <- state.events.foldLeftM(consumer) { case (c, e) => c.onEvent(e) }
-                      consumer <- consumer.onEvent(EventStore.HighestSeqNr(state.finalSeqNr))
-                    } yield consumer.asRight[State]
-                }
+                case State.Done(_, _) => fail(s"more than one $success received")
 
-            }
+                case State.Buff(buffer) =>
+                  val state = State.Done(buffer, success.highestSequenceNr): State
+                  state.asLeft[Consumer].pure[F]
 
-            log.debug(s"recovery: receive message $message for state $state") >> effect
+                case State.Idle(consumer) =>
+                  for {
+                    event    <- EventStore.HighestSeqNr(success.highestSequenceNr).pure[F]
+                    consumer <- consumer.onEvent(event)
+                  } yield consumer.asRight[State]
+              }
+
+            case (_, failure: JournalProtocol.ReplayMessagesFailure) =>
+              failure.cause.raiseError[F, Either[State, Consumer]]
+          }
         }
 
         for {
@@ -201,7 +182,7 @@ object EventStoreInterop {
             }
 
             for {
-              _ <- log.debug(s"recovery: events stream materialisation started")
+              _ <- log.debug(s"recovery: events stream materialization started")
               _ <- Sync[F].delay(actor.ref ! new TheConsumer(l.asLeft[R]))
               c <- actor.res
             } yield c.asInstanceOf[TheConsumer].state
