@@ -28,7 +28,6 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
   test("journal: replay (nothing), save, replay, delete, replay") {
 
     val persistenceId = EventSourcedId("#10")
-    
 
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
