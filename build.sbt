@@ -8,6 +8,7 @@ lazy val commonSettings = Seq(
   startYear            := Some(2019),
   scalaVersion         := "2.13.14",
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
+  Compile / doc / scalacOptions -= "-Xfatal-warnings",
   scalacOptions ++= Seq("-release:17", "-Xsource:3", "-deprecation"),
   releaseCrossBuild      := true,
   publishTo              := Some(Resolver.evolutionReleases),
