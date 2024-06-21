@@ -12,7 +12,6 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.TimeoutException
-import java.util.concurrent.atomic.AtomicInteger
 import javax.naming.OperationNotSupportedException
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
