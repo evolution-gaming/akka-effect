@@ -88,7 +88,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
             case (n, _)  => (n - 1).asLeft[Unit].pure[IO]
           }
           _ <- test.start
-          _ <- done.get.timeout(1.second)
+          _ <- done.get.timeout(500.millis)
 
           // recover events if persistence does not delayed
           _      <- DelayedPersistence.permit(n.toInt)
