@@ -6,11 +6,14 @@ import cats.effect.unsafe.implicits.global
 import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, EventStore, Events, SeqNr}
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
+import com.evolutiongaming.akkaeffect.util.AtomicRef
 import com.evolutiongaming.catshelper.LogOf
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicInteger
+import javax.naming.OperationNotSupportedException
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
 import scala.concurrent.duration.*
@@ -25,6 +28,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
   test("journal: replay (nothing), save, replay, delete, replay") {
 
     val persistenceId = EventSourcedId("#10")
+    
 
     val io = TestActorSystem[IO]("testing", none)
       .use { system =>
@@ -50,6 +54,54 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
       }
 
     io.unsafeRunSync()
+  }
+
+  test("journal: start processing events before final event received") {
+
+    val pluginId      = "delayed-journal"
+    val persistenceId = EventSourcedId("#21")
+
+    val io = TestActorSystem[IO]("testing", none)
+      .use { system =>
+        val n        = 1000L
+        val maxSeqNr = n - 1 // SeqNr starts from 0
+
+        def events: List[EventStore.Event[Any]] =
+          List.range(0, n).map(n => EventStore.Event(s"event_$n", n.toLong))
+
+        for {
+          // persist n events
+          store <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
+          seqNr <- store.save(Events.fromList(events).get).flatten
+          _      = seqNr shouldEqual maxSeqNr
+
+          // recover events if persistence delayed for any event
+          stream <- store.events(SeqNr.Min)
+          error  <- stream.toList.attempt
+          _       = error shouldBe a[Left[TimeoutException, _]]
+
+          // recover events if persistence delayed after recovering half of events
+          half    = n / 2
+          _      <- DelayedPersistence.permit(half.toInt)
+          stream <- store.events(SeqNr.Min)
+          done   <- IO.deferred[Unit]
+          test = stream.foldWhileM(half) {
+            case (1L, e) => done.complete {}.as(().asRight[Long])
+            case (n, e)  => (n - 1).asLeft[Unit].pure[IO]
+          }
+          _ <- test.start
+          _ <- done.get.timeout(1.second)
+
+          // recover events if persistence does not delayed
+          _      <- DelayedPersistence.permit(n.toInt)
+          stream <- store.events(SeqNr.Min)
+          events <- stream.toList
+          _       = events.length shouldBe n + 1 // + HighestSeqNr event
+        } yield {}
+      }
+
+    io.unsafeRunSync()
+
   }
 
   test("journal: fail loading events") {
@@ -225,5 +277,98 @@ class InfiniteJournal extends AsyncWriteJournal {
   override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = Future.never
 
   override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] = Future.never
+
+}
+
+object DelayedPersistence {
+
+  trait Permit {
+    def get: IO[Unit]
+    def capacity: Int
+  }
+  object Permit {
+
+    val never = unsafe(0)
+
+    def unsafe(n: Int): Permit = new Permit {
+
+      val capacity: Int = n
+
+      private val counter = IO.ref(n).unsafeRunSync()
+
+      def get: IO[Unit] = counter.modify(n => (n - 1, n)).flatMap(n => if (n > 0) IO.unit else IO.never)
+
+    }
+  }
+
+  private val state = IO.ref(Permit.never).unsafeRunSync()
+
+  def permit(n: Int = 1): IO[Unit] = state.set(Permit.unsafe(n)).void
+
+  def permit: IO[Permit] = state.getAndSet(Permit.never)
+
+}
+
+class DelayedPersistence extends AsyncWriteJournal {
+
+  import DelayedPersistence.*
+  import scala.concurrent.ExecutionContext.Implicits.{global => ec}
+
+  private val timeout = 1.minute
+  private val delay   = 10.millis
+  private val state   = AtomicRef[Map[String, Vector[PersistentRepr]]](Map.empty)
+
+  override def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(
+    recoveryCallback: PersistentRepr => Unit,
+  ): Future[Unit] = {
+    val events =
+      IO.delay {
+        state
+          .get()
+          .getOrElse(persistenceId, Vector.empty)
+          .filter { event =>
+            event.sequenceNr >= fromSequenceNr && event.sequenceNr <= toSequenceNr
+          }
+      }
+
+    val io = for {
+      permit <- permit
+      events <- events
+      _ <- events.traverse { event =>
+        for {
+          _ <- permit.get
+          _ <- IO.delay(recoveryCallback(event))
+        } yield ()
+      }
+    } yield {}
+
+    io.void.unsafeToFuture()
+  }
+
+  override def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] =
+    Future {
+      state
+        .get()
+        .getOrElse(persistenceId, Vector.empty)
+        .foldLeft(fromSequenceNr) { (max, event) =>
+          if (event.sequenceNr > max) event.sequenceNr else max
+        }
+    }
+
+  override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] =
+    Future {
+      messages.foreach { atomicWrite =>
+        val events        = atomicWrite.payload
+        val persistenceId = atomicWrite.persistenceId
+        state.update { state =>
+          val current = state.getOrElse(persistenceId, Vector.empty)
+          state.updated(persistenceId, current ++ events)
+        }
+      }
+      Seq.empty[Try[Unit]]
+    }
+
+  override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] =
+    Future.failed(new OperationNotSupportedException("deleteMessagesTo is not supported in the test"))
 
 }

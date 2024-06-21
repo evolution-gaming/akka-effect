@@ -60,7 +60,7 @@ object EventStore {
     * @param event
     *   domain event of type [[A]]
     * @param seqNr
-    *   assosiated with event sequence number
+    *   associated with event sequence number
     */
   final case class Event[A](event: A, seqNr: SeqNr) extends Persisted[A]
 

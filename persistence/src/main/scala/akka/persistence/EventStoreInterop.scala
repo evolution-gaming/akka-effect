@@ -196,7 +196,7 @@ object EventStoreInterop {
             }
 
             for {
-              _ <- log.debug(s"recovery: events stream materialisation started")
+              _ <- log.debug(s"recovery: events stream materialization started")
               _ <- Sync[F].delay(actor.ref ! new TheConsumer(l.asLeft[R]))
               c <- actor.res
             } yield c.asInstanceOf[TheConsumer].state
