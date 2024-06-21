@@ -84,8 +84,8 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           stream <- store.events(SeqNr.Min)
           done   <- IO.deferred[Unit]
           test = stream.foldWhileM(half) {
-            case (1L, e) => done.complete {}.as(().asRight[Long])
-            case (n, e)  => (n - 1).asLeft[Unit].pure[IO]
+            case (1L, _) => done.complete {}.as(().asRight[Long])
+            case (n, _)  => (n - 1).asLeft[Unit].pure[IO]
           }
           _ <- test.start
           _ <- done.get.timeout(1.second)
@@ -312,9 +312,7 @@ class DelayedPersistence extends AsyncWriteJournal {
   import DelayedPersistence.*
   import scala.concurrent.ExecutionContext.Implicits.{global => ec}
 
-  private val timeout = 1.minute
-  private val delay   = 10.millis
-  private val state   = AtomicRef[Map[String, Vector[PersistentRepr]]](Map.empty)
+  private val state = AtomicRef[Map[String, Vector[PersistentRepr]]](Map.empty)
 
   override def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(
     recoveryCallback: PersistentRepr => Unit,
