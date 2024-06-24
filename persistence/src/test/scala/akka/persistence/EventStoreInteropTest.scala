@@ -79,24 +79,25 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           _       = error shouldBe a[Left[TimeoutException, _]]
 
           // recover events if persistence delayed after recovering half of events
-          half     = n / 2
-          ten      = 10
-          permit  <- DelayedPersistence.permit(half.toInt - ten)
-          stream  <- store.events(SeqNr.Min)
-          done    <- IO.deferred[Unit]
-          running <- IO.deferred[Unit]
-          consume = stream.foldWhileM(half) {
-            case (1L, _) => done.complete {}.as(().asRight[Long])
-            case (n, _) =>
-              println(s">>>>> n = $n")
-              running.complete {} as (n - 1).asLeft[Unit]
-          }
-          _ <- consume.start
-          _ <- running.get
-          _ <- permit.inc(10)
+          half    = n.toInt / 2
+          quarter = n.toInt / 4
+          permit <- DelayedPersistence.permit(quarter)
+          stream <- store.events(SeqNr.Min)
+          done   <- IO.deferred[Unit]
+          _ <- stream
+            .foldWhileM(1L) {
+              case (`half`, _)    => done.complete {} as ().asRight[Long]
+              case (`quarter`, _) => permit.inc(quarter) as (quarter + 1L).asLeft[Unit]
+              case (n, _)         => (n + 1).asLeft[Unit].pure[IO]
+            }
+            .flatTap { _ =>
+              IO.delay(fail("events stream should never complete due to permit limitation"))
+            }
+            .start
+
           // the timeout used only to fail the test if events cannot be consumed
           // its value should not corelate with `EventStoreInterop` timeout
-          _ <- done.get.timeout(500.millis)
+          _ <- done.get.timeoutTo(500.millis, IO.delay(fail("not all available events were consumed")))
 
           // recover events if persistence does not delayed
           _      <- DelayedPersistence.permit(n.toInt)
@@ -304,6 +305,8 @@ object DelayedPersistence {
 
       private val permits = IO.ref(List.fill[Type](n)(Issued)).unsafeRunSync()
 
+      private val delay = IO.sleep(1.millisecond)
+
       def get: IO[Unit] =
         permits.flatModify {
 
@@ -321,9 +324,9 @@ object DelayedPersistence {
 
       def inc(i: Int): IO[Unit] =
         permits.flatModify {
-          case Nil                  => List.fill(i)(Issued)           -> IO.unit
-          case issued @ Issued :: _ => issued ++ List.fill(i)(Issued) -> IO.unit
-          case Awaiting(await) :: t => t -> await.complete {} *> { if (i > 1) inc(i - 1) else IO.unit }
+          case Nil                  => List.fill(i)(Issued)           -> delay
+          case issued @ Issued :: _ => issued ++ List.fill(i)(Issued) -> delay
+          case Awaiting(await) :: t => t -> await.complete {} *> { if (i > 1) inc(i - 1) else delay }
         }
 
     }
