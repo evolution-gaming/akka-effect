@@ -43,7 +43,7 @@ object InstrumentEventSourced {
           for {
             recovering <- recoveryStarted(seqNr, snapshotOffer)
             _          <- resource(Action.RecoveryAllocated(seqNr, snapshotOffer1), Action.RecoveryReleased)
-          } yield Recovering[S] {
+          } yield Recovering[S].apply1 {
             for {
               _      <- resource(Action.ReplayAllocated, Action.ReplayReleased)
               replay <- recovering.replay
@@ -53,7 +53,9 @@ object InstrumentEventSourced {
                 _ <- record(Action.Replayed(event, seqNr))
               } yield {}
             }
-          } { (seqNr, journaller, snapshotter) =>
+          } { recoveringCtx =>
+            import recoveringCtx.*
+
             val journaller1 = new Instrument with Journaller[F, E] {
 
               def append = events =>
@@ -111,9 +113,11 @@ object InstrumentEventSourced {
             }
 
             for {
-              context <- Recovering.RecoveryContext(seqNr, journaller1, snapshotter1).pure[Resource[F, *]]
+              context <- Recovering
+                .RecoveryContext(recoveringCtx.seqNr, journaller1, snapshotter1, recoveredFromPersistence)
+                .pure[Resource[F, *]]
               receive <- recovering.completed(context)
-              _       <- resource(Action.ReceiveAllocated(seqNr), Action.ReceiveReleased)
+              _       <- resource(Action.ReceiveAllocated(recoveringCtx.seqNr), Action.ReceiveReleased)
             } yield Receive[Envelope[C]] { envelope =>
               for {
                 stop <- receive(envelope)

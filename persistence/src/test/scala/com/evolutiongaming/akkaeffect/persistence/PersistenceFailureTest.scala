@@ -32,16 +32,18 @@ class PersistenceFailureTest extends AnyFunSuite with Matchers {
         eventSourcedId = EventSourcedId("test"),
         pluginIds = PluginIds(journal, snapshot),
         value = RecoveryStarted[Unit] { (_, _) =>
-          Recovering[Unit] {
-            Replay.empty[IO, Event].pure[Resource[IO, *]]
-          } { (_, journaller, _) =>
-            Receive[Envelope[Event]] { envelope =>
-              // persist event in forked thread thus don't fail actor directly
-              journaller.append(Events.of(envelope.msg)).flatten.start.as(false)
-            } {
-              IO(true)
-            }.pure[Resource[IO, *]]
-          }.pure[Resource[IO, *]]
+          Recovering[Unit]
+            .apply1 {
+              Replay.empty[IO, Event].pure[Resource[IO, *]]
+            } { recoveringCtx =>
+              Receive[Envelope[Event]] { envelope =>
+                // persist event in forked thread thus don't fail actor directly
+                recoveringCtx.journaller.append(Events.of(envelope.msg)).flatten.start.as(false)
+              } {
+                IO(true)
+              }.pure[Resource[IO, *]]
+            }
+            .pure[Resource[IO, *]]
         }.typeless(
           sf = _ => IO.unit,
           ef = e => IO(e.asInstanceOf[Event]),

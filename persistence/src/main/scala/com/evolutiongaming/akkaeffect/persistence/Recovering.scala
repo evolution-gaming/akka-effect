@@ -79,6 +79,7 @@ object Recovering {
 
   final private[Recovering] class Apply[S](private val b: Boolean = true) extends AnyVal {
 
+    @deprecated("Use apply with RecoveryContext", "4.1.7")
     def apply[F[_], E, A](replay: Resource[F, Replay[F, E]])(
       completed: (SeqNr, Journaller[F, E], Snapshotter[F, S]) => Resource[F, A],
     ): Recovering[F, S, E, A] = {
@@ -96,6 +97,26 @@ object Recovering {
           completed1(seqNr, journaller, snapshotter)
       }
     }
+
+    def apply1[F[_], E, A](replay: Resource[F, Replay[F, E]])(
+      completed: Recovering.RecoveryContext[F, S, E] => Resource[F, A],
+    ): Recovering[F, S, E, A] = {
+      val replay1    = replay
+      val completed1 = completed
+      new Recovering[F, S, E, A] {
+
+        override def replay = replay1
+
+        override def completed(
+          seqNr: SeqNr,
+          journaller: Journaller[F, E],
+          snapshotter: Snapshotter[F, S],
+        ) = completed1(RecoveryContext(seqNr, journaller, snapshotter))
+
+        override def completed(ctx: RecoveryContext[F, S, E]) = completed1(ctx)
+      }
+    }
+
   }
 
   def const[S]: Const[S] = new Const[S]
@@ -135,6 +156,14 @@ object Recovering {
         val context1     = RecoveryContext(seqNr, journaller1, snapshotter1)
         self.completed(context1).flatMap(af)
       }
+
+      override def completed(context: RecoveryContext[F, S1, E1]) = {
+        val journaller1  = context.journaller.convert(ef)
+        val snapshotter1 = context.snapshotter.convert(sf)
+        val context1     = RecoveryContext(context.seqNr, journaller1, snapshotter1)
+        self.completed(context1).flatMap(af)
+      }
+
     }
 
     def map[A1](f: A => A1): Recovering[F, S, E, A1] = new Recovering[F, S, E, A1] {
@@ -149,6 +178,9 @@ object Recovering {
         val context = RecoveryContext(seqNr, journaller, snapshotter)
         self.completed(context).map(f)
       }
+
+      override def completed(context: RecoveryContext[F, S, E]) =
+        self.completed(context).map(f)
     }
 
     def mapM[A1](
@@ -165,6 +197,9 @@ object Recovering {
         val context = RecoveryContext(seqNr, journaller, snapshotter)
         self.completed(context).flatMap(f)
       }
+
+      override def completed(context: RecoveryContext[F, S, E]) =
+        self.completed(context).flatMap(f)
     }
   }
 
