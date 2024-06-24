@@ -1,8 +1,8 @@
 package akka.persistence
 
 import akka.persistence.journal.AsyncWriteJournal
-import cats.effect.IO
 import cats.effect.unsafe.implicits.global
+import cats.effect.{Deferred, IO}
 import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, EventStore, Events, SeqNr}
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
@@ -80,7 +80,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
 
           // recover events if persistence delayed after recovering half of events
           half    = n / 2
-          _      <- DelayedPersistence.permit(half.toInt)
+          permit <- DelayedPersistence.permit(half.toInt - 10)
           stream <- store.events(SeqNr.Min)
           done   <- IO.deferred[Unit]
           test = stream.foldWhileM(half) {
@@ -88,6 +88,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
             case (n, _)  => (n - 1).asLeft[Unit].pure[IO]
           }
           _ <- test.start
+          _ <- permit.inc(10)
           // the timeout used only to fail the test if events cannot be consumed
           // its value should not corelate with `EventStoreInterop` timeout
           _ <- done.get.timeout(500.millis)
@@ -284,26 +285,51 @@ object DelayedPersistence {
 
   trait Permit {
     def get: IO[Unit]
-    def capacity: Int
+    def inc(i: Int = 1): IO[Unit]
   }
   object Permit {
+
+    sealed trait Type
+    object Issued                                  extends Type
+    case class Awaiting(await: Deferred[IO, Unit]) extends Type
 
     val never = unsafe(0)
 
     def unsafe(n: Int): Permit = new Permit {
 
-      val capacity: Int = n
+      private val permits = IO.ref(List.fill[Type](n)(Issued)).unsafeRunSync()
 
-      private val counter = IO.ref(n).unsafeRunSync()
+      def get: IO[Unit] =
+        permits.flatModify {
 
-      def get: IO[Unit] = counter.modify(n => (n - 1, n)).flatMap(n => if (n > 0) IO.unit else IO.never)
+          case Nil =>
+            val await = IO.deferred[Unit].unsafeRunSync()
+            List(Awaiting(await)) -> await.get
+
+          case Issued :: t =>
+            t -> IO.unit
+
+          case Awaiting(await) :: t =>
+            t -> await.get
+
+        }
+
+      def inc(i: Int): IO[Unit] =
+        permits.flatModify {
+          case Nil                  => List.fill(i)(Issued)           -> IO.unit
+          case issued @ Issued :: _ => issued ++ List.fill(i)(Issued) -> IO.unit
+          case Awaiting(await) :: t => t -> await.complete {} *> { if (i > 1) inc(i - 1) else IO.unit }
+        }
 
     }
   }
 
   private val state = IO.ref(Permit.never).unsafeRunSync()
 
-  def permit(n: Int = 1): IO[Unit] = state.set(Permit.unsafe(n)).void
+  def permit(n: Int = 1): IO[Permit] = {
+    val p = Permit.unsafe(n)
+    state.set(p).as(p)
+  }
 
   def permit: IO[Permit] = state.getAndSet(Permit.never)
 
