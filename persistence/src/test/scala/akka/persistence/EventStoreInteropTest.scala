@@ -87,7 +87,9 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           running <- IO.deferred[Unit]
           consume = stream.foldWhileM(half) {
             case (1L, _) => done.complete {}.as(().asRight[Long])
-            case (n, _)  => running.complete {} as (n - 1).asLeft[Unit]
+            case (n, _) =>
+              println(s">>>>> n = $n")
+              running.complete {} as (n - 1).asLeft[Unit]
           }
           _ <- consume.start
           _ <- running.get
