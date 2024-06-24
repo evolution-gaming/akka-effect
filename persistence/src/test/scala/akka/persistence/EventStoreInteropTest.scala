@@ -79,15 +79,18 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           _       = error shouldBe a[Left[TimeoutException, _]]
 
           // recover events if persistence delayed after recovering half of events
-          half    = n / 2
-          permit <- DelayedPersistence.permit(half.toInt - 10)
-          stream <- store.events(SeqNr.Min)
-          done   <- IO.deferred[Unit]
-          test = stream.foldWhileM(half) {
+          half     = n / 2
+          ten      = 10
+          permit  <- DelayedPersistence.permit(half.toInt - ten)
+          stream  <- store.events(SeqNr.Min)
+          done    <- IO.deferred[Unit]
+          running <- IO.deferred[Unit]
+          consume = stream.foldWhileM(half) {
             case (1L, _) => done.complete {}.as(().asRight[Long])
-            case (n, _)  => (n - 1).asLeft[Unit].pure[IO]
+            case (n, _)  => running.complete {} as (n - 1).asLeft[Unit]
           }
-          _ <- test.start
+          _ <- consume.start
+          _ <- running.get
           _ <- permit.inc(10)
           // the timeout used only to fail the test if events cannot be consumed
           // its value should not corelate with `EventStoreInterop` timeout
