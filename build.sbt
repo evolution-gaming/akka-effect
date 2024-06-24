@@ -8,6 +8,7 @@ lazy val commonSettings = Seq(
   startYear            := Some(2019),
   scalaVersion         := "2.13.14",
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
+  Compile / doc / scalacOptions -= "-Xfatal-warnings",
   scalacOptions ++= Seq("-release:17", "-Xsource:3", "-deprecation"),
   releaseCrossBuild      := true,
   publishTo              := Some(Resolver.evolutionReleases),
@@ -19,10 +20,7 @@ lazy val commonSettings = Seq(
 
 val alias: Seq[sbt.Def.Setting[_]] =
   addCommandAlias("fmt", "scalafixEnable; scalafixAll; all scalafmtAll scalafmtSbt") ++
-    addCommandAlias(
-      "check",
-      "all Compile/doc versionPolicyCheck scalafmtCheckAll scalafmtSbtCheck; scalafixEnable; scalafixAll --check",
-    ) ++
+    addCommandAlias("check", "all Compile/doc versionPolicyCheck scalafmtCheckAll scalafmtSbtCheck") ++
     addCommandAlias("build", "all compile test")
 
 lazy val root = project

@@ -9,6 +9,9 @@ import com.evolutiongaming.catshelper.{SerialRef, ToTry}
 
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.*
+import cats.effect.Deferred
+import cats.effect.Sync
+import cats.effect.Async
 
 /** Representation of actor capable of constructing result from multiple messages passed into the actor. Inspired by
   * [[PromiseActorRef]], but result [[R]] is an aggregate from incoming messages rather that first message. Can be used
@@ -20,7 +23,7 @@ import scala.concurrent.duration.*
   */
 private[persistence] trait LocalActorRef[F[_], R] {
 
-  /** Not actual [[ActorRef]]! It is not serialisable, thus can not be passed over network. Under the hood it implements
+  /** Not actual [[ActorRef]]! It is not serializable, thus can not be passed over network. Under the hood it implements
     * [[ActorRef]] trait by providing function `!` that updates internal state using provided function `receive`. Please
     * check [[LocalActorRef.apply]] docs
     */
@@ -41,6 +44,23 @@ private[persistence] trait LocalActorRef[F[_], R] {
 private[persistence] object LocalActorRef {
 
   type M = Any
+
+  /** Self reference to send messages to itself.
+    */
+  sealed trait Self[F[_]] {
+    def apply(m: M): F[Unit]
+  }
+
+  def of[F[_]: Async: ToTry, S, R](initial: S, timeout: FiniteDuration)(
+    receiveOf: Self[F] => PartialFunction[(S, M), F[Either[S, R]]],
+  ): F[LocalActorRef[F, R]] =
+    for {
+      deferred <- Deferred[F, LocalActorRef[F, R]]
+      self      = new Self[F] { def apply(m: M) = deferred.get.flatMap(lar => Sync[F].delay(lar.ref ! m)) }
+      receive   = receiveOf(self)
+      instance <- apply(initial, timeout)(receive)
+      _        <- deferred.complete(instance)
+    } yield instance
 
   /** Create new [[LocalActorRef]]
     *
@@ -79,16 +99,16 @@ private[persistence] object LocalActorRef {
 
         type Delay = FiniteDuration
 
-        /* If state was not updated for more than [[#timeout]] - completes [[#defer]] with failed result and exits
-         * tailRecM loop.
-         *
-         * Otherwise calculate [[#delay]] till next timeout and continue loop.
-         *
-         * @param delay
-         *   time before next timeout
-         * @return
-         *   exid or continue loop
-         */
+        /** If state was not updated for more than [[#timeout]] - completes [[#defer]] with failed result and exits
+          * tailRecM loop.
+          *
+          * Otherwise calculate [[#delay]] till next timeout and continue loop.
+          *
+          * @param delay
+          *   time before next timeout
+          * @return
+          *   exit or continue loop
+          */
         def failOnTimeout(delay: Delay): F[Either[Delay, Unit]] =
           for {
             _     <- F.sleep(delay)
