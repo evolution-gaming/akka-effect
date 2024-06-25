@@ -1,17 +1,14 @@
 package akka.persistence
 
 import akka.actor.{ActorPath, ActorRef, ActorRefProvider, MinimalActorRef}
-import cats.effect.Temporal
 import cats.effect.syntax.all.*
+import cats.effect.{Async, Deferred, Sync, Temporal}
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.CatsHelper.OpsCatsHelper
 import com.evolutiongaming.catshelper.{SerialRef, ToTry}
 
 import java.util.concurrent.TimeoutException
 import scala.concurrent.duration.*
-import cats.effect.Deferred
-import cats.effect.Sync
-import cats.effect.Async
 
 /** Representation of actor capable of constructing result from multiple messages passed into the actor. Inspired by
   * [[PromiseActorRef]], but result [[R]] is an aggregate from incoming messages rather that first message. Can be used
