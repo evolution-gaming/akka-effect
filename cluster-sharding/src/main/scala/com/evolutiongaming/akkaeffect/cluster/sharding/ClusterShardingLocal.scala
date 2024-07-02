@@ -26,7 +26,7 @@ trait ClusterShardingLocal[F[_]] {
   /** Provides the actual stub */
   def clusterSharding: ClusterSharding[F]
 
-  /** Simulate cluster rebalacing.
+  /** Simulate cluster rebalancing.
     *
     * I.e. send `handOffStopMessage` from [[ClusterSharding#startProxy]] to the actors that need rebalancing according
     * to `shardAllocationStrategy`.
@@ -119,8 +119,14 @@ object ClusterShardingLocal {
                   val entityName      = actorNameOf(entityId)
                   context
                     .child(entityId)
-                    .getOrElse(context.actorOf(props, entityName))
+                    .getOrElse(context.watch(context.actorOf(props, entityName)))
                     .forward(msg)
+
+                case _: akka.actor.Terminated =>
+                  // stop itself when all children are stopped
+                  if (context.children.isEmpty) {
+                    context.stop(self)
+                  }
               }
             }
 
@@ -172,15 +178,16 @@ object ClusterShardingLocal {
                   val shardId   = extractShardId(msg)
                   val shardName = actorNameOf(shardId)
 
-                  def allocate = allocationStrategy.allocateShard(sender, shardId, allocation())
-
                   context
                     .child(shardName)
                     .fold {
+                      val shard  = context.actorOf(Props(shardActor()), shardName)
+                      val future = allocationStrategy.allocateShard(shard, shardId, allocation())
+
                       FromFuture[F]
-                        .apply(allocate)
+                        .apply(future)
                         .toTry
-                        .as(context.actorOf(Props(shardActor()), shardName))
+                        .as(shard)
                     } { shard =>
                       shard.pure[Try]
                     }
