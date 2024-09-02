@@ -74,6 +74,9 @@ object Validate {
     def convertE[E1](f: E => F[E1])(implicit F: Monad[F]): Validate[F, S, E1, A] =
       self.mapM(_.convertE(f))
 
+    def convertSE[E1](f: (S, E) => F[E1])(implicit F: Monad[F]): Validate[F, S, E1, A] =
+      self.mapM(_.convertSE(f))
+
     def convertS[S1](sf: S => F[S1], s1f: S1 => F[S])(implicit
       F: Monad[F],
     ): Validate[F, S1, E, A] = { (state, seqNr) =>

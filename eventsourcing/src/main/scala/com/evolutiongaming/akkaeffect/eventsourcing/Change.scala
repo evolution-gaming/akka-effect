@@ -40,6 +40,9 @@ object Change {
     def convertE[F[_], E1](f: E => F[E1])(implicit F: Monad[F]): F[Change[S, E1]] =
       self.events.traverse(f).map(events => self.copy(events = events))
 
+    def convertSE[F[_], E1](f: (S, E) => F[E1])(implicit F: Monad[F]): F[Change[S, E1]] =
+      self.events.traverse(event => f(self.state, event)).map(events => self.copy(events = events))
+
     def convertS[F[_], S1](f: S => F[S1])(implicit F: Functor[F]): F[Change[S1, E]] =
       f(self.state).map(state => self.copy(state = state))
   }

@@ -96,6 +96,11 @@ object Directive {
         .traverse(_.convertE(f))
         .map(change => self.copy(change))
 
+    def convertSE[E1](f: (S, E) => F[E1])(implicit F: Monad[F]): F[Directive[F, S, E1, A]] =
+      self.change
+        .traverse(_.convertSE(f))
+        .map(change => self.copy(change))
+
     def convertS[S1](f: S => F[S1])(implicit F: Monad[F]): F[Directive[F, S1, E, A]] =
       self.change
         .traverse(_.convertS(f))
