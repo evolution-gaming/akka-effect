@@ -15,7 +15,6 @@ lazy val commonSettings = Seq(
     "-deprecation",
     "-Wconf:cat=unused-pat-vars:s", // workaround for https://github.com/scala/bug/issues/13041 (since 2.13.15)
   ),
-  releaseCrossBuild      := true,
   publishTo              := Some(Resolver.evolutionReleases),
   versionPolicyIntention := Compatibility.BinaryCompatible, // sbt-version-policy
   versionScheme          := Some("semver-spec"),
