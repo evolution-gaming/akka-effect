@@ -10,6 +10,8 @@ import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.catshelper.{Log, LogOf, ToFuture}
 
 import java.time.Instant
+import javax.naming.OperationNotSupportedException
+import cats.MonadThrow
 
 object EventSourcedActorOf {
 
@@ -91,33 +93,48 @@ object EventSourcedActorOf {
 
           replay = recovering.replay
 
-          seqNr <- replay.use { replay =>
-            // used to recover snapshot, i.e. the snapshot stored with [[snapSeqNr]] will be loaded, if any
-            val snapSeqNr = snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min)
-            // used to recover events _following_ the snapshot OR if no snapshot available then [[SeqNr.Min]]
-            val fromSeqNr = snapshot.map(_.metadata.seqNr + 1).getOrElse(SeqNr.Min)
-            for {
-              _      <- log.debug(s"snapshot seqNr: $snapSeqNr, load events from seqNr: $fromSeqNr").allocated
-              events <- eventStore.events(fromSeqNr)
-              seqNrL <- events.foldWhileM(snapSeqNr) {
-                case (_, EventStore.Event(event, seqNr)) => replay(event, seqNr).as(seqNr.asLeft[Unit])
-                case (_, EventStore.HighestSeqNr(seqNr)) => seqNr.asLeft[Unit].pure[F]
-              }
-              seqNr <- seqNrL match {
-                case Left(seqNr) => seqNr.pure[F]
-                case Right(_)    =>
-                  // function used in events.foldWhileM always returns Left
-                  // and sstream.Stream.foldWhileM returns Right only if passed function do so
-                  // thus makes getting Right here impossible
-                  new IllegalStateException("should never happened").raiseError[F, SeqNr]
-              }
-            } yield seqNr
-          }.toResource
+          seqNr <- replay
+            .use { replay =>
+              // used to recover snapshot, i.e. the snapshot stored with [[snapSeqNr]] will be loaded, if any
+              val snapSeqNr = snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min)
+              // used to recover events _following_ the snapshot OR if no snapshot available then [[SeqNr.Min]]
+              val fromSeqNr = snapshot.map(_.metadata.seqNr + 1).getOrElse(SeqNr.Min)
+              for {
+                _      <- log.debug(s"snapshot seqNr: $snapSeqNr, load events from seqNr: $fromSeqNr").allocated
+                events <- eventStore.events(fromSeqNr)
+                seqNrL <- events.foldWhileM(snapSeqNr) {
+                  case (_, EventStore.Event(event, seqNr)) => replay(event, seqNr).as(seqNr.asLeft[Unit])
+                  case (_, EventStore.HighestSeqNr(seqNr)) => seqNr.asLeft[Unit].pure[F]
+                }
+                seqNr <- seqNrL match {
+                  case Left(seqNr) => seqNr.pure[F]
+                  case Right(_)    =>
+                    // function used in events.foldWhileM always returns Left
+                    // and sstream.Stream.foldWhileM returns Right only if passed function do so
+                    // thus makes getting Right here impossible
+                    new IllegalStateException("should never happened").raiseError[F, SeqNr]
+                }
+              } yield seqNr
+            }
+            .toResource
+            .attempt
 
-          _          <- log.debug(s"recovery completed with seqNr $seqNr")
-          journaller <- eventStore.asJournaller(actorCtx, seqNr).toResource
-          context     = Recovering.RecoveryContext(seqNr, journaller, snapshotStore.asSnapshotter)
-          receive    <- recovering.completed(context)
+          receive <- seqNr match {
+            case Right(seqNr) =>
+              for {
+                _          <- log.debug(s"recovery completed with seqNr $seqNr")
+                journaller <- eventStore.asJournaller(actorCtx, seqNr).toResource
+                receive    <- recovering.completed(seqNr, journaller, snapshotStore.asSnapshotter)
+              } yield receive
+
+            case Left(error) =>
+              for {
+                _          <- log.error(s"recovery failed", error)
+                journaller <- eventStore.asNonAppendingJournaller().toResource
+                _          <- recovering.failed(error, journaller, snapshotStore.asSnapshotter)
+                receive    <- error.raiseError[F, Receive[F, Envelope[Any], ActorOf.Stop]].toResource
+              } yield receive
+          }
         } yield receive
 
         receive.onError {
@@ -157,6 +174,23 @@ object EventSourcedActorOf {
   }
 
   implicit final private[evolutiongaming] class EventStoreOps[F[_], E](val store: EventStore[F, E]) extends AnyVal {
+
+    def asNonAppendingJournaller()(implicit F: MonadThrow[F]): F[Journaller[F, E]] =
+      new Journaller[F, E] {
+        def append = new Append[F, E] {
+
+          def apply(events: Events[E]): F[F[SeqNr]] = notSupported.raiseError[F, F[SeqNr]]
+
+          def notSupported = new OperationNotSupportedException("The journaller does not support append")
+
+        }
+
+        def deleteTo = new DeleteEventsTo[F] {
+
+          def apply(seqNr: SeqNr): F[F[Unit]] = store.deleteTo(seqNr)
+
+        }
+      }.pure[F]
 
     def asJournaller(actorCtx: ActorCtx[F], seqNr: SeqNr)(implicit F: Concurrent[F], log: Log[F]): F[Journaller[F, E]] =
       for {

@@ -58,8 +58,7 @@ private[akkaeffect] object Persistence {
       ) = {
         val receive = for {
           recovering <- recoveryStarted(seqNr, none)
-          context     = Recovering.RecoveryContext(seqNr, journaller, snapshotter)
-          receive    <- recovering.completed(context)
+          receive    <- recovering.completed(seqNr, journaller, snapshotter)
         } yield Persistence.receive[F, S, E, C](receive)
         receive.toReleasable
       }
@@ -114,9 +113,8 @@ private[akkaeffect] object Persistence {
           .foldMapM(_.release)
           .toResource
           .productR {
-            val context = Recovering.RecoveryContext(seqNr, journaller, snapshotter)
             recovering
-              .completed(context)
+              .completed(seqNr, journaller, snapshotter)
               .map(receive => Persistence.receive[F, S, E, C](receive))
           }
           .toReleasable

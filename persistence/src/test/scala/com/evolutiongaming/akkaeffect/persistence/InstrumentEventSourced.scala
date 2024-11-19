@@ -1,5 +1,7 @@
 package com.evolutiongaming.akkaeffect.persistence
 
+import cats.effect.syntax.resource.*
+
 import akka.actor.ActorRef
 import akka.persistence.{Recovery, SnapshotSelectionCriteria}
 import cats.effect.{Ref, Resource, Sync}
@@ -40,23 +42,8 @@ object InstrumentEventSourced {
             snapshotOffer.copy(metadata = metadata)
           }
 
-          for {
-            recovering <- recoveryStarted(seqNr, snapshotOffer)
-            _          <- resource(Action.RecoveryAllocated(seqNr, snapshotOffer1), Action.RecoveryReleased)
-          } yield Recovering[S].apply1 {
-            for {
-              _      <- resource(Action.ReplayAllocated, Action.ReplayReleased)
-              replay <- recovering.replay
-            } yield Replay[E] { (event, seqNr) =>
-              for {
-                _ <- replay(event, seqNr)
-                _ <- record(Action.Replayed(event, seqNr))
-              } yield {}
-            }
-          } { recoveringCtx =>
-            import recoveringCtx.*
-
-            val journaller1 = new Instrument with Journaller[F, E] {
+          def instrumentedJournaller(journaller: Journaller[F, E]) =
+            new Instrument with Journaller[F, E] {
 
               def append = events =>
                 for {
@@ -79,7 +66,8 @@ object InstrumentEventSourced {
                 } yield a
             }
 
-            val snapshotter1 = new Instrument with Snapshotter[F, S] {
+          def instrumentedSnapshotter(snapshotter: Snapshotter[F, S]) =
+            new Instrument with Snapshotter[F, S] {
 
               def save(seqNr: SeqNr, snapshot: S) =
                 for {
@@ -112,13 +100,8 @@ object InstrumentEventSourced {
                 } yield a
             }
 
-            for {
-              context <- Recovering
-                .RecoveryContext(recoveringCtx.seqNr, journaller1, snapshotter1, recoveredFromPersistence)
-                .pure[Resource[F, *]]
-              receive <- recovering.completed(context)
-              _       <- resource(Action.ReceiveAllocated(recoveringCtx.seqNr), Action.ReceiveReleased)
-            } yield Receive[Envelope[C]] { envelope =>
+          def instrumentedReceive(receive: Receive[F, Envelope[C], ActorOf.Stop]) =
+            Receive[Envelope[C]] { envelope =>
               for {
                 stop <- receive(envelope)
                 _    <- record(Action.Received(envelope.msg, envelope.from, stop))
@@ -129,6 +112,47 @@ object InstrumentEventSourced {
                 _    <- record(Action.ReceiveTimeout)
               } yield stop
             }
+
+          for {
+            recovering <- recoveryStarted(seqNr, snapshotOffer)
+            _          <- resource(Action.RecoveryAllocated(seqNr, snapshotOffer1), Action.RecoveryReleased)
+          } yield Recovering[S] {
+            for {
+              _      <- resource(Action.ReplayAllocated, Action.ReplayReleased)
+              replay <- recovering.replay
+            } yield Replay[E] { (event, seqNr) =>
+              for {
+                _ <- replay(event, seqNr)
+                _ <- record(Action.Replayed(event, seqNr))
+              } yield {}
+            }
+          } {
+            case (seqNr, journaller, snapshotter) =>
+              val journaller1  = instrumentedJournaller(journaller)
+              val snapshotter1 = instrumentedSnapshotter(snapshotter)
+
+              for {
+                receive <- recovering.completed(seqNr, journaller1, snapshotter1)
+                _       <- resource(Action.ReceiveAllocated(seqNr), Action.ReceiveReleased)
+              } yield instrumentedReceive(receive)
+          } {
+            case (seqNr, journaller, snapshotter) =>
+              val journaller1  = instrumentedJournaller(journaller)
+              val snapshotter1 = instrumentedSnapshotter(snapshotter)
+
+              for {
+                receive <- recovering.transferred(seqNr, journaller1, snapshotter1)
+                _       <- resource(Action.ReceiveAllocated(seqNr), Action.ReceiveReleased)
+              } yield instrumentedReceive(receive)
+          } {
+            case (error, journaller, snapshotter) =>
+              val journaller1  = instrumentedJournaller(journaller)
+              val snapshotter1 = instrumentedSnapshotter(snapshotter)
+
+              for {
+                _ <- recovering.failed(error, journaller1, snapshotter1)
+                _ <- record(Action.RecoveryFailed(error)).toResource
+              } yield {}
           }
         }
       }
@@ -193,6 +217,8 @@ object InstrumentEventSourced {
     final case object DeleteSnapshotsInner extends Action[Nothing, Nothing, Nothing]
 
     final case class ReceiveAllocated[S](seqNr: SeqNr) extends Action[S, Nothing, Nothing]
+
+    final case class RecoveryFailed(cause: Throwable) extends Action[Nothing, Nothing, Nothing]
 
     final case object ReceiveReleased extends Action[Nothing, Nothing, Nothing]
 

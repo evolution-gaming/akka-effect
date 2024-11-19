@@ -12,6 +12,7 @@ import com.evolutiongaming.catshelper.LogOf
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.concurrent.duration.*
 import scala.util.Try
@@ -32,18 +33,19 @@ class PersistenceFailureTest extends AnyFunSuite with Matchers {
         eventSourcedId = EventSourcedId("test"),
         pluginIds = PluginIds(journal, snapshot),
         value = RecoveryStarted[Unit] { (_, _) =>
-          Recovering[Unit]
-            .apply1 {
+          Recovering
+            .legacy[Unit] {
               Replay.empty[IO, Event].pure[Resource[IO, *]]
-            } { recoveringCtx =>
-              Receive[Envelope[Event]] { envelope =>
-                // persist event in forked thread thus don't fail actor directly
-                recoveringCtx.journaller.append(Events.of(envelope.msg)).flatten.start.as(false)
-              } {
-                IO(true)
-              }.pure[Resource[IO, *]]
+            } {
+              case (_, journaller, _) =>
+                Receive[Envelope[Event]] { envelope =>
+                  // persist event in forked thread thus don't fail actor directly
+                  journaller.append(Events.of(envelope.msg)).flatten.start.as(false)
+                } {
+                  IO(true)
+                }.pure[Resource[IO, *]]
             }
-            .pure[Resource[IO, *]]
+            .pure[Resource[IO, *]]: @nowarn
         }.typeless(
           sf = _ => IO.unit,
           ef = e => IO(e.asInstanceOf[Event]),
