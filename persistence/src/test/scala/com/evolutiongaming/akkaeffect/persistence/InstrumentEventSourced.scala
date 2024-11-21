@@ -1,9 +1,8 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.effect.syntax.resource.*
-
 import akka.actor.ActorRef
 import akka.persistence.{Recovery, SnapshotSelectionCriteria}
+import cats.effect.syntax.resource.*
 import cats.effect.{Ref, Resource, Sync}
 import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.*

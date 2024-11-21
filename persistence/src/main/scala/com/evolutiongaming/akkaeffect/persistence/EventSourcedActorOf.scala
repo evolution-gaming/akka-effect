@@ -2,6 +2,7 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.Actor
 import akka.persistence.SnapshotSelectionCriteria
+import cats.MonadThrow
 import cats.effect.implicits.effectResourceOps
 import cats.effect.{Async, Concurrent, Ref, Resource}
 import cats.syntax.all.*
@@ -11,7 +12,6 @@ import com.evolutiongaming.catshelper.{Log, LogOf, ToFuture}
 
 import java.time.Instant
 import javax.naming.OperationNotSupportedException
-import cats.MonadThrow
 
 object EventSourcedActorOf {
 
