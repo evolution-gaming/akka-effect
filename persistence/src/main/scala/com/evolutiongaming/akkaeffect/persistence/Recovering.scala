@@ -40,10 +40,14 @@ trait Recovering[F[_], S, E, +A] {
   ): Resource[F, A]
 
   /** Called when recovery failed
+    *
+    * @param journaller
+    *   of type [[DeleteEventsTo]] because instance of [[Journaller]] is not available in this case. [[Journaller]] can
+    *   be created based on known [[SeqNr]], while its now known in case of failure.
     */
   def failed(
     cause: Throwable,
-    journaller: Journaller[F, E],
+    journaller: DeleteEventsTo[F],
     snapshotter: Snapshotter[F, S],
   ): Resource[F, Unit]
 
@@ -90,7 +94,7 @@ object Recovering {
 
         override def failed(
           cause: Throwable,
-          journaller: Journaller[F, E],
+          journaller: DeleteEventsTo[F],
           snapshotter: Snapshotter[F, S],
         ) = Resource.raiseError[F, Unit, Throwable](cause)
       }
@@ -124,7 +128,7 @@ object Recovering {
 
         override def failed(
           cause: Throwable,
-          journaller: Journaller[F, E],
+          journaller: DeleteEventsTo[F],
           snapshotter: Snapshotter[F, S],
         ) = Resource.raiseError[F, Unit, Throwable](cause)
       }
@@ -143,7 +147,7 @@ object Recovering {
     )(
       transferred: (SeqNr, Journaller[F, E], Snapshotter[F, S]) => Resource[F, A],
     )(
-      failed: (Throwable, Journaller[F, E], Snapshotter[F, S]) => Resource[F, Unit],
+      failed: (Throwable, DeleteEventsTo[F], Snapshotter[F, S]) => Resource[F, Unit],
     ): Recovering[F, S, E, A] = {
 
       val replay1      = replay
@@ -169,7 +173,7 @@ object Recovering {
 
         override def failed(
           cause: Throwable,
-          journaller: Journaller[F, E],
+          journaller: DeleteEventsTo[F],
           snapshotter: Snapshotter[F, S],
         ) = failed1(cause, journaller, snapshotter)
       }
@@ -215,7 +219,7 @@ object Recovering {
 
         override def failed(
           cause: Throwable,
-          journaller: Journaller[F, E],
+          journaller: DeleteEventsTo[F],
           snapshotter: Snapshotter[F, S],
         ) = failed1
       }
@@ -253,12 +257,11 @@ object Recovering {
 
       override def failed(
         cause: Throwable,
-        journaller: Journaller[F, E1],
+        journaller: DeleteEventsTo[F],
         snapshotter: Snapshotter[F, S1],
       ) = {
-        val journaller1  = journaller.convert(ef)
         val snapshotter1 = snapshotter.convert(sf)
-        self.failed(cause, journaller1, snapshotter1)
+        self.failed(cause, journaller, snapshotter1)
       }
 
     }
@@ -281,7 +284,7 @@ object Recovering {
 
       override def failed(
         cause: Throwable,
-        journaller: Journaller[F, E],
+        journaller: DeleteEventsTo[F],
         snapshotter: Snapshotter[F, S],
       ) = self.failed(cause, journaller, snapshotter)
 
@@ -307,7 +310,7 @@ object Recovering {
 
       override def failed(
         cause: Throwable,
-        journaller: Journaller[F, E],
+        journaller: DeleteEventsTo[F],
         snapshotter: Snapshotter[F, S],
       ) = self.failed(cause, journaller, snapshotter)
     }
@@ -338,7 +341,7 @@ object Recovering {
 
         override def failed(
           cause: Throwable,
-          journaller: Journaller[F, E1],
+          journaller: DeleteEventsTo[F],
           snapshotter: Snapshotter[F, S1],
         ) = self.failed(cause, journaller, snapshotter)
       }

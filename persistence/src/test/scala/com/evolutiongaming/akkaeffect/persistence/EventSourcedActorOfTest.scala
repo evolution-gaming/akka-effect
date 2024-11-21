@@ -10,6 +10,7 @@ import cats.effect.unsafe.implicits.global
 import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.IOSuite.*
 import com.evolutiongaming.akkaeffect.persistence.InstrumentEventSourced.Action
+import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.akkaeffect.testkit.Probe
 import com.evolutiongaming.akkaeffect.{ActorSuite, *}
 import com.evolutiongaming.catshelper.CatsHelper.*
@@ -64,6 +65,10 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
 
   test("recoveryCompleted stops") {
     `recoveryCompleted stops`[IO](actorSystem).run()
+  }
+
+  test("recoveryFailed") {
+    `recoveryFailed`[IO](actorSystem).run()
   }
 
   test("append many") {
@@ -980,6 +985,90 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
         Action.ReplayReleased,
         Action.ReceiveAllocated(0),
         Action.ReceiveReleased,
+        Action.RecoveryReleased,
+        Action.Released,
+      )
+    } yield {}
+  }
+
+  private def `recoveryFailed`[F[_]: Async: ToFuture: FromFuture: ToTry: LogOf](
+    actorSystem: ActorSystem,
+  ): F[Unit] = {
+
+    val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
+
+    type S = Unit
+    type C = Any
+    type E = Int
+
+    def eventSourced[A](value: A) = EventSourced(EventSourcedId("5.1"), value = value)
+
+    val recoveryError = new IllegalArgumentException("test error: cannot apply event on state")
+
+    def eventSourcedOf(
+      lock: Deferred[F, Unit],
+      stopped: Deferred[F, Unit],
+    ) =
+      EventSourcedOf[F] { actorCtx =>
+        val recoveryStarted =
+          RecoveryStarted
+            .const {
+              Recovering[S] {
+                Replay
+                  .const[E](recoveryError.raiseError[F, Unit])
+                  .pure[Resource[F, *]]
+              } {
+                case (_, _, _) =>
+                  Resource
+                    .eval(Async[F].delay(fail("Recovering.completed should not be called")))
+                    .as(Receive.const[Envelope[C]](false.pure[F]))
+              } {
+                case (_, _, _) =>
+                  Resource
+                    .eval(Async[F].delay(fail("Recovering.transferred should not be called")))
+                    .as(Receive.const[Envelope[C]](false.pure[F]))
+              } {
+                case (_, _, _) =>
+                  Resource
+                    .make(lock.get productR actorCtx.stop)(_ => stopped.complete(()).void)
+                    .void
+              }.pure[Resource[F, *]]
+            }
+            .pure[Resource[F, *]]
+        eventSourced[
+          Resource[F, RecoveryStarted[F, S, E, Receive[F, Envelope[Any], ActorOf.Stop]]],
+        ](recoveryStarted).pure[F]
+      }
+
+    for {
+      lock    <- Deferred[F, Unit]
+      stopped <- Deferred[F, Unit]
+      actions <- Ref[F].of(List.empty[Action[S, C, E]])
+      eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(lock, stopped))
+        .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
+        .pure[F]
+      persistence <- persistence[F].pure[F]
+      eventStore  <- persistence.eventStore(eventSourced {})
+      seqNr       <- eventStore.save(Events.of(EventStore.Event(42, 1L))).flatten
+      actorEffect  = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence)
+      actorEffect <- actorEffect.allocated.map { case (actorEffect, _) => actorEffect }
+      _ <- Probe.of(actorRefOf).use { probe =>
+        for {
+          terminated <- probe.watch(actorEffect.toUnsafe)
+          _          <- lock.complete(())
+          _          <- terminated
+        } yield {}
+      }
+      _       <- stopped.get
+      _       <- Async[F].sleep(10.millis) // Make sure all actions are performed first
+      actions <- actions.get
+      _ = actions.reverse shouldEqual List(
+        Action.Created(EventSourcedId("5.1"), akka.persistence.Recovery(), PluginIds.Empty),
+        Action.Started,
+        Action.RecoveryAllocated(0L, none),
+        Action.ReplayAllocated,
+        Action.ReplayReleased,
+        Action.RecoveryFailed(recoveryError),
         Action.RecoveryReleased,
         Action.Released,
       )

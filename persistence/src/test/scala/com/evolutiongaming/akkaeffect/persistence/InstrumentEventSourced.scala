@@ -41,6 +41,19 @@ object InstrumentEventSourced {
             snapshotOffer.copy(metadata = metadata)
           }
 
+          def instrumentedDeleteEventsTo(deleteTo: DeleteEventsTo[F]) =
+            new Instrument with DeleteEventsTo[F] {
+              def apply(seqNr: SeqNr) =
+                for {
+                  _ <- record(Action.DeleteEventsTo(seqNr))
+                  a <- deleteTo(seqNr)
+                  _ <- record(Action.DeleteEventsToOuter)
+                } yield for {
+                  a <- a
+                  _ <- record(Action.DeleteEventsToInner)
+                } yield a
+            }
+
           def instrumentedJournaller(journaller: Journaller[F, E]) =
             new Instrument with Journaller[F, E] {
 
@@ -145,7 +158,7 @@ object InstrumentEventSourced {
               } yield instrumentedReceive(receive)
           } {
             case (error, journaller, snapshotter) =>
-              val journaller1  = instrumentedJournaller(journaller)
+              val journaller1  = instrumentedDeleteEventsTo(journaller)
               val snapshotter1 = instrumentedSnapshotter(snapshotter)
 
               for {

@@ -2,7 +2,6 @@ package com.evolutiongaming.akkaeffect.persistence
 
 import akka.actor.Actor
 import akka.persistence.SnapshotSelectionCriteria
-import cats.MonadThrow
 import cats.effect.implicits.effectResourceOps
 import cats.effect.{Async, Concurrent, Ref, Resource}
 import cats.syntax.all.*
@@ -11,7 +10,6 @@ import com.evolutiongaming.akkaeffect.persistence.SeqNr
 import com.evolutiongaming.catshelper.{Log, LogOf, ToFuture}
 
 import java.time.Instant
-import javax.naming.OperationNotSupportedException
 
 object EventSourcedActorOf {
 
@@ -129,10 +127,9 @@ object EventSourcedActorOf {
 
             case Left(error) =>
               for {
-                _          <- log.error(s"recovery failed", error)
-                journaller <- eventStore.asNonAppendingJournaller().toResource
-                _          <- recovering.failed(error, journaller, snapshotStore.asSnapshotter)
-                receive    <- error.raiseError[F, Receive[F, Envelope[Any], ActorOf.Stop]].toResource
+                _       <- log.error(s"recovery failed", error)
+                _       <- recovering.failed(error, eventStore.asDeleteTo, snapshotStore.asSnapshotter)
+                receive <- error.raiseError[F, Receive[F, Envelope[Any], ActorOf.Stop]].toResource
               } yield receive
           }
         } yield receive
@@ -175,63 +172,53 @@ object EventSourcedActorOf {
 
   implicit final private[evolutiongaming] class EventStoreOps[F[_], E](val store: EventStore[F, E]) extends AnyVal {
 
-    def asNonAppendingJournaller()(implicit F: MonadThrow[F]): F[Journaller[F, E]] =
-      new Journaller[F, E] {
-        def append = new Append[F, E] {
+    def asDeleteTo: DeleteEventsTo[F] = new DeleteEventsTo[F] {
 
-          def apply(events: Events[E]): F[F[SeqNr]] = notSupported.raiseError[F, F[SeqNr]]
+      def apply(seqNr: SeqNr): F[F[Unit]] = store.deleteTo(seqNr)
 
-          def notSupported = new OperationNotSupportedException("The journaller does not support append")
+    }
 
-        }
+    def asAppend(
+      actorCtx: ActorCtx[F],
+      seqNrRef: Ref[F, SeqNr],
+    )(implicit F: Concurrent[F], log: Log[F]): Append[F, E] =
+      new Append[F, E] {
 
-        def deleteTo = new DeleteEventsTo[F] {
+        def apply(events: Events[E]): F[F[SeqNr]] =
+          seqNrRef
+            .modify { seqNr =>
+              events.mapAccumulate(seqNr) {
+                case (seqNr0, event) =>
+                  val seqNr1 = seqNr0 + 1
+                  seqNr1 -> EventStore.Event(event, seqNr1)
+              }
+            }
+            .flatMap { events =>
+              def handleError(err: Throwable) = {
+                val from = events.values.head.head.seqNr
+                val to   = events.values.last.last.seqNr
+                stopActor(from, to, err)
+              }
+              store
+                .save(events)
+                .onError(handleError)
+                .flatTap(_.onError(handleError))
+            }
 
-          def apply(seqNr: SeqNr): F[F[Unit]] = store.deleteTo(seqNr)
+        private def stopActor(from: SeqNr, to: SeqNr, error: Throwable): F[Unit] =
+          for {
+            _ <- log.error(s"failed to append events with seqNr range [$from .. $to], stopping actor", error)
+            _ <- actorCtx.stop
+          } yield {}
 
-        }
-      }.pure[F]
+      }
 
     def asJournaller(actorCtx: ActorCtx[F], seqNr: SeqNr)(implicit F: Concurrent[F], log: Log[F]): F[Journaller[F, E]] =
       for {
         seqNrRef <- Ref[F].of(seqNr)
       } yield new Journaller[F, E] {
-        val append = new Append[F, E] {
-
-          def apply(events: Events[E]): F[F[SeqNr]] =
-            seqNrRef
-              .modify { seqNr =>
-                events.mapAccumulate(seqNr) {
-                  case (seqNr0, event) =>
-                    val seqNr1 = seqNr0 + 1
-                    seqNr1 -> EventStore.Event(event, seqNr1)
-                }
-              }
-              .flatMap { events =>
-                def handleError(err: Throwable) = {
-                  val from = events.values.head.head.seqNr
-                  val to   = events.values.last.last.seqNr
-                  stopActor(from, to, err)
-                }
-                store
-                  .save(events)
-                  .onError(handleError)
-                  .flatTap(_.onError(handleError))
-              }
-
-          private def stopActor(from: SeqNr, to: SeqNr, error: Throwable): F[Unit] =
-            for {
-              _ <- log.error(s"failed to append events with seqNr range [$from .. $to], stopping actor", error)
-              _ <- actorCtx.stop
-            } yield {}
-
-        }
-
-        val deleteTo = new DeleteEventsTo[F] {
-
-          def apply(seqNr: SeqNr): F[F[Unit]] = store.deleteTo(seqNr)
-
-        }
+        val append   = asAppend(actorCtx, seqNrRef)
+        val deleteTo = asDeleteTo
       }
   }
 }
