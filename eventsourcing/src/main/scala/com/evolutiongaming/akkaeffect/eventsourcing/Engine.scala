@@ -320,7 +320,7 @@ object Engine {
       /** Execute `load` with respect to:
         *   1. failure on `load` or `validate` will be propagated to user 2. stopped Engine will not persist any events
         *      or change its state 3. `load` stages executed unordered and in parallel 4. `validate` stages executed
-        *      strictly sequentially 5. `persist` happened strictly sequentially 6. `effect`s executed strictly
+        *      strictly sequentially 5. `persist` happened strictly sequentially 6. `effect` s executed strictly
         *      sequentially
         *
         * Please check [[EngineCatsEffectTest]] for more restrictions of the implementation
@@ -466,12 +466,10 @@ object Engine {
       Ref[F]
         .of(initial)
         .map { seqNrRef => events =>
-          {
-            val size = events.size
-            seqNrRef.modify { seqNr =>
-              val seqNr1 = seqNr + size
-              (seqNr1, seqNr1)
-            }
+          val size = events.size
+          seqNrRef.modify { seqNr =>
+            val seqNr1 = seqNr + size
+            (seqNr1, seqNr1)
           }
         }
 
