@@ -6,14 +6,14 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://evolution.com")),
   homepage             := Some(url("http://github.com/evolution-gaming/akka-effect")),
   startYear            := Some(2019),
-  scalaVersion         := "2.13.15",
+  scalaVersion         := "2.13.16",
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   scalacOptions ++= Seq(
     "-release:17",
     "-Xsource:3",
     "-deprecation",
-    "-Wconf:cat=unused-pat-vars:s", // workaround for https://github.com/scala/bug/issues/13041 (since 2.13.15)
+    "-Wconf:cat=unused-pat-vars:s", // workaround for https://github.com/scala/bug/issues/13041 (since 2.13.16)
   ),
   publishTo              := Some(Resolver.evolutionReleases),
   versionPolicyIntention := Compatibility.BinaryCompatible, // sbt-version-policy
