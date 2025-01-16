@@ -65,13 +65,13 @@ class DeleteEventsToInteropTest extends AsyncFunSuite with ActorSuite with Match
           expected: Either[Throwable, A],
         ) =
           for {
-            a     <- probe.expect[Any]
-            b     <- fa
-            a     <- a
-            sender = a.msg should matchPattern(req)
-            _     <- Sync[F].delay(a.from.tell(res, ActorRef.noSender))
-            b     <- b.attempt
-            _      = b shouldEqual expected
+            a <- probe.expect[Any]
+            b <- fa
+            a <- a
+            _  = a.msg should matchPattern(req)
+            _ <- Sync[F].delay(a.from.tell(res, ActorRef.noSender))
+            b <- b.attempt
+            _  = b shouldEqual expected
           } yield {}
 
         val result = for {
