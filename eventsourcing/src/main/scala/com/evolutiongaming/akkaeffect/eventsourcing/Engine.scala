@@ -466,12 +466,10 @@ object Engine {
       Ref[F]
         .of(initial)
         .map { seqNrRef => events =>
-          {
-            val size = events.size
-            seqNrRef.modify { seqNr =>
-              val seqNr1 = seqNr + size
-              (seqNr1, seqNr1)
-            }
+          val size = events.size
+          seqNrRef.modify { seqNr =>
+            val seqNr1 = seqNr + size
+            (seqNr1, seqNr1)
           }
         }
 
