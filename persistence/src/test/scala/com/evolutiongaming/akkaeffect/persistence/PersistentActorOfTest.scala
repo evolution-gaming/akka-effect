@@ -19,6 +19,7 @@ import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Instant
+import scala.annotation.nowarn
 import scala.concurrent.duration.*
 import scala.reflect.ClassTag
 
@@ -94,54 +95,55 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         val recoveryStarted =
           RecoveryStarted
             .const {
-              Recovering[State]
-                .apply1 {
+              Recovering
+                .legacy[State] {
                   Replay.empty[F, Event].pure[Resource[F, *]]
-                } { recoveringCtx =>
-                  for {
-                    stateRef <- Ref[F].of(0).toResource
-                  } yield Receive[Envelope[Cmd]] { envelope =>
-                    val reply = Reply.fromActorRef[F](to = envelope.from, from = actorCtx.self)
-
-                    envelope.msg match {
-                      case a: Cmd.WithCtx[_] =>
-                        for {
-                          a <- a.f(actorCtx)
-                          _ <- reply(a)
-                        } yield false
-
-                      case Cmd.Inc =>
-                        for {
-                          seqNr  <- recoveringCtx.journaller.append(Events.of("a")).flatten
-                          _      <- stateRef.update(_ + 1)
-                          state  <- stateRef.get
-                          result <- recoveringCtx.snapshotter.save(seqNr, state)
-                          seqNr <- recoveringCtx.journaller
-                            .append(Events.batched(Nel.of("b"), Nel.of("c", "d")))
-                            .flatten
-                          _ <- result
-                          _ <- stateRef.update(_ + 1)
-                          _ <- reply(seqNr)
-                        } yield false
-
-                      case Cmd.Stop =>
-                        for {
-                          _ <- reply("stopping")
-                        } yield true
-                    }
-                  } {
+                } {
+                  case (_, journaller, snapshotter) =>
                     for {
-                      _ <- actorCtx.setReceiveTimeout(Duration.Inf)
-                      _ <- receiveTimeout
-                    } yield false
-                  }
-                    .contramapM[Envelope[Any]] { envelope =>
-                      envelope.msg
-                        .castM[F, Cmd]
-                        .map(a => envelope.copy(msg = a))
+                      stateRef <- Ref[F].of(0).toResource
+                    } yield Receive[Envelope[Cmd]] { envelope =>
+                      val reply = Reply.fromActorRef[F](to = envelope.from, from = actorCtx.self)
+
+                      envelope.msg match {
+                        case a: Cmd.WithCtx[_] =>
+                          for {
+                            a <- a.f(actorCtx)
+                            _ <- reply(a)
+                          } yield false
+
+                        case Cmd.Inc =>
+                          for {
+                            seqNr  <- journaller.append(Events.of("a")).flatten
+                            _      <- stateRef.update(_ + 1)
+                            state  <- stateRef.get
+                            result <- snapshotter.save(seqNr, state)
+                            seqNr <- journaller
+                              .append(Events.batched(Nel.of("b"), Nel.of("c", "d")))
+                              .flatten
+                            _ <- result
+                            _ <- stateRef.update(_ + 1)
+                            _ <- reply(seqNr)
+                          } yield false
+
+                        case Cmd.Stop =>
+                          for {
+                            _ <- reply("stopping")
+                          } yield true
+                      }
+                    } {
+                      for {
+                        _ <- actorCtx.setReceiveTimeout(Duration.Inf)
+                        _ <- receiveTimeout
+                      } yield false
                     }
+                      .contramapM[Envelope[Any]] { envelope =>
+                        envelope.msg
+                          .castM[F, Cmd]
+                          .map(a => envelope.copy(msg = a))
+                      }
                 }
-                .pure[Resource[F, *]]
+                .pure[Resource[F, *]]: @nowarn
             }
             .pure[Resource[F, *]]
         EventSourced(EventSourcedId("id"), value = recoveryStarted).pure[F]
@@ -240,7 +242,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
         val recoveryStarted = {
           val started = RecoveryStarted[S] { (_, _) =>
             Recovering
-              .const[S] {
+              .legacy[S]
+              .const {
                 Replay.empty[F, E].pure[Resource[F, *]]
               } {
                 startedDeferred
@@ -248,7 +251,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                   .toResource
                   .as(Receive.const[Envelope[C]](false.pure[F]))
               }
-              .pure[Resource[F, *]]
+              .pure[Resource[F, *]]: @nowarn
           }
           Resource
             .make(().pure[F])(_ => stoppedDeferred.complete(()).void)
@@ -296,18 +299,19 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       EventSourcedOf.const {
         val recoveryStarted = {
           val started = RecoveryStarted.const {
-            Recovering[S]
-              .apply1 {
+            Recovering
+              .legacy[S] {
                 Replay.empty[F, E].pure[Resource[F, *]]
-              } { recoveringCtx =>
-                val receive = for {
-                  seqNr <- recoveringCtx.journaller.append(Events.of(0)).flatten
-                  _     <- recoveringCtx.snapshotter.save(seqNr, 1).flatten
-                  _     <- startedDeferred.complete(())
-                } yield Receive.const[Envelope[C]](false.pure[F])
-                receive.toResource
+              } {
+                case (_, journaller, snapshotter) =>
+                  val receive = for {
+                    seqNr <- journaller.append(Events.of(0)).flatten
+                    _     <- snapshotter.save(seqNr, 1).flatten
+                    _     <- startedDeferred.complete(())
+                  } yield Receive.const[Envelope[C]](false.pure[F])
+                  receive.toResource
               }
-              .pure[Resource[F, *]]
+              .pure[Resource[F, *]]: @nowarn
           }
 
           Resource
@@ -382,20 +386,21 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       EventSourcedOf.const {
         val recoveryStarted = {
           val started = RecoveryStarted.const {
-            Recovering[S]
-              .apply1 {
+            Recovering
+              .legacy[S] {
                 Replay.empty[F, E].pure[Resource[F, *]]
-              } { recoveringCtx =>
-                val receive = for {
-                  seqNr <- recoveringCtx.journaller.append(Events.of(0)).flatten
-                  _     <- recoveringCtx.snapshotter.save(seqNr, 1).flatten
-                  seqNr <- recoveringCtx.journaller.append(Events.of(1)).flatten
-                  _     <- recoveringCtx.journaller.deleteTo(seqNr).flatten
-                  _     <- startedDeferred.complete(())
-                } yield Receive.const[Envelope[C]](false.pure[F])
-                receive.toResource
+              } {
+                case (_, journaller, snapshotter) =>
+                  val receive = for {
+                    seqNr <- journaller.append(Events.of(0)).flatten
+                    _     <- snapshotter.save(seqNr, 1).flatten
+                    seqNr <- journaller.append(Events.of(1)).flatten
+                    _     <- journaller.deleteTo(seqNr).flatten
+                    _     <- startedDeferred.complete(())
+                  } yield Receive.const[Envelope[C]](false.pure[F])
+                  receive.toResource
               }
-              .pure[Resource[F, *]]
+              .pure[Resource[F, *]]: @nowarn
           }
 
           Resource
@@ -482,17 +487,18 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       EventSourcedOf.const {
         val recoveryStarted = {
           val started = RecoveryStarted.const {
-            Recovering[S]
-              .apply1 {
+            Recovering
+              .legacy[S] {
                 Replay.empty[F, E].pure[Resource[F, *]]
-              } { recoveringCtx =>
-                val receive = for {
-                  _ <- recoveringCtx.journaller.append(Events.batched(Nel.of(0, 1), Nel.of(2))).flatten
-                  _ <- startedDeferred.complete(())
-                } yield Receive.const[Envelope[C]](false.pure[F])
-                receive.toResource
+              } {
+                case (_, journaller, _) =>
+                  val receive = for {
+                    _ <- journaller.append(Events.batched(Nel.of(0, 1), Nel.of(2))).flatten
+                    _ <- startedDeferred.complete(())
+                  } yield Receive.const[Envelope[C]](false.pure[F])
+                  receive.toResource
               }
-              .pure[Resource[F, *]]
+              .pure[Resource[F, *]]: @nowarn
           }
 
           Resource
@@ -566,20 +572,21 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       EventSourcedOf.const {
         val recoveryStarted = {
           val started = RecoveryStarted.const {
-            Recovering[S]
-              .apply1 {
+            Recovering
+              .legacy[S] {
                 Replay.empty[F, E].pure[Resource[F, *]]
-              } { recoveringCtx =>
-                val receive = for {
-                  seqNr <- recoveringCtx.journaller.append(Events.of(0)).flatten
-                  _     <- recoveringCtx.snapshotter.save(seqNr, 1).flatten
-                  _     <- recoveringCtx.journaller.append(Events.of(1)).flatten
-                  _     <- recoveringCtx.snapshotter.delete(seqNr).flatten
-                  _     <- startedDeferred.complete(())
-                } yield Receive.const[Envelope[C]](false.pure[F])
-                receive.toResource
+              } {
+                case (_, journaller, snapshotter) =>
+                  val receive = for {
+                    seqNr <- journaller.append(Events.of(0)).flatten
+                    _     <- snapshotter.save(seqNr, 1).flatten
+                    _     <- journaller.append(Events.of(1)).flatten
+                    _     <- snapshotter.delete(seqNr).flatten
+                    _     <- startedDeferred.complete(())
+                  } yield Receive.const[Envelope[C]](false.pure[F])
+                  receive.toResource
               }
-              .pure[Resource[F, *]]
+              .pure[Resource[F, *]]: @nowarn
           }
 
           Resource
@@ -670,20 +677,21 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
       EventSourcedOf.const {
         val recoveryStarted = {
           val started = RecoveryStarted.const {
-            Recovering[S]
-              .apply1 {
+            Recovering
+              .legacy[S] {
                 Replay.empty[F, E].pure[Resource[F, *]]
-              } { recoveringCtx =>
-                val receive = for {
-                  seqNr <- recoveringCtx.journaller.append(Events.of(0)).flatten
-                  _     <- recoveringCtx.snapshotter.save(seqNr, 1).flatten
-                  _     <- recoveringCtx.journaller.append(Events.of(1)).flatten
-                  _     <- startedDeferred.complete(())
-                } yield Receive.const[Envelope[C]](false.pure[F])
+              } {
+                case (_, journaller, snapshotter) =>
+                  val receive = for {
+                    seqNr <- journaller.append(Events.of(0)).flatten
+                    _     <- snapshotter.save(seqNr, 1).flatten
+                    _     <- journaller.append(Events.of(1)).flatten
+                    _     <- startedDeferred.complete(())
+                  } yield Receive.const[Envelope[C]](false.pure[F])
 
-                receive.toResource
+                  receive.toResource
               }
-              .pure[Resource[F, *]]
+              .pure[Resource[F, *]]: @nowarn
           }
 
           Resource
@@ -770,17 +778,18 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
             .make(delay productR actorCtx.stop)(_ => stopped.complete(()).void)
             .as {
               RecoveryStarted.const {
-                Recovering[S]
-                  .apply1 {
+                Recovering
+                  .legacy[S] {
                     Replay
                       .empty[F, E]
                       .pure[Resource[F, *]]
-                  } { _ =>
-                    Receive
-                      .const[Envelope[C]](false.pure[F])
-                      .pure[Resource[F, *]]
+                  } {
+                    case (_, _, _) =>
+                      Receive
+                        .const[Envelope[C]](false.pure[F])
+                        .pure[Resource[F, *]]
                   }
-                  .pure[Resource[F, *]]
+                  .pure[Resource[F, *]]: @nowarn
               }
             }
         EventSourced(EventSourcedId("10"), value = recoveryStarted).pure[F]
@@ -838,15 +847,17 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
               Resource
                 .make(lock.get productR actorCtx.stop)(_ => stopped.complete(()).void)
                 .as {
-                  Recovering.const[S] {
-                    Replay
-                      .empty[F, E]
-                      .pure[Resource[F, *]]
-                  } {
-                    Receive
-                      .const[Envelope[C]](false.pure[F])
-                      .pure[Resource[F, *]]
-                  }
+                  Recovering
+                    .legacy[S]
+                    .const {
+                      Replay
+                        .empty[F, E]
+                        .pure[Resource[F, *]]
+                    } {
+                      Receive
+                        .const[Envelope[C]](false.pure[F])
+                        .pure[Resource[F, *]]
+                    }: @nowarn
                 }
             }
             .pure[Resource[F, *]]
@@ -900,7 +911,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
           RecoveryStarted
             .const {
               Recovering
-                .const[S] {
+                .legacy[S]
+                .const {
                   Replay
                     .empty[F, E]
                     .pure[Resource[F, *]]
@@ -911,7 +923,7 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
                 }
                 .pure[Resource[F, *]]
             }
-            .pure[Resource[F, *]]
+            .pure[Resource[F, *]]: @nowarn
         EventSourced(EventSourcedId("5"), value = recoveryStarted).pure[F]
       }
 
@@ -967,30 +979,31 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
 
             for {
               stateRef <- Ref[F].of(true).toResource
-            } yield Recovering[S].apply1 {
+            } yield Recovering.legacy[S] {
               Replay.const[E](stateRef.set(false)).pure[Resource[F, *]]
-            } { recoveringCtx =>
-              def append: F[Unit] =
-                for {
-                  state <- stateRef.get
-                  result <-
-                    if (state) {
-                      events
-                        .traverse { event =>
-                          recoveringCtx.journaller.append(Events.of(event))
-                        }
-                        .flatMap(_.foldMapM(_.void))
-                    } else {
-                      ().pure[F]
-                    }
-                } yield result
+            } {
+              case (_, journaller, _) =>
+                def append: F[Unit] =
+                  for {
+                    state <- stateRef.get
+                    result <-
+                      if (state) {
+                        events
+                          .traverse { event =>
+                            journaller.append(Events.of(event))
+                          }
+                          .flatMap(_.foldMapM(_.void))
+                      } else {
+                        ().pure[F]
+                      }
+                  } yield result
 
-              val receive = for {
-                _ <- append
-                _ <- startedDeferred.complete(())
-              } yield Receive.const[Envelope[C]](false.pure[F])
-              receive.toResource
-            }
+                val receive = for {
+                  _ <- append
+                  _ <- startedDeferred.complete(())
+                } yield Receive.const[Envelope[C]](false.pure[F])
+                receive.toResource
+            }: @nowarn
           }
           Resource
             .make(().pure[F])(_ => stoppedDeferred.complete(()).void)
@@ -1072,19 +1085,21 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
             } yield RecoveryStarted.const {
               for {
                 _ <- actorCtx.setReceiveTimeout(10.millis).toResource
-              } yield Recovering.const[S] {
-                Replay
-                  .empty[F, E]
-                  .pure[Resource[F, *]]
-              } {
-                for {
-                  _ <- actorCtx.setReceiveTimeout(10.millis).toResource
-                } yield Receive[Envelope[C]] { _ =>
-                  false.pure[F]
+              } yield Recovering
+                .legacy[S]
+                .const {
+                  Replay
+                    .empty[F, E]
+                    .pure[Resource[F, *]]
                 } {
-                  timedOut.complete(()).as(true)
-                }
-              }
+                  for {
+                    _ <- actorCtx.setReceiveTimeout(10.millis).toResource
+                  } yield Receive[Envelope[C]] { _ =>
+                    false.pure[F]
+                  } {
+                    timedOut.complete(()).as(true)
+                  }
+                }: @nowarn
             }
           EventSourced(EventSourcedId("9"), value = recoveryStarted)
         }
