@@ -8,7 +8,7 @@ object Dependencies {
   val `akka-persistence-inmemory` = "com.github.dnvriend"   %% "akka-persistence-inmemory" % "2.5.15.2"
   val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.3"
   val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.17.8"
-  val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "2.2.0"
+  val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "2.3.1"
   val sstream                     = "com.evolutiongaming"   %% "sstream"                   % "1.0.2"
 
   object Cats {
