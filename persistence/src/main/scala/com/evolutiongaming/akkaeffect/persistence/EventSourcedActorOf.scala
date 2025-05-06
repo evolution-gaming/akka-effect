@@ -91,33 +91,47 @@ object EventSourcedActorOf {
 
           replay = recovering.replay
 
-          seqNr <- replay.use { replay =>
-            // used to recover snapshot, i.e. the snapshot stored with [[snapSeqNr]] will be loaded, if any
-            val snapSeqNr = snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min)
-            // used to recover events _following_ the snapshot OR if no snapshot available then [[SeqNr.Min]]
-            val fromSeqNr = snapshot.map(_.metadata.seqNr + 1).getOrElse(SeqNr.Min)
-            for {
-              _      <- log.debug(s"snapshot seqNr: $snapSeqNr, load events from seqNr: $fromSeqNr").allocated
-              events <- eventStore.events(fromSeqNr)
-              seqNrL <- events.foldWhileM(snapSeqNr) {
-                case (_, EventStore.Event(event, seqNr)) => replay(event, seqNr).as(seqNr.asLeft[Unit])
-                case (_, EventStore.HighestSeqNr(seqNr)) => seqNr.asLeft[Unit].pure[F]
-              }
-              seqNr <- seqNrL match {
-                case Left(seqNr) => seqNr.pure[F]
-                case Right(_)    =>
-                  // function used in events.foldWhileM always returns Left
-                  // and sstream.Stream.foldWhileM returns Right only if passed function do so
-                  // thus makes getting Right here impossible
-                  new IllegalStateException("should never happened").raiseError[F, SeqNr]
-              }
-            } yield seqNr
-          }.toResource
+          seqNr <- replay
+            .use { replay =>
+              // used to recover snapshot, i.e. the snapshot stored with [[snapSeqNr]] will be loaded, if any
+              val snapSeqNr = snapshot.map(_.metadata.seqNr).getOrElse(SeqNr.Min)
+              // used to recover events _following_ the snapshot OR if no snapshot available then [[SeqNr.Min]]
+              val fromSeqNr = snapshot.map(_.metadata.seqNr + 1).getOrElse(SeqNr.Min)
+              for {
+                _      <- log.debug(s"snapshot seqNr: $snapSeqNr, load events from seqNr: $fromSeqNr").allocated
+                events <- eventStore.events(fromSeqNr)
+                seqNrL <- events.foldWhileM(snapSeqNr) {
+                  case (_, EventStore.Event(event, seqNr)) => replay(event, seqNr).as(seqNr.asLeft[Unit])
+                  case (_, EventStore.HighestSeqNr(seqNr)) => seqNr.asLeft[Unit].pure[F]
+                }
+                seqNr <- seqNrL match {
+                  case Left(seqNr) => seqNr.pure[F]
+                  case Right(_)    =>
+                    // function used in events.foldWhileM always returns Left
+                    // and sstream.Stream.foldWhileM returns Right only if passed function do so
+                    // thus makes getting Right here impossible
+                    new IllegalStateException("should never happened").raiseError[F, SeqNr]
+                }
+              } yield seqNr
+            }
+            .toResource
+            .attempt
 
-          _          <- log.debug(s"recovery completed with seqNr $seqNr")
-          journaller <- eventStore.asJournaller(actorCtx, seqNr).toResource
-          context     = Recovering.RecoveryContext(seqNr, journaller, snapshotStore.asSnapshotter)
-          receive    <- recovering.completed(context)
+          receive <- seqNr match {
+            case Right(seqNr) =>
+              for {
+                _          <- log.debug(s"recovery completed with seqNr $seqNr")
+                journaller <- eventStore.asJournaller(actorCtx, seqNr).toResource
+                receive    <- recovering.completed(seqNr, journaller, snapshotStore.asSnapshotter)
+              } yield receive
+
+            case Left(error) =>
+              for {
+                _       <- log.error(s"recovery failed", error)
+                _       <- recovering.failed(error, eventStore.asDeleteTo, snapshotStore.asSnapshotter)
+                receive <- error.raiseError[F, Receive[F, Envelope[Any], ActorOf.Stop]].toResource
+              } yield receive
+          }
         } yield receive
 
         receive.onError {
@@ -158,46 +172,53 @@ object EventSourcedActorOf {
 
   implicit final private[evolutiongaming] class EventStoreOps[F[_], E](val store: EventStore[F, E]) extends AnyVal {
 
+    def asDeleteTo: DeleteEventsTo[F] = new DeleteEventsTo[F] {
+
+      def apply(seqNr: SeqNr): F[F[Unit]] = store.deleteTo(seqNr)
+
+    }
+
+    def asAppend(
+      actorCtx: ActorCtx[F],
+      seqNrRef: Ref[F, SeqNr],
+    )(implicit F: Concurrent[F], log: Log[F]): Append[F, E] =
+      new Append[F, E] {
+
+        def apply(events: Events[E]): F[F[SeqNr]] =
+          seqNrRef
+            .modify { seqNr =>
+              events.mapAccumulate(seqNr) {
+                case (seqNr0, event) =>
+                  val seqNr1 = seqNr0 + 1
+                  seqNr1 -> EventStore.Event(event, seqNr1)
+              }
+            }
+            .flatMap { events =>
+              def handleError(err: Throwable) = {
+                val from = events.values.head.head.seqNr
+                val to   = events.values.last.last.seqNr
+                stopActor(from, to, err)
+              }
+              store
+                .save(events)
+                .onError(handleError)
+                .flatTap(_.onError(handleError))
+            }
+
+        private def stopActor(from: SeqNr, to: SeqNr, error: Throwable): F[Unit] =
+          for {
+            _ <- log.error(s"failed to append events with seqNr range [$from .. $to], stopping actor", error)
+            _ <- actorCtx.stop
+          } yield {}
+
+      }
+
     def asJournaller(actorCtx: ActorCtx[F], seqNr: SeqNr)(implicit F: Concurrent[F], log: Log[F]): F[Journaller[F, E]] =
       for {
         seqNrRef <- Ref[F].of(seqNr)
       } yield new Journaller[F, E] {
-        val append = new Append[F, E] {
-
-          def apply(events: Events[E]): F[F[SeqNr]] =
-            seqNrRef
-              .modify { seqNr =>
-                events.mapAccumulate(seqNr) {
-                  case (seqNr0, event) =>
-                    val seqNr1 = seqNr0 + 1
-                    seqNr1 -> EventStore.Event(event, seqNr1)
-                }
-              }
-              .flatMap { events =>
-                def handleError(err: Throwable) = {
-                  val from = events.values.head.head.seqNr
-                  val to   = events.values.last.last.seqNr
-                  stopActor(from, to, err)
-                }
-                store
-                  .save(events)
-                  .onError(handleError)
-                  .flatTap(_.onError(handleError))
-              }
-
-          private def stopActor(from: SeqNr, to: SeqNr, error: Throwable): F[Unit] =
-            for {
-              _ <- log.error(s"failed to append events with seqNr range [$from .. $to], stopping actor", error)
-              _ <- actorCtx.stop
-            } yield {}
-
-        }
-
-        val deleteTo = new DeleteEventsTo[F] {
-
-          def apply(seqNr: SeqNr): F[F[Unit]] = store.deleteTo(seqNr)
-
-        }
+        val append   = asAppend(actorCtx, seqNrRef)
+        val deleteTo = asDeleteTo
       }
   }
 }
