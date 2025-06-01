@@ -66,7 +66,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
       actorVar <- actorVar(stopped.complete(()).void)
       deferred <- Deferred[F, Unit]
       actions  <- Actions()
-      resource = Resource.make {
+      resource  = Resource.make {
         for {
           _ <- deferred.get
           _ <- actions.add(Action.Allocated)
@@ -74,7 +74,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
       } { _ =>
         actions.add(Action.Released)
       }
-      _ <- Sync[F].delay(actorVar.preStart(resource))
+      _  <- Sync[F].delay(actorVar.preStart(resource))
       set = (state: Directive[Int]) =>
         Sync[F].delay {
           actorVar.receive { state0 =>
@@ -102,7 +102,7 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
       _       <- deferred.complete(())
       _       <- stopped.get
       actions <- actions.get
-      _ = actions shouldEqual List(
+      _        = actions shouldEqual List(
         Action.Allocated,
         Action.Updated(0, Directive.update(1)),
         Action.Updated(1, Directive.update(2)),

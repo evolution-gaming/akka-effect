@@ -12,7 +12,7 @@ class CloseOnErrorTest extends AsyncFunSuite with Matchers {
 
   test("close on error") {
     val error: Throwable = new RuntimeException with NoStackTrace
-    val result = for {
+    val result           = for {
       closeOnError <- CloseOnError.of[IO]
       e            <- closeOnError.error
       _             = e shouldEqual none

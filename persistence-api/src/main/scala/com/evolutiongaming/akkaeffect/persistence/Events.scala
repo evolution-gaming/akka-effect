@@ -69,7 +69,7 @@ object Events {
   implicit def show[A: Show]: Show[Events[A]] = { events =>
     val str = events.values match {
       case Nel(events, Nil) => events.mkString_(",")
-      case events =>
+      case events           =>
         events.map(_.toList.mkString(",")).mkString_("[", "],[", "]")
     }
     s"${events.productPrefix}($str)"

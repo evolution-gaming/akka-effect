@@ -55,7 +55,7 @@ class AppendTest extends AsyncFunSuite with Matchers {
     for {
       ref          <- Ref[F].of(Queue.empty[F[Unit]])
       eventsourced <- eventsourced(act, ref)
-      result <- Append
+      result       <- Append
         .adapter[F, Int](act, eventsourced, stopped.pure[F])
         .use { append =>
           def dequeue =

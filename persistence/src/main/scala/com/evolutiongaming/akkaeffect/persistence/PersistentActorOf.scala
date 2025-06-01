@@ -39,9 +39,9 @@ object PersistentActorOf {
 
     new PersistentActor { actor =>
       lazy val (actorCtx, act, eventSourced) = {
-        val actorCtxRef = AtomicRef(ActorCtx[F](context))
-        val actorCtx    = ActorCtx.flatten(context, Sync[F].delay(actorCtxRef.get()))
-        val act         = Act.Adapter(context.self)
+        val actorCtxRef  = AtomicRef(ActorCtx[F](context))
+        val actorCtx     = ActorCtx.flatten(context, Sync[F].delay(actorCtxRef.get()))
+        val act          = Act.Adapter(context.self)
         val eventSourced = act.sync {
           eventSourcedOf(actorCtx)
             .adaptError {
@@ -70,7 +70,7 @@ object PersistentActorOf {
 
       lazy val (resources: Resources, release) = {
         val stopped = Memoize.sync[F, Throwable](Sync[F].delay(actorError("has been stopped", none)))
-        val result = for {
+        val result  = for {
           stopped        <- stopped.toResource
           act            <- act.value.pure[Resource[F, *]]
           append         <- Append.adapter[F, Any](act, actor, stopped)
