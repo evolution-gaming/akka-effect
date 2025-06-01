@@ -36,7 +36,7 @@ class ClusterShardingTest extends AsyncFunSuite with ActorSuite with Matchers {
       clusterShardingSettings <- IO(ClusterShardingSettings(actorSystem)).toResource
       actorRefOf               = ActorRefOf.fromActorRefFactory[IO](actorSystem)
       probe                   <- Probe.of[IO](actorRefOf)
-      props = {
+      props                    = {
         def actor() = new Actor {
           def receive = {
             case ()                 => sender().tell((), self)

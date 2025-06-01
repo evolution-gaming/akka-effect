@@ -96,7 +96,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         terminated0 <- probe.watch(actorRef.toUnsafe)
         dispatcher  <- withCtx(_.executor.pure[F])
         _            = dispatcher.toString shouldEqual "Dispatcher[akka.actor.default-dispatcher]"
-        ab <- withCtx { ctx =>
+        ab          <- withCtx { ctx =>
           ActorRefOf
             .fromActorRefFactory[F](ctx.actorRefFactory)
             .apply(TestActors.blackholeProps, "child".some)
@@ -238,7 +238,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     shift: F[Unit],
   ) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
-    val receiveOf = ReceiveOf[F] { actorCtx =>
+    val receiveOf  = ReceiveOf[F] { actorCtx =>
       Resource.make {
         for {
           _ <- shift
@@ -300,7 +300,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       receiveOf <- receiveOf(ref.get.flatMap(_.complete(()).void)).pure[F]
       actor      = () => ActorOf[F](receiveOf.toReceiveOfEnvelope)
       props      = Props(actor())
-      result <- actorRefOf(props).use { actorRef =>
+      result    <- actorRefOf(props).use { actorRef =>
         val ask     = Ask.fromActorRef[F](actorRef)
         val timeout = 1.minute
         for {
@@ -368,7 +368,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       receive  = receiveOf(stopped.complete(()).void)
       actor    = () => ActorOf[F](receive.toReceiveOfEnvelope)
       props    = Props(actor())
-      result <- actorRefOf(props).use { actorRef =>
+      result  <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
         for {
           _ <- ask("stop", 1.second, none)
@@ -412,7 +412,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       receive  = receiveOf(stopped.complete(()).void)
       actor    = () => ActorOf[F](receive.toReceiveOfEnvelope)
       props    = Props(actor())
-      result <- actorRefOf(props).use { actorRef =>
+      result  <- actorRefOf(props).use { actorRef =>
         val ask = Ask.fromActorRef[F](actorRef)
         for {
           _ <- ask("stop", 1.second, none)
@@ -444,7 +444,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       receive  = receiveOf(stopped.complete(()).void)
       actor    = () => ActorOf[F](receive.toReceiveOfEnvelope)
       props    = Props(actor())
-      result <- actorRefOf(props).use { actorRef =>
+      result  <- actorRefOf(props).use { actorRef =>
         val tell = Tell.fromActorRef[F](actorRef)
         for {
           _ <- tell(PoisonPill)
@@ -507,7 +507,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     ): ReceiveOf[F, Call[F, Msg, Unit], Boolean] = { actorCtx =>
       val receive = Receive[Call[F, Msg, Unit]] { call =>
         for {
-          _ <- shift
+          _    <- shift
           stop <- call.msg match {
             case Msg.Watch(actorRef) =>
               actorCtx
@@ -536,14 +536,14 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       stopped    <- Deferred[F, Unit]
       terminated <- Deferred[F, ActorRef]
-      receiveOf <- receiveOf(terminated, stopped.complete(()).void)
+      receiveOf  <- receiveOf(terminated, stopped.complete(()).void)
         .convert[Any, Any, Boolean](_.castM[F, Msg], (_: Any).pure[F], _.pure[F])
         .pure[F]
       result = for {
         actorEffect <- ActorEffect.of(actorRefOf, receiveOf)
         actorRef0   <- actorRefOf(TestActors.blackholeProps)
         actorRef1   <- actorRefOf(TestActors.blackholeProps)
-        result <- Resource.eval {
+        result      <- Resource.eval {
           for {
             _ <- actorEffect.ask(Msg.Watch(actorRef0), timeout)
             _ <- actorEffect.ask(Msg.Unwatch(actorRef0), timeout).flatten

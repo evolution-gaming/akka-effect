@@ -69,12 +69,12 @@ class LocalActorRefTest extends AnyFunSuite with Matchers {
       r <- of
       _ <- IO.sleep(timeout * 2)
       e <- r.get
-      _ = e match {
+      _  = e match {
         case Some(Left(_: TimeoutException)) => succeed
         case other                           => fail(s"unexpected result $other")
       }
       e <- r.res.attempt
-      _ = e match {
+      _  = e match {
         case Left(_: TimeoutException) => succeed
         case other                     => fail(s"unexpected result $other")
       }

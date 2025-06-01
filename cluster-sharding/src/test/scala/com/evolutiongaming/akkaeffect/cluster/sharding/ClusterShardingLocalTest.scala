@@ -60,7 +60,7 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
 
     val result = for {
       probe <- Probe.of[IO](actorRefOf)
-      actor = () =>
+      actor  = () =>
         new Actor {
           def receive = {
             case msg =>
@@ -72,7 +72,7 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
       typeName                 = TypeName("typeName")
       clusterShardingLocal    <- ClusterShardingLocal.of[IO](actorSystem)
       clusterShardingSettings <- IO(ClusterShardingSettings(actorSystem)).toResource
-      actorRef <- clusterShardingLocal.clusterSharding.start(
+      actorRef                <- clusterShardingLocal.clusterSharding.start(
         typeName,
         props,
         clusterShardingSettings,
