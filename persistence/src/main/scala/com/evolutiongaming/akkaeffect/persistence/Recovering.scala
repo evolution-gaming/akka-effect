@@ -1,11 +1,9 @@
 package com.evolutiongaming.akkaeffect.persistence
 
-import cats.Monad
 import cats.effect.Resource
 import cats.implicits.catsSyntaxApplicativeId
+import cats.{ApplicativeError, Monad}
 import com.evolutiongaming.akkaeffect.{Envelope, Receive}
-
-import scala.annotation.nowarn
 
 /** Describes "Recovery" phase
   *
@@ -27,82 +25,136 @@ trait Recovering[F[_], S, E, +A] {
     * @see
     *   [[akka.persistence.RecoveryCompleted]]
     */
-  @deprecated("Use completed with RecoveryContext", "4.1.5")
   def completed(
     seqNr: SeqNr,
     journaller: Journaller[F, E],
     snapshotter: Snapshotter[F, S],
   ): Resource[F, A]
 
-  /** Called when recovery completed, resource will be released upon actor termination
-    *
-    * @see
-    *   [[akka.persistence.RecoveryCompleted]]
+  /** Called when state was transferred via state-transfer, resource will be released upon actor termination
     */
-  def completed(context: Recovering.RecoveryContext[F, S, E]): Resource[F, A] = {
-    @nowarn("msg=deprecated")
-    val a = completed(context.seqNr, context.journaller, context.snapshotter)
-    a
-  }
+  def transferred(
+    seqNr: SeqNr,
+    journaller: Journaller[F, E],
+    snapshotter: Snapshotter[F, S],
+  ): Resource[F, A]
+
+  /** Called when recovery failed
+    *
+    * @param journaller
+    *   of type [[DeleteEventsTo]] because instance of [[Journaller]] is not available in this case. [[Journaller]] can
+    *   be created based on known [[SeqNr]], while its now known in case of failure.
+    */
+  def failed(
+    cause: Throwable,
+    journaller: DeleteEventsTo[F],
+    snapshotter: Snapshotter[F, S],
+  ): Resource[F, Unit]
 
 }
 
 object Recovering {
 
-  /** Context containing information about recovery and provides access to journaller and snapshotter
-    */
-  trait RecoveryContext[F[_], -S, -E] {
-    def seqNr: SeqNr
-    def journaller: Journaller[F, E]
-    def snapshotter: Snapshotter[F, S]
-    def recoveredFromPersistence: Boolean
-  }
-  object RecoveryContext {
+  @deprecated(
+    "This factory provided as direct replacement of Recovering[A](...)(...) and Recovering.const[A](...)(...), avoid using it as much as possible",
+    "5.0.0",
+  )
+  def legacy[S]: Legacy[S] = new Legacy[S]
 
-    private case class Impl[F[_], S, E](
-      seqNr: SeqNr,
-      journaller: Journaller[F, E],
-      snapshotter: Snapshotter[F, S],
-      recoveredFromPersistence: Boolean,
-    ) extends RecoveryContext[F, S, E]
+  final class Legacy[S](private val b: Boolean = true) extends AnyVal {
 
-    def apply[F[_], S, E](
-      seqNr: SeqNr,
-      journaller: Journaller[F, E],
-      snapshotter: Snapshotter[F, S],
-      recoveredFromPersistence: Boolean = true,
-    ): RecoveryContext[F, S, E] = Impl(seqNr, journaller, snapshotter, recoveredFromPersistence)
+    /** This factory method is provided as direct replacement of removed Recovering[A](...)(...) and re-used `completed`
+      * function for both `completed` and `transferred` cases. `failed` case re-throw the error.
+      */
+    def apply[F[_], E, A](
+      replay: Resource[F, Replay[F, E]],
+    )(
+      completed: (SeqNr, Journaller[F, E], Snapshotter[F, S]) => Resource[F, A],
+    )(implicit
+      F: ApplicativeError[F, Throwable],
+    ): Recovering[F, S, E, A] = {
+
+      val replay1    = replay
+      val completed1 = completed
+
+      new Recovering[F, S, E, A] {
+        override def replay = replay1
+
+        override def completed(
+          seqNr: SeqNr,
+          journaller: Journaller[F, E],
+          snapshotter: Snapshotter[F, S],
+        ) = completed1(seqNr, journaller, snapshotter)
+
+        override def transferred(
+          seqNr: SeqNr,
+          journaller: Journaller[F, E],
+          snapshotter: Snapshotter[F, S],
+        ) = completed1(seqNr, journaller, snapshotter)
+
+        override def failed(
+          cause: Throwable,
+          journaller: DeleteEventsTo[F],
+          snapshotter: Snapshotter[F, S],
+        ) = Resource.raiseError[F, Unit, Throwable](cause)
+      }
+    }
+
+    def const[F[_], E, A](
+      replay: Resource[F, Replay[F, E]],
+    )(
+      completed: Resource[F, A],
+    )(implicit
+      F: ApplicativeError[F, Throwable],
+    ): Recovering[F, S, E, A] = {
+
+      val replay1    = replay
+      val completed1 = completed
+
+      new Recovering[F, S, E, A] {
+        override def replay = replay1
+
+        override def completed(
+          seqNr: SeqNr,
+          journaller: Journaller[F, E],
+          snapshotter: Snapshotter[F, S],
+        ) = completed1
+
+        override def transferred(
+          seqNr: SeqNr,
+          journaller: Journaller[F, E],
+          snapshotter: Snapshotter[F, S],
+        ) = completed1
+
+        override def failed(
+          cause: Throwable,
+          journaller: DeleteEventsTo[F],
+          snapshotter: Snapshotter[F, S],
+        ) = Resource.raiseError[F, Unit, Throwable](cause)
+      }
+    }
 
   }
 
   def apply[S]: Apply[S] = new Apply[S]
 
-  final private[Recovering] class Apply[S](private val b: Boolean = true) extends AnyVal {
+  final class Apply[S](private val b: Boolean = true) extends AnyVal {
 
-    @deprecated("Use apply with RecoveryContext", "4.1.7")
-    def apply[F[_], E, A](replay: Resource[F, Replay[F, E]])(
+    def apply[F[_], E, A](
+      replay: Resource[F, Replay[F, E]],
+    )(
       completed: (SeqNr, Journaller[F, E], Snapshotter[F, S]) => Resource[F, A],
+    )(
+      transferred: (SeqNr, Journaller[F, E], Snapshotter[F, S]) => Resource[F, A],
+    )(
+      failed: (Throwable, DeleteEventsTo[F], Snapshotter[F, S]) => Resource[F, Unit],
     ): Recovering[F, S, E, A] = {
-      val replay1    = replay
-      val completed1 = completed
-      new Recovering[F, S, E, A] {
 
-        def replay = replay1
+      val replay1      = replay
+      val completed1   = completed
+      val transferred1 = transferred
+      val failed1      = failed
 
-        def completed(
-          seqNr: SeqNr,
-          journaller: Journaller[F, E],
-          snapshotter: Snapshotter[F, S],
-        ) =
-          completed1(seqNr, journaller, snapshotter)
-      }
-    }
-
-    def apply1[F[_], E, A](replay: Resource[F, Replay[F, E]])(
-      completed: Recovering.RecoveryContext[F, S, E] => Resource[F, A],
-    ): Recovering[F, S, E, A] = {
-      val replay1    = replay
-      val completed1 = completed
       new Recovering[F, S, E, A] {
 
         override def replay = replay1
@@ -111,30 +163,67 @@ object Recovering {
           seqNr: SeqNr,
           journaller: Journaller[F, E],
           snapshotter: Snapshotter[F, S],
-        ) = completed1(RecoveryContext(seqNr, journaller, snapshotter))
+        ) = completed1(seqNr, journaller, snapshotter)
 
-        override def completed(ctx: RecoveryContext[F, S, E]) = completed1(ctx)
+        override def transferred(
+          seqNr: SeqNr,
+          journaller: Journaller[F, E],
+          snapshotter: Snapshotter[F, S],
+        ) = transferred1(seqNr, journaller, snapshotter)
+
+        override def failed(
+          cause: Throwable,
+          journaller: DeleteEventsTo[F],
+          snapshotter: Snapshotter[F, S],
+        ) = failed1(cause, journaller, snapshotter)
       }
+
     }
 
   }
 
   def const[S]: Const[S] = new Const[S]
 
-  final private[Recovering] class Const[S](private val b: Boolean = true) extends AnyVal {
+  final class Const[S](private val b: Boolean = true) extends AnyVal {
 
-    def apply[F[_], E, A](replay: Resource[F, Replay[F, E]])(
+    def apply[F[_], E, A](
+      replay: Resource[F, Replay[F, E]],
+    )(
       completed: Resource[F, A],
+    )(
+      transferred: Resource[F, A],
+    )(
+      failed: Resource[F, Unit],
     ): Recovering[F, S, E, A] = {
-      val replay1    = replay
-      val completed1 = completed
+
+      val replay1      = replay
+      val completed1   = completed
+      val transferred1 = transferred
+      val failed1      = failed
+
       new Recovering[F, S, E, A] {
 
-        def replay = replay1
+        override def replay = replay1
 
-        def completed(seqNr: SeqNr, journaller: Journaller[F, E], snapshotter: Snapshotter[F, S]) =
-          completed1
+        override def completed(
+          seqNr: SeqNr,
+          journaller: Journaller[F, E],
+          snapshotter: Snapshotter[F, S],
+        ) = completed1
+
+        override def transferred(
+          seqNr: SeqNr,
+          journaller: Journaller[F, E],
+          snapshotter: Snapshotter[F, S],
+        ) = transferred1
+
+        override def failed(
+          cause: Throwable,
+          journaller: DeleteEventsTo[F],
+          snapshotter: Snapshotter[F, S],
+        ) = failed1
       }
+
     }
   }
 
@@ -144,62 +233,86 @@ object Recovering {
       F: Monad[F],
     ): Recovering[F, S1, E1, A1] = new Recovering[F, S1, E1, A1] {
 
-      def replay = self.replay.map(_.convert(e1f))
+      override def replay = self.replay.map(_.convert(e1f))
 
-      def completed(
+      override def completed(
         seqNr: SeqNr,
         journaller: Journaller[F, E1],
         snapshotter: Snapshotter[F, S1],
       ) = {
         val journaller1  = journaller.convert(ef)
         val snapshotter1 = snapshotter.convert(sf)
-        val context1     = RecoveryContext(seqNr, journaller1, snapshotter1)
-        self.completed(context1).flatMap(af)
+        self.completed(seqNr, journaller1, snapshotter1).flatMap(af)
       }
 
-      override def completed(context: RecoveryContext[F, S1, E1]) = {
-        val journaller1  = context.journaller.convert(ef)
-        val snapshotter1 = context.snapshotter.convert(sf)
-        val context1     = RecoveryContext(context.seqNr, journaller1, snapshotter1)
-        self.completed(context1).flatMap(af)
+      override def transferred(
+        seqNr: SeqNr,
+        journaller: Journaller[F, E1],
+        snapshotter: Snapshotter[F, S1],
+      ) = {
+        val journaller1  = journaller.convert(ef)
+        val snapshotter1 = snapshotter.convert(sf)
+        self.transferred(seqNr, journaller1, snapshotter1).flatMap(af)
+      }
+
+      override def failed(
+        cause: Throwable,
+        journaller: DeleteEventsTo[F],
+        snapshotter: Snapshotter[F, S1],
+      ) = {
+        val snapshotter1 = snapshotter.convert(sf)
+        self.failed(cause, journaller, snapshotter1)
       }
 
     }
 
     def map[A1](f: A => A1): Recovering[F, S, E, A1] = new Recovering[F, S, E, A1] {
 
-      def replay = self.replay
+      override def replay = self.replay
 
-      def completed(
+      override def completed(
         seqNr: SeqNr,
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S],
-      ) = {
-        val context = RecoveryContext(seqNr, journaller, snapshotter)
-        self.completed(context).map(f)
-      }
+      ) = self.completed(seqNr, journaller, snapshotter).map(f)
 
-      override def completed(context: RecoveryContext[F, S, E]) =
-        self.completed(context).map(f)
+      override def transferred(
+        seqNr: SeqNr,
+        journaller: Journaller[F, E],
+        snapshotter: Snapshotter[F, S],
+      ) = self.transferred(seqNr, journaller, snapshotter).map(f)
+
+      override def failed(
+        cause: Throwable,
+        journaller: DeleteEventsTo[F],
+        snapshotter: Snapshotter[F, S],
+      ) = self.failed(cause, journaller, snapshotter)
+
     }
 
     def mapM[A1](
       f: A => Resource[F, A1],
     ): Recovering[F, S, E, A1] = new Recovering[F, S, E, A1] {
 
-      def replay = self.replay
+      override def replay = self.replay
 
-      def completed(
+      override def completed(
         seqNr: SeqNr,
         journaller: Journaller[F, E],
         snapshotter: Snapshotter[F, S],
-      ) = {
-        val context = RecoveryContext(seqNr, journaller, snapshotter)
-        self.completed(context).flatMap(f)
-      }
+      ) = self.completed(seqNr, journaller, snapshotter).flatMap(f)
 
-      override def completed(context: RecoveryContext[F, S, E]) =
-        self.completed(context).flatMap(f)
+      override def transferred(
+        seqNr: SeqNr,
+        journaller: Journaller[F, E],
+        snapshotter: Snapshotter[F, S],
+      ) = self.transferred(seqNr, journaller, snapshotter).flatMap(f)
+
+      override def failed(
+        cause: Throwable,
+        journaller: DeleteEventsTo[F],
+        snapshotter: Snapshotter[F, S],
+      ) = self.failed(cause, journaller, snapshotter)
     }
   }
 
@@ -212,16 +325,25 @@ object Recovering {
     ): Recovering[F, S1, E1, Receive[F, Envelope[C1], Boolean]] =
       new Recovering[F, S1, E1, Receive[F, Envelope[C1], Boolean]] {
 
-        def replay = self.replay.map(_.convert(ef))
+        override def replay = self.replay.map(_.convert(ef))
 
-        def completed(
+        override def completed(
           seqNr: SeqNr,
           journaller: Journaller[F, E1],
           snapshotter: Snapshotter[F, S1],
-        ) = {
-          val context = RecoveryContext(seqNr, journaller, snapshotter)
-          self.completed(context).map(_.convert(cf, _.pure[F]))
-        }
+        ) = self.completed(seqNr, journaller, snapshotter).map(_.convert(cf, _.pure[F]))
+
+        override def transferred(
+          seqNr: SeqNr,
+          journaller: Journaller[F, E1],
+          snapshotter: Snapshotter[F, S1],
+        ) = self.transferred(seqNr, journaller, snapshotter).map(_.convert(cf, _.pure[F]))
+
+        override def failed(
+          cause: Throwable,
+          journaller: DeleteEventsTo[F],
+          snapshotter: Snapshotter[F, S1],
+        ) = self.failed(cause, journaller, snapshotter)
       }
 
     def typeless(ef: Any => F[E], cf: Any => F[C])(implicit
