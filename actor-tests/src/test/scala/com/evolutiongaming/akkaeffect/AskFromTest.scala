@@ -20,11 +20,11 @@ class AskFromTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def askFrom[F[_]: Async: ToFuture: FromFuture] = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
-    val result = for {
+    val result     = for {
       from    <- Probe.of(actorRefOf)
       to      <- Probe.of(actorRefOf)
       askFrom <- AskFrom.of(actorRefOf, from.actorEffect.toUnsafe, 1.minute)
-      result <- Resource.eval {
+      result  <- Resource.eval {
         for {
           envelope <- to.expect[Any]
           result   <- askFrom[ActorRef, String](to.actorEffect.toUnsafe)(identity)

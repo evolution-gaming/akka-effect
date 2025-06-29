@@ -19,8 +19,8 @@ object SnapshotStoreInterop {
     eventSourcedId: EventSourcedId,
   ): F[SnapshotStore[F, Any]] =
     for {
-      log <- LogOf.log[F, SnapshotStoreInterop.type]
-      log <- log.prefixed(eventSourcedId.value).pure[F]
+      log         <- LogOf.log[F, SnapshotStoreInterop.type]
+      log         <- log.prefixed(eventSourcedId.value).pure[F]
       snapshotter <- Sync[F]
         .delay {
           val actorRef = persistence.snapshotStoreFor(snapshotPluginId)
@@ -33,7 +33,7 @@ object SnapshotStoreInterop {
       override def latest: F[Option[SnapshotStore.Offer[Any]]] = {
         val criteria = SnapshotSelectionCriteria()
         val request  = SnapshotProtocol.LoadSnapshot(persistenceId, criteria, Long.MaxValue)
-        val offer = snapshotter
+        val offer    = snapshotter
           .ask(request, timeout)
           .flatMap { response =>
             response.flatMap {

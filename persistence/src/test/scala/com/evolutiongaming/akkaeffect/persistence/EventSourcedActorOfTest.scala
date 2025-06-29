@@ -120,7 +120,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
                           _      <- stateRef.update(_ + 1)
                           state  <- stateRef.get
                           result <- recoveringCtx.snapshotter.save(seqNr, state)
-                          seqNr <- recoveringCtx.journaller
+                          seqNr  <- recoveringCtx.journaller
                             .append(Events.batched(Nel.of("b"), Nel.of("c", "d")))
                             .flatten
                           _ <- result
@@ -170,7 +170,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
         terminated0 <- probe.watch(actorRef.toUnsafe)
         dispatcher  <- withCtx(_.executor.pure[F])
         _           <- Sync[F].delay(dispatcher.toString shouldEqual "Dispatcher[akka.actor.default-dispatcher]")
-        a <- withCtx { ctx =>
+        a           <- withCtx { ctx =>
           ActorRefOf
             .fromActorRefFactory[F](ctx.actorRefFactory)
             .apply(TestActors.blackholeProps, "child".some)
@@ -220,7 +220,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       probe       = Probe.of[F](actorRefOf)
       actorEffect = EventSourcedActorEffect.of[F, Any, Any](actorRefOf, eventSourcedOf, persistence[F])
       resources   = (actorEffect, probe).tupled
-      result <- resources.use {
+      result     <- resources.use {
         case (actorEffect, probe) =>
           persistentActorOf(actorEffect, probe, receiveTimeout.get)
       }
@@ -264,9 +264,9 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       }
 
     for {
-      started <- Deferred[F, Unit]
-      stopped <- Deferred[F, Unit]
-      actions <- Ref[F].of(List.empty[Action[S, C, E]])
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E]])
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.pure[F], _.pure[F])
         .pure[F]
@@ -274,7 +274,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       _          <- actorEffect.use(_ => started.get)
       _          <- stopped.get
       actions    <- actions.get
-      _ = actions.reverse shouldEqual List(
+      _           = actions.reverse shouldEqual List(
         Action.Created(EventSourcedId("0"), recovery1, PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, None),
@@ -326,9 +326,9 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       }
 
     def actions = for {
-      started <- Deferred[F, Unit]
-      stopped <- Deferred[F, Unit]
-      actions <- Ref[F].of(List.empty[Action[S, C, E]])
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E]])
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
@@ -340,7 +340,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
 
     for {
       saveSnapshot <- actions
-      _ = saveSnapshot shouldEqual List(
+      _             = saveSnapshot shouldEqual List(
         Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -358,7 +358,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
         Action.Released,
       )
       recover <- actions
-      _ = recover shouldEqual List(
+      _        = recover shouldEqual List(
         Action.Created(EventSourcedId("1"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(1L, SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
@@ -418,9 +418,9 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       }
 
     def actions = for {
-      started <- Deferred[F, Unit]
-      stopped <- Deferred[F, Unit]
-      actions <- Ref[F].of(List.empty[Action[S, C, E]])
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E]])
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
@@ -432,7 +432,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
 
     for {
       saveSnapshot <- actions
-      _ = saveSnapshot shouldEqual List(
+      _             = saveSnapshot shouldEqual List(
         Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -456,7 +456,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
         Action.Released,
       )
       recover <- actions
-      _ = recover shouldEqual List(
+      _        = recover shouldEqual List(
         Action.Created(EventSourcedId("6"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(1L, SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
@@ -519,9 +519,9 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       }
 
     def actions = for {
-      started <- Deferred[F, Unit]
-      stopped <- Deferred[F, Unit]
-      actions <- Ref[F].of(List.empty[Action[S, C, E]])
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E]])
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
@@ -533,7 +533,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
 
     for {
       appendEvents <- actions
-      _ = appendEvents shouldEqual List(
+      _             = appendEvents shouldEqual List(
         Action.Created(EventSourcedId("2"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -548,7 +548,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
         Action.Released,
       )
       recover <- actions
-      _ = recover shouldEqual List(
+      _        = recover shouldEqual List(
         Action.Created(EventSourcedId("2"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -608,9 +608,9 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       }
 
     def actions = for {
-      started <- Deferred[F, Unit]
-      stopped <- Deferred[F, Unit]
-      actions <- Ref[F].of(List.empty[Action[S, C, E]])
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E]])
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
@@ -622,7 +622,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
 
     for {
       appendEvents <- actions
-      _ = appendEvents shouldEqual List(
+      _             = appendEvents shouldEqual List(
         Action.Created(EventSourcedId("7"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -646,7 +646,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
         Action.Released,
       )
       recover <- actions
-      _ = recover shouldEqual List(
+      _        = recover shouldEqual List(
         Action.Created(EventSourcedId("7"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -714,9 +714,9 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       }
 
     def actions = for {
-      started <- Deferred[F, Unit]
-      stopped <- Deferred[F, Unit]
-      actions <- Ref[F].of(List.empty[Action[S, C, E]])
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E]])
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
@@ -728,7 +728,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
 
     for {
       write <- actions
-      _ = write shouldEqual List(
+      _      = write shouldEqual List(
         Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -749,7 +749,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
         Action.Released,
       )
       recover <- actions
-      _ = recover shouldEqual List(
+      _        = recover shouldEqual List(
         Action.Created(EventSourcedId("3"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(1L, SnapshotOffer(SnapshotMetadata(1, Instant.ofEpochMilli(0)), 1).some),
@@ -817,7 +817,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(delay, stopped)).pure[F]
       actorEffect     = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
       actorEffect    <- actorEffect.allocated.map { case (actorEffect, _) => actorEffect }
-      _ <- Probe.of(actorRefOf).use { probe =>
+      _              <- Probe.of(actorRefOf).use { probe =>
         for {
           _          <- d0.get
           terminated <- probe.watch(actorEffect.toUnsafe)
@@ -828,7 +828,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       }
       _       <- stopped.get
       actions <- actions.get
-      _ = actions.reverse shouldEqual List(
+      _        = actions.reverse shouldEqual List(
         Action.Created(EventSourcedId("10"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -884,7 +884,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(lock, stopped)).pure[F]
       actorEffect     = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
       actorEffect    <- actorEffect.allocated.map { case (actorEffect, _) => actorEffect }
-      _ <- Probe.of(actorRefOf).use { probe =>
+      _              <- Probe.of(actorRefOf).use { probe =>
         for {
           terminated <- probe.watch(actorEffect.toUnsafe)
           _          <- lock.complete(())
@@ -894,7 +894,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       _       <- stopped.get
       _       <- Async[F].sleep(10.millis) // Make sure all actions are performed first
       actions <- actions.get
-      _ = actions.reverse shouldEqual List(
+      _        = actions.reverse shouldEqual List(
         Action.Created(EventSourcedId("4"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -942,15 +942,15 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       }
 
     for {
-      lock    <- Deferred[F, Unit]
-      stopped <- Deferred[F, Unit]
-      actions <- Ref[F].of(List.empty[Action[S, C, E]])
+      lock           <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E]])
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(lock, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
       actorEffect  = EventSourcedActorEffect.of(actorRefOf, eventSourcedOf, persistence[F])
       actorEffect <- actorEffect.allocated.map { case (actorEffect, _) => actorEffect }
-      _ <- Probe.of(actorRefOf).use { probe =>
+      _           <- Probe.of(actorRefOf).use { probe =>
         for {
           terminated <- probe.watch(actorEffect.toUnsafe)
           _          <- lock.complete(())
@@ -960,7 +960,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       _       <- stopped.get
       _       <- Async[F].sleep(10.millis) // Make sure all actions are performed first
       actions <- actions.get
-      _ = actions.reverse shouldEqual List(
+      _        = actions.reverse shouldEqual List(
         Action.Created(EventSourcedId("5"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -1000,7 +1000,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
             } { recoveringCtx =>
               def append: F[Unit] =
                 for {
-                  state <- stateRef.get
+                  state  <- stateRef.get
                   result <-
                     if (state) {
                       events
@@ -1028,9 +1028,9 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       }
 
     def actions = for {
-      started <- Deferred[F, Unit]
-      stopped <- Deferred[F, Unit]
-      actions <- Ref[F].of(List.empty[Action[S, C, E]])
+      started        <- Deferred[F, Unit]
+      stopped        <- Deferred[F, Unit]
+      actions        <- Ref[F].of(List.empty[Action[S, C, E]])
       eventSourcedOf <- InstrumentEventSourced(actions, eventSourcedOf(started, stopped))
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]
@@ -1056,7 +1056,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
 
     for {
       a <- actions
-      _ = a shouldEqual List(
+      _  = a shouldEqual List(
         Action.Created(EventSourcedId("8"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -1066,7 +1066,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
         appends.toList ++
         List(Action.ReceiveAllocated(0), Action.ReceiveReleased, Action.RecoveryReleased, Action.Released)
       a <- actions
-      _ = a shouldEqual List(
+      _  = a shouldEqual List(
         Action.Created(EventSourcedId("8"), akka.persistence.Recovery(), PluginIds.Empty),
         Action.Started,
         Action.RecoveryAllocated(0L, none),
@@ -1121,7 +1121,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       }
 
     for {
-      timedOut <- Deferred[F, Unit]
+      timedOut       <- Deferred[F, Unit]
       eventSourcedOf <- eventSourcedOf(timedOut)
         .typeless(_.castM[F, S], _.castM[F, E], _.pure[F])
         .pure[F]

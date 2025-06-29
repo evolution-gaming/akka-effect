@@ -79,7 +79,7 @@ object Append {
               val eventsList = events.values.toList
               for {
                 deferred <- Deferred[F, Either[Throwable, SeqNr]]
-                _ <- act {
+                _        <- act {
                   ref.update(_.enqueue(deferred))
                   var left = size
                   eventsList.foreach { events =>

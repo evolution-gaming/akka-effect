@@ -55,7 +55,7 @@ class DeleteEventsToInteropTest extends AsyncFunSuite with ActorSuite with Match
       props           = Props(actor(probe, deleteEventsTo))
       _              <- actorRefOf(props)
       deleteEventsTo <- deleteEventsTo.get.toResource
-      result <- {
+      result         <- {
         val error = new RuntimeException with NoStackTrace
 
         def verify[A](

@@ -36,7 +36,7 @@ class ReplyTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def `fromActorRef`[F[_]: Async: ToFuture: FromFuture](actorSystem: ActorSystem) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
-    val resources = for {
+    val resources  = for {
       probe    <- Probe.of[F](actorRefOf)
       actorRef <- actorRefOf(TestActors.blackholeProps)
     } yield (probe, actorRef)

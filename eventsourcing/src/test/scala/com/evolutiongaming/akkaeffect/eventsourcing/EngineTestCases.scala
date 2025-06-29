@@ -99,7 +99,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
       actions <- Actions().toResource
       append  <- appendOf(actions).toResource
       engine  <- engine(initial, append)
-      result = {
+      result   = {
         def load(name: String, delay: F[F[F[F[Unit]]]]): F[Validate[F, S, E, Unit]] =
           for {
             delay <- delay
@@ -129,7 +129,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
           dr0 <- Deferred[F, Unit]
           dv0 <- Deferred[F, Unit]
           de0 <- Deferred[F, Unit]
-          a0 <- engine(
+          a0  <- engine(
             load("a", dr0.get.as(().pure[F].as(dv0.get.as(de0.get)))),
           )
 
@@ -139,7 +139,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
           de1a <- Deferred[F, Unit]
           de1b <- Deferred[F, Unit]
           de1   = de1a.complete(()) *> de1b.get
-          _ <- engine(
+          _    <- engine(
             load(
               "b",
               dr1a.get.as(dr1b.complete(()).as(dv1.complete(()).as(de1))),
@@ -150,7 +150,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
           dr2b <- Deferred[F, Unit]
           dv2  <- Deferred[F, Unit]
           de2  <- Deferred[F, Unit]
-          a2 <- engine(
+          a2   <- engine(
             load("c", dr2a.get.as(dr2b.complete(()).as(dv2.get.as(de2.get)))),
           )
 
@@ -175,7 +175,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
           _ <- retry {
             for {
               as <- actions.get
-              _ <- Sync[F].delay {
+              _  <- Sync[F].delay {
                 as.lastOption shouldEqual Action.Append(Events.of(2L)).some
               }
             } yield {}
@@ -186,7 +186,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
           _ <- a2
 
           as <- actions.get
-          _ = as.collect { case a: Action.Load => a } shouldEqual List(
+          _   = as.collect { case a: Action.Load => a } shouldEqual List(
             Action.Load("c"),
             Action.Load("b"),
             Action.Load("a"),
@@ -224,9 +224,9 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
     val error: Throwable = new RuntimeException with NoStackTrace
 
     val initial = Engine.State((), SeqNr.Min)
-    val result = for {
+    val result  = for {
       seqNrRef <- Ref[F].of(SeqNr.Min).toResource
-      append = new Engine.Append[F, E] {
+      append    = new Engine.Append[F, E] {
         def apply(events: Events[E]) = {
           val size = events.size
           for {
@@ -239,7 +239,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
         }
       }
       engine <- engine(initial, append)
-      result = {
+      result  = {
         def load =
           Validate
             .const {
@@ -277,12 +277,12 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
     val error: Throwable = new RuntimeException with NoStackTrace
 
     val initial = Engine.State((), SeqNr.Min)
-    val result = for {
+    val result  = for {
       append <- Engine.Append
         .const[F, E](error.raiseError[F, SeqNr])
         .pure[Resource[F, *]]
       engine <- engine(initial, append)
-      result = {
+      result  = {
         for {
           _ <- ().pure[F]
 
@@ -346,14 +346,14 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
     type E = Unit
 
     val initial = Engine.State((), SeqNr.Min)
-    val result = for {
+    val result  = for {
       append <- Engine.Append.of[F, E](initial.seqNr).toResource
       engine <- engine(initial, append)
-      result = {
+      result  = {
         for {
           d0a <- Deferred[F, Unit]
           d0b <- Deferred[F, Either[Throwable, SeqNr]]
-          l0 = Validate
+          l0   = Validate
             .effect[S, E] { seqNr =>
               d0b.complete(seqNr) *> d0a.get
             }
@@ -361,7 +361,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
           _ <- engine(l0)
 
           d1 <- Deferred[F, Unit]
-          l1 = Validate
+          l1  = Validate
             .const(
               d1.get
                 .as(Directive.stop[F, S, E, Either[Throwable, SeqNr]](Effect {
@@ -372,7 +372,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
           a1 <- engine(l1)
 
           d2 <- Deferred[F, Unit]
-          l2 = d2
+          l2  = d2
             .complete(())
             .as(Validate.effect[S, E](_.pure[F]))
           a2 <- engine(l2)
@@ -411,7 +411,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
 
     for {
       appendRef <- Ref.of[F, Either[Throwable, SeqNr]](initial.seqNr.asRight)
-      append = new Engine.Append[F, E] {
+      append     = new Engine.Append[F, E] {
         override def apply(events: Events[E]): F[SeqNr] =
           for {
             v <- appendRef.get
@@ -453,7 +453,7 @@ abstract class EngineTestCases extends AsyncFunSuite with Matchers {
       d0a <- Deferred[F, Unit]
       d0b <- Deferred[F, Unit]
       d0   = d0a.complete(()) *> d0b.get
-      l0 = Validate
+      l0   = Validate
         .effect[S, E] { _ =>
           d0
         }
