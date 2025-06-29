@@ -233,7 +233,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       _             <- journalKeeper.eventsSaved(6, deferred.complete(()).void)
       _             <- deferred.get
       actions       <- actions.get
-      _ = actions
+      _              = actions
         .take(3) shouldEqual List(Action.DeleteSnapshots(criteria), Action.SaveSnapshot(4), Action.SaveSnapshot(6))
     } yield {}
   }
@@ -285,7 +285,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       _             <- journalKeeper.eventsSaved(10, deferred1.complete(()).void)
       _             <- deferred1.get
       actions       <- actions.get
-      _ = actions.take(5) shouldEqual List(
+      _              = actions.take(5) shouldEqual List(
         Action.DeleteEventsTo(3),
         Action.SaveSnapshot(4),
         Action.SaveSnapshot(7),

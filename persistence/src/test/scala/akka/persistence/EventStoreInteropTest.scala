@@ -39,7 +39,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           _       = seqNr shouldEqual 2L
           events <- store.events(SeqNr.Min)
           events <- events.toList
-          _ = events shouldEqual List(
+          _       = events shouldEqual List(
             EventStore.Event("first", 1L),
             EventStore.Event("second", 2L),
             EventStore.HighestSeqNr(2L),
@@ -84,7 +84,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           permit <- DelayedPersistence.permit(quarter)
           stream <- store.events(SeqNr.Min)
           done   <- IO.deferred[Unit]
-          _ <- stream
+          _      <- stream
             .foldWhileM(1L) {
               case (`half`, _)    => done.complete {} as ().asRight[Long]
               case (`quarter`, _) => permit.inc(quarter) as (quarter + 1L).asLeft[Unit]
@@ -366,7 +366,7 @@ class DelayedPersistence extends AsyncWriteJournal {
     val io = for {
       permit <- permit
       events <- events
-      _ <- events.traverse { event =>
+      _      <- events.traverse { event =>
         for {
           _ <- permit.get
           _ <- IO.delay(recoveryCallback(event))

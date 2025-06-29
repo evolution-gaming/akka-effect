@@ -91,7 +91,7 @@ private[akkaeffect] object Act {
             def apply[A](f: => A): F[A] =
               for {
                 adapter <- Sync[F].delay(threadLocal.get())
-                result <- {
+                result  <- {
                   if (adapter.contains(self: Adapter[F])) {
                     Sync[F].delay(f)
                   } else if (stopped) {

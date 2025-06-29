@@ -20,14 +20,14 @@ class ActTest extends AsyncFunSuite with Matchers {
 
     val result = for {
       deferred <- Deferred[IO, Any]
-      tell = (a: Any) => {
+      tell      = (a: Any) => {
         deferred
           .complete(a)
           .toFuture
         ()
       }
       act = Act.Adapter[IO](tell)
-      _ <- IO {
+      _  <- IO {
         act.sync {
           act
             .value(0)

@@ -35,7 +35,7 @@ class TellSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
   private def `fromActorRef`[F[_]: Async: ToFuture: FromFuture](actorSystem: ActorSystem) = {
     val actorRefOf = ActorRefOf.fromActorRefFactory[F](actorSystem)
-    val resources = for {
+    val resources  = for {
       actorRef <- actorRefOf(TestActors.blackholeProps)
       probe    <- Probe.of[F](actorRefOf)
     } yield (actorRef, probe)

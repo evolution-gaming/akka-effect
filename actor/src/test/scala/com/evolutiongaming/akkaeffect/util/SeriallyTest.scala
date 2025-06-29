@@ -26,11 +26,11 @@ class SeriallyTest extends AsyncFunSuite with Matchers {
   }
 
   test("handle concurrently added tasks serially") {
-    val n = 10000
-    var i = 0
+    val n      = 10000
+    var i      = 0
     val result = for {
       serially <- IO(Serially[IO, Int](0))
-      _ <- serially
+      _        <- serially
         .apply { a =>
           IO
             .apply { i = i + 1 }

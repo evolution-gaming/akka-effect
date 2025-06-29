@@ -128,7 +128,7 @@ object Engine {
           val result = for {
             state     <- stateRef.get
             directive <- validate(state.value.value, state.value.seqNr)
-            result <- {
+            result    <- {
               if (state.stopped) {
                 val effect = (error: Option[Throwable]) => directive.effect(error.getOrElse(stopped).asLeft)
                 EventsAndEffect(List.empty, effect).pure[F]
@@ -188,7 +188,7 @@ object Engine {
       cores        <- Runtime.summon[F].availableCores.toResource
       parallelism   = (cores max 2) * 10
       queue        <- queue(parallelism, stateRef, effectiveRef, append)
-      engine = {
+      engine        = {
         def loadOf[A](
           load: F[Validate[F, S, E, A]],
           deferred: Deferred[F, Either[Throwable, A]],
