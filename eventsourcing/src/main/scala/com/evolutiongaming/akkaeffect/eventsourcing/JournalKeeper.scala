@@ -186,7 +186,7 @@ object JournalKeeper {
                   case Right(metadata) =>
                     for {
                       timestamp <- Clock[F].millis
-                      result <- ref.modify {
+                      result    <- ref.modify {
                         case S.Saving(Some(candidate)) if check(metadata, timestamp, candidate) =>
                           (S.saving(none), Ctx(candidate, metadata).asLeft)
                         case _ =>
@@ -221,7 +221,7 @@ object JournalKeeper {
       timestamp <- Clock[F].millis
       check      = Check(timestamp)
       save       = Save(check, deletedTo)
-      (s, f) = {
+      (s, f)     = {
         if (check(snapshotOffer, timestamp, candidate)) {
           val s = S.saving(none)
           val f = save(_, Ctx(candidate, snapshotOffer))
@@ -239,7 +239,7 @@ object JournalKeeper {
         val candidate = Candidate(seqNr, state)
         for {
           timestamp <- Clock[F].millis
-          result <- ref.modify {
+          result    <- ref.modify {
             case s: S.Idle =>
               val meta = s.last
               if (check(meta, timestamp, candidate)) {

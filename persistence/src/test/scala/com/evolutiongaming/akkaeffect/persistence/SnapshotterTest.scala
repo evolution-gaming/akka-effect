@@ -51,7 +51,7 @@ class SnapshotterTest extends AsyncFunSuite with ActorSuite with Matchers {
       props        = Props(actor(probe, snapshotter))
       _           <- actorRefOf(props)
       snapshotter <- snapshotter.get.toResource
-      result <- {
+      result      <- {
         val metadata = akka.persistence.SnapshotMetadata("snapshotterId", 0L)
 
         val criteria = SnapshotSelectionCriteria()

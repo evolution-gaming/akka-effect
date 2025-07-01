@@ -56,14 +56,14 @@ private[akkaeffect] object Serially {
       def apply(f: A => F[A]) =
         for {
           d <- Concurrent[F].deferred[Either[Throwable, Unit]]
-          t = (a: A) =>
+          t  = (a: A) =>
             for {
               b <- f(a).attempt
               _ <- d.complete(b.void)
             } yield b.getOrElse(a)
           s <- Sync[F].delay {
             ref.getAndUpdate {
-              case _: S.Idle => S.Active
+              case _: S.Idle   => S.Active
               case s: S.Active =>
                 val task = (a: A) =>
                   Async[F].defer {
