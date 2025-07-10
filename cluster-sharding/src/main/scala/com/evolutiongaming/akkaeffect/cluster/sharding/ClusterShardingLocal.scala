@@ -43,16 +43,6 @@ object ClusterShardingLocal {
 
     def actorNameOf(a: String) = URLEncoder.encode(a, StandardCharsets.UTF_8.name())
 
-    case class ShardingMsg(f: ActorContext => Unit)
-
-    sealed trait RegionMsg
-
-    object RegionMsg {
-
-      final case object Rebalance extends RegionMsg
-      final case object State     extends RegionMsg
-    }
-
     def shardingActor(): Actor = new Actor {
 
       def receive = {
@@ -274,4 +264,15 @@ object ClusterShardingLocal {
       }
     }
   }
+
+  private case class ShardingMsg(f: ActorContext => Unit)
+
+  sealed trait RegionMsg
+
+  object RegionMsg {
+
+    case object Rebalance extends RegionMsg
+    case object State     extends RegionMsg
+  }
+
 }

@@ -26,7 +26,7 @@ class PersistenceFailureTest extends AnyFunSuite with Matchers {
     IO {
 
       val journal  = "fail-on-event-journal"
-      val snapshot = "inmemory-snapshot-store"
+      val snapshot = "akka.persistence.snapshot-store.inmem"
 
       EventSourced(
         eventSourcedId = EventSourcedId("test"),
@@ -55,9 +55,9 @@ class PersistenceFailureTest extends AnyFunSuite with Matchers {
 
   test("EventSourcedActorOf based actor must fail if journal fails to persist message") {
 
-    implicit val log = LogOf.empty[IO]
+    implicit val log: LogOf[IO] = LogOf.empty[IO]
 
-    TestActorSystem[IO]("testing", none)
+    TestActorSystem[IO]("testing", None)
       .use { system =>
         val persistence = EventSourcedPersistence.fromAkkaPlugins[IO](system, 1.second, 100)
         def actor       = EventSourcedActorOf.actor[IO, Any, Any](eventSourced, persistence)
@@ -75,7 +75,7 @@ class PersistenceFailureTest extends AnyFunSuite with Matchers {
           _ <- fail
           _ <- IO.sleep(1.second)
           r <- look.attempt
-          _  = r shouldBe a[Left[_, _]]
+          _  = r shouldBe a[Left[?, ?]]
         } yield {}
       }
       .unsafeRunSync()
@@ -84,7 +84,7 @@ class PersistenceFailureTest extends AnyFunSuite with Matchers {
 
   test("PersistentActorOf based actor must fail if journal fails to persist message") {
 
-    TestActorSystem[IO]("testing", none)
+    TestActorSystem[IO]("testing", None)
       .use { system =>
         def actor = PersistentActorOf[IO](eventSourced)
         val ref   = system.actorOf(Props(actor))
@@ -101,7 +101,7 @@ class PersistenceFailureTest extends AnyFunSuite with Matchers {
           _ <- fail
           _ <- IO.sleep(1.second)
           r <- look.attempt
-          _  = r shouldBe a[Left[_, _]]
+          _  = r shouldBe a[Left[?, ?]]
         } yield {}
       }
       .unsafeRunSync()

@@ -61,18 +61,6 @@ object EventStoreInterop {
 
       override def events(fromSeqNr: SeqNr): F[sstream.Stream[F, EventStore.Persisted[Any]]] = {
 
-        trait Consumer {
-          def onEvent(event: EventStore.Persisted[Any]): F[Consumer]
-        }
-
-        trait State
-        object State {
-          type Buffer = Vector[EventStore.Event[Any]]
-          case class Buff(buffer: Buffer)               extends State
-          case class Idle(consumer: Consumer)           extends State
-          case class Done(buffer: Buffer, seqNr: SeqNr) extends State
-        }
-
         def asEvent(persisted: PersistentRepr): EventStore.Event[Any] =
           EventStore.Event(persisted.payload, persisted.sequenceNr)
 
@@ -87,17 +75,17 @@ object EventStoreInterop {
           new IllegalStateException(s"$msg received after [RecoverySuccess]").raiseError[F, A]
 
         val state = State.Buff(Vector.empty)
-        val actor = LocalActorRef.of[F, State, Consumer](state, timeout) { self =>
+        val actor = LocalActorRef.of[F, State, Consumer[F]](state, timeout) { self =>
           {
 
-            case (state, consumer: Consumer) =>
+            case (state, consumer: Consumer[F] @unchecked) =>
               state match {
 
                 case State.Idle(_) => fail(s"consumer cannot be received if state is [Idle]")
 
                 case State.Buff(buffer) if buffer.isEmpty =>
                   val state = State.Idle(consumer): State
-                  state.asLeft[Consumer].pure[F]
+                  state.asLeft[Consumer[F]].pure[F]
 
                 case State.Buff(buffer) =>
                   val task = for {
@@ -106,7 +94,7 @@ object EventStoreInterop {
                   } yield {}
                   for {
                     _ <- task.start
-                  } yield State.Buff(Vector.empty).asLeft[Consumer]
+                  } yield State.Buff(Vector.empty).asLeft[Consumer[F]]
 
                 case State.Done(buffer, seqNr) =>
                   for {
@@ -126,13 +114,13 @@ object EventStoreInterop {
                     _ <- if (buffer.length >= capacity) bufferOverflow else ().pure[F]
                   } yield {
                     val state = State.Buff(buffer :+ event): State
-                    state.asLeft[Consumer]
+                    state.asLeft[Consumer[F]]
                   }
 
-                case State.Idle(consumer) =>
+                case State.Idle(consumer: Consumer[F] @unchecked) =>
                   for {
                     consumer <- consumer.onEvent(event)
-                  } yield State.Idle(consumer).asLeft[Consumer]
+                  } yield State.Idle(consumer).asLeft[Consumer[F]]
               }
 
             case (state, success: JournalProtocol.RecoverySuccess) =>
@@ -142,9 +130,9 @@ object EventStoreInterop {
 
                 case State.Buff(buffer) =>
                   val state = State.Done(buffer, success.highestSequenceNr): State
-                  state.asLeft[Consumer].pure[F]
+                  state.asLeft[Consumer[F]].pure[F]
 
-                case State.Idle(consumer) =>
+                case State.Idle(consumer: Consumer[F] @unchecked) =>
                   for {
                     event    <- EventStore.HighestSeqNr(success.highestSequenceNr).pure[F]
                     consumer <- consumer.onEvent(event)
@@ -152,7 +140,7 @@ object EventStoreInterop {
               }
 
             case (_, failure: JournalProtocol.ReplayMessagesFailure) =>
-              failure.cause.raiseError[F, Either[State, Consumer]]
+              failure.cause.raiseError[F, Either[State, Consumer[F]]]
           }
         }
 
@@ -171,12 +159,12 @@ object EventStoreInterop {
 
           override def foldWhileM[L, R](l: L)(f: (L, EventStore.Persisted[Any]) => F[Either[L, R]]): F[Either[L, R]] = {
 
-            class TheConsumer(val state: Either[L, R]) extends Consumer { self =>
+            class TheConsumer(val state: Either[L, R]) extends Consumer[F] { self =>
 
-              def onEvent(event: EventStore.Persisted[Any]): F[Consumer] =
+              def onEvent(event: EventStore.Persisted[Any]): F[Consumer[F]] =
                 state match {
                   case Left(state) => f(state, event) map { e => new TheConsumer(e) }
-                  case _           => (self: Consumer).pure[F]
+                  case _           => (self: Consumer[F]).pure[F]
                 }
 
             }
@@ -243,5 +231,17 @@ object EventStoreInterop {
         } yield actor.res
       }
     }
+
+  private trait Consumer[F[_]] {
+    def onEvent(event: EventStore.Persisted[Any]): F[Consumer[F]]
+  }
+
+  private trait State
+  private object State {
+    type Buffer = Vector[EventStore.Event[Any]]
+    case class Buff(buffer: Buffer)               extends State
+    case class Idle[F[_]](consumer: Consumer[F])  extends State
+    case class Done(buffer: Buffer, seqNr: SeqNr) extends State
+  }
 
 }

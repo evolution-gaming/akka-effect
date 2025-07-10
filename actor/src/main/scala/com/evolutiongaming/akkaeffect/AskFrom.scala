@@ -24,8 +24,6 @@ object AskFrom {
     timeout: FiniteDuration,
   ): Resource[F, AskFrom[F]] = {
 
-    final case class Msg(to: ActorRef, f: ActorRef => Any)
-
     def actor() = new Actor {
       def receive = {
         case Msg(to, f) => to.tell(f(sender()), sender())
@@ -44,4 +42,7 @@ object AskFrom {
       }
     }
   }
+
+  final private case class Msg(to: ActorRef, f: ActorRef => Any)
+
 }

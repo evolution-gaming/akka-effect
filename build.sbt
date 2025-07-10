@@ -6,28 +6,51 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://evolution.com")),
   homepage             := Some(url("http://github.com/evolution-gaming/akka-effect")),
   startYear            := Some(2019),
-  scalaVersion         := "2.13.16",
+  crossScalaVersions   := Seq("2.13.16", "3.3.6"),
+  scalaVersion         := crossScalaVersions.value.head,
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   scalacOptions ++= Seq(
     "-release:17",
-    "-Xsource:3",
     "-deprecation",
+  ),
+  scalacOptions ++= crossSettings(
+    scalaVersion = scalaVersion.value,
+    if2 = Seq(
+      "-Xsource:3",
+    ),
+    // Good compiler options for Scala 2.13 are coming from com.evolution:sbt-scalac-opts-plugin:0.0.9,
+    // but its support for Scala 3 is limited, especially what concerns linting options.
+    //
+    // If Scala 3 is made the primary target, good linting scalac options for it should be added first.
+    if3 = Seq(
+      "-Ykind-projector:underscores",
+
+      // disable new brace-less syntax:
+      // https://alexn.org/blog/2022/10/24/scala-3-optional-braces/
+      "-no-indent",
+
+      // improve error messages:
+      "-explain",
+      "-explain-types",
+    ),
   ),
   publishTo              := Some(Resolver.evolutionReleases),
   versionPolicyIntention := Compatibility.BinaryCompatible, // sbt-version-policy
   versionScheme          := Some("semver-spec"),
-  libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
+  libraryDependencies ++= crossSettings(
+    scalaVersion = scalaVersion.value,
+    if2 = Seq(compilerPlugin(`kind-projector` cross CrossVersion.full)),
+    if3 = Nil,
+  ),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
 )
 
-val alias: Seq[sbt.Def.Setting[_]] =
-  addCommandAlias("fmt", "scalafixEnable; scalafixAll; all scalafmtAll scalafmtSbt") ++
-    addCommandAlias(
-      "check",
-      "all Compile/doc versionPolicyCheck scalafmtCheckAll scalafmtSbtCheck; scalafixEnable; scalafixAll --check",
-    ) ++
-    addCommandAlias("build", "all compile test")
+val alias =
+  addCommandAlias("build", "+all compile test") ++
+    addCommandAlias("fmt", "+all scalafmtAll scalafmtSbt") ++
+    // `check` is called with `+` in release workflow
+    addCommandAlias("check", "all versionPolicyCheck Compile/doc scalafmtCheckAll scalafmtSbtCheck")
 
 lazy val root = project
   .in(file("."))
@@ -127,15 +150,19 @@ lazy val persistence = project
       Akka.stream,
       Akka.persistence,
       Akka.`persistence-query`,
-      Akka.slf4j   % Test,
-      Akka.testkit % Test,
+      Akka.`persistence-testkit` % Test,
+      Akka.slf4j                 % Test,
+      Akka.testkit               % Test,
       Cats.core,
       CatsEffect.effect,
       `cats-helper`,
-      pureconfig,
       smetrics,
-      scalatest                   % Test,
-      `akka-persistence-inmemory` % Test,
+      scalatest % Test,
+    ),
+    libraryDependencies ++= crossSettings(
+      scalaVersion = scalaVersion.value,
+      if2 = List(Pureconfig.Pureconfig),
+      if3 = List(Pureconfig.Scala3.Core, Pureconfig.Scala3.Generic),
     ),
   )
 
@@ -149,6 +176,11 @@ lazy val eventsourcing = project
       Akka.stream,
       retry,
     ),
+    libraryDependencies ++= crossSettings(
+      scalaVersion = scalaVersion.value,
+      if2 = List(Pureconfig.Pureconfig),
+      if3 = List(Pureconfig.Scala3.Core, Pureconfig.Scala3.Generic),
+    ),
   )
 
 lazy val cluster = project
@@ -159,7 +191,12 @@ lazy val cluster = project
   .settings(
     libraryDependencies ++= Seq(
       Akka.cluster,
-      pureconfig,
+      Akka.`cluster-typed`,
+    ),
+    libraryDependencies ++= crossSettings(
+      scalaVersion = scalaVersion.value,
+      if2 = List(Pureconfig.Pureconfig),
+      if3 = List(Pureconfig.Scala3.Core, Pureconfig.Scala3.Generic),
     ),
   )
 
@@ -176,3 +213,9 @@ lazy val `cluster-sharding` = project
       Akka.`cluster-sharding`,
     ),
   )
+
+def crossSettings[T](scalaVersion: String, if3: T, if2: T): T =
+  scalaVersion match {
+    case version if version.startsWith("3") => if3
+    case _                                  => if2
+  }

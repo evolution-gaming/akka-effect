@@ -9,9 +9,9 @@ import scala.concurrent.duration.*
 
 trait EventSourcedPersistence[F[_], S, E] {
 
-  def snapshotStore(eventSourced: EventSourced[_]): F[SnapshotStore[F, S]]
+  def snapshotStore(eventSourced: EventSourced[?]): F[SnapshotStore[F, S]]
 
-  def eventStore(eventSourced: EventSourced[_]): F[EventStore[F, E]]
+  def eventStore(eventSourced: EventSourced[?]): F[EventStore[F, E]]
 
 }
 
@@ -25,12 +25,12 @@ object EventSourcedPersistence {
 
     val persistence = akka.persistence.Persistence(system)
 
-    override def snapshotStore(eventSourced: EventSourced[_]): F[SnapshotStore[F, Any]] = {
+    override def snapshotStore(eventSourced: EventSourced[?]): F[SnapshotStore[F, Any]] = {
       val pluginId = eventSourced.pluginIds.snapshot.getOrElse("")
       SnapshotStoreInterop[F](persistence, timeout, pluginId, eventSourced.eventSourcedId)
     }
 
-    override def eventStore(eventSourced: EventSourced[_]): F[EventStore[F, Any]] = {
+    override def eventStore(eventSourced: EventSourced[?]): F[EventStore[F, Any]] = {
       val pluginId = eventSourced.pluginIds.journal.getOrElse("")
       EventStoreInterop[F](persistence, timeout, capacity, pluginId, eventSourced.eventSourcedId)
     }

@@ -25,7 +25,7 @@ private[akkaeffect] object Serially {
     object S {
       final case class Idle(value: A)     extends S // no tasks are running, `value` is result of last task
       final case class Active(task: Task) extends S // task is running and next `task` is waiting its order
-      final case object Active            extends S // task is running, nothing else scheduled
+      case object Active                  extends S // task is running, nothing else scheduled
     }
 
     val ref = new AtomicReference[S](S.Idle(value))

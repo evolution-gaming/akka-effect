@@ -145,56 +145,56 @@ object InstrumentEventSourced {
       pluginIds: PluginIds,
     ) extends Action[Nothing, Nothing, Nothing]
 
-    final case object Started extends Action[Nothing, Nothing, Nothing]
+    case object Started extends Action[Nothing, Nothing, Nothing]
 
-    final case object Released extends Action[Nothing, Nothing, Nothing]
+    case object Released extends Action[Nothing, Nothing, Nothing]
 
     final case class RecoveryAllocated[S](
       seqNr: SeqNr,
       snapshotOffer: Option[SnapshotOffer[S]],
     ) extends Action[S, Nothing, Nothing]
 
-    final case object RecoveryReleased extends Action[Nothing, Nothing, Nothing]
+    case object RecoveryReleased extends Action[Nothing, Nothing, Nothing]
 
-    final case object ReplayAllocated extends Action[Nothing, Nothing, Nothing]
+    case object ReplayAllocated extends Action[Nothing, Nothing, Nothing]
 
-    final case object ReplayReleased extends Action[Nothing, Nothing, Nothing]
+    case object ReplayReleased extends Action[Nothing, Nothing, Nothing]
 
     final case class Replayed[S, E](event: E, seqNr: SeqNr) extends Action[S, Nothing, E]
 
     final case class AppendEvents[E](events: Events[E]) extends Action[Nothing, Nothing, E]
 
-    final case object AppendEventsOuter extends Action[Nothing, Nothing, Nothing]
+    case object AppendEventsOuter extends Action[Nothing, Nothing, Nothing]
 
     final case class AppendEventsInner(seqNr: SeqNr) extends Action[Nothing, Nothing, Nothing]
 
     final case class DeleteEventsTo(seqNr: SeqNr) extends Action[Nothing, Nothing, Nothing]
 
-    final case object DeleteEventsToOuter extends Action[Nothing, Nothing, Nothing]
+    case object DeleteEventsToOuter extends Action[Nothing, Nothing, Nothing]
 
-    final case object DeleteEventsToInner extends Action[Nothing, Nothing, Nothing]
+    case object DeleteEventsToInner extends Action[Nothing, Nothing, Nothing]
 
     final case class SaveSnapshot[S](seqNr: SeqNr, snapshot: S) extends Action[S, Nothing, Nothing]
 
-    final case object SaveSnapshotOuter extends Action[Nothing, Nothing, Nothing]
+    case object SaveSnapshotOuter extends Action[Nothing, Nothing, Nothing]
 
-    final case object SaveSnapshotInner extends Action[Nothing, Nothing, Nothing]
+    case object SaveSnapshotInner extends Action[Nothing, Nothing, Nothing]
 
     final case class DeleteSnapshot(seqNr: SeqNr) extends Action[Nothing, Nothing, Nothing]
 
-    final case object DeleteSnapshotOuter extends Action[Nothing, Nothing, Nothing]
+    case object DeleteSnapshotOuter extends Action[Nothing, Nothing, Nothing]
 
-    final case object DeleteSnapshotInner extends Action[Nothing, Nothing, Nothing]
+    case object DeleteSnapshotInner extends Action[Nothing, Nothing, Nothing]
 
     final case class DeleteSnapshots(criteria: SnapshotSelectionCriteria) extends Action[Nothing, Nothing, Nothing]
 
-    final case object DeleteSnapshotsOuter extends Action[Nothing, Nothing, Nothing]
+    case object DeleteSnapshotsOuter extends Action[Nothing, Nothing, Nothing]
 
-    final case object DeleteSnapshotsInner extends Action[Nothing, Nothing, Nothing]
+    case object DeleteSnapshotsInner extends Action[Nothing, Nothing, Nothing]
 
     final case class ReceiveAllocated[S](seqNr: SeqNr) extends Action[S, Nothing, Nothing]
 
-    final case object ReceiveReleased extends Action[Nothing, Nothing, Nothing]
+    case object ReceiveReleased extends Action[Nothing, Nothing, Nothing]
 
     final case class Received[C](
       cmd: C,
@@ -202,6 +202,6 @@ object InstrumentEventSourced {
       stop: Boolean,
     ) extends Action[Nothing, C, Nothing]
 
-    final case object ReceiveTimeout extends Action[Nothing, Nothing, Nothing]
+    case object ReceiveTimeout extends Action[Nothing, Nothing, Nothing]
   }
 }

@@ -28,7 +28,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
 
     val persistenceId = EventSourcedId("#10")
 
-    val io = TestActorSystem[IO]("testing", none)
+    val io = TestActorSystem[IO]("testing", None)
       .use { system =>
         for {
           store  <- EventStoreInterop[IO](Persistence(system), 1.second, 100, emptyPluginId, persistenceId)
@@ -59,13 +59,13 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val pluginId      = "delayed-journal"
     val persistenceId = EventSourcedId("#21")
 
-    val io = TestActorSystem[IO]("testing", none)
+    val io = TestActorSystem[IO]("testing", None)
       .use { system =>
         val n        = 1000L
         val maxSeqNr = n - 1 // SeqNr starts from 0
 
         def events: List[EventStore.Event[Any]] =
-          List.range(0, n).map(n => EventStore.Event(s"event_$n", n.toLong))
+          List.range(0L, n).map(n => EventStore.Event(s"event_$n", n))
 
         for {
           // persist n events
@@ -76,7 +76,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           // recover events if persistence delayed for any event
           stream <- store.events(SeqNr.Min)
           error  <- stream.toList.attempt
-          _       = error shouldBe a[Left[TimeoutException, _]]
+          _       = error shouldBe a[Left[TimeoutException, ?]]
 
           // recover events if persistence delayed after recovering half of events
           half    = n.toInt / 2
@@ -116,7 +116,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val pluginId      = "failing-journal"
     val persistenceId = EventSourcedId("#11")
 
-    val io = TestActorSystem[IO]("testing", none)
+    val io = TestActorSystem[IO]("testing", None)
       .use { system =>
         for {
           store  <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
@@ -133,7 +133,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val pluginId      = "failing-journal"
     val persistenceId = EventSourcedId("#12")
 
-    val io = TestActorSystem[IO]("testing", none)
+    val io = TestActorSystem[IO]("testing", None)
       .use { system =>
         for {
           store <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
@@ -150,7 +150,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val pluginId      = "failing-journal"
     val persistenceId = EventSourcedId("#13")
 
-    val io = TestActorSystem[IO]("testing", none)
+    val io = TestActorSystem[IO]("testing", None)
       .use { system =>
         for {
           store    <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
@@ -167,7 +167,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val pluginId      = "infinite-journal"
     val persistenceId = EventSourcedId("#14")
 
-    val io = TestActorSystem[IO]("testing", none)
+    val io = TestActorSystem[IO]("testing", None)
       .use { system =>
         for {
           store  <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
@@ -191,7 +191,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val capacity = 100
     val events   = List.tabulate(capacity * 2)(n => EventStore.Event[Any](s"event_$n", n.toLong))
 
-    val io = TestActorSystem[IO]("testing", none)
+    val io = TestActorSystem[IO]("testing", None)
       .use { system =>
         for {
           store  <- EventStoreInterop[IO](Persistence(system), timeout, capacity, emptyPluginId, persistenceId)
@@ -214,7 +214,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val pluginId      = "infinite-journal"
     val persistenceId = EventSourcedId("#15")
 
-    val io = TestActorSystem[IO]("testing", none)
+    val io = TestActorSystem[IO]("testing", None)
       .use { system =>
         for {
           store <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
@@ -235,7 +235,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
     val pluginId      = "infinite-journal"
     val persistenceId = EventSourcedId("#16")
 
-    val io = TestActorSystem[IO]("testing", none)
+    val io = TestActorSystem[IO]("testing", None)
       .use { system =>
         for {
           store    <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)

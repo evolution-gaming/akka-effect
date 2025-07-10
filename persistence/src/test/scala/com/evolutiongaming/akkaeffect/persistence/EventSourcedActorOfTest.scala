@@ -86,8 +86,8 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
     sealed trait Cmd
 
     object Cmd {
-      final case object Inc                               extends Cmd
-      final case object Stop                              extends Cmd
+      case object Inc                                     extends Cmd
+      case object Stop                                    extends Cmd
       final case class WithCtx[A](f: ActorCtx[F] => F[A]) extends Cmd
     }
 
@@ -202,7 +202,7 @@ class EventSourcedActorOfTest extends AsyncFunSuite with ActorSuite with Matcher
       } yield {}
     }
 
-    implicit val log = LogOf.empty[F]
+    implicit val log: LogOf[F] = LogOf.empty[F]
 
     for {
       receiveTimeout <- Deferred[F, Unit]
