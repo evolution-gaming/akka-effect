@@ -21,9 +21,9 @@ class ExtractTest extends AnyFunSuite with Matchers {
   ).foreach {
     case (a, expected) =>
       test(s"either $a") {
-        implicit val extractStr  = Extract.fromClassTag[Try, String]
-        implicit val extractLong = Extract.fromClassTag[Try, Long]
-        val extractToJsonAble    = Extract.either[Try, String, Long]
+        implicit val extractStr: Extract[Try, String] = Extract.fromClassTag[Try, String]
+        implicit val extractLong: Extract[Try, Long]  = Extract.fromClassTag[Try, Long]
+        val extractToJsonAble                         = Extract.either[Try, String, Long]
         extractToJsonAble(a) shouldEqual expected.toOptionT[Try]
       }
   }

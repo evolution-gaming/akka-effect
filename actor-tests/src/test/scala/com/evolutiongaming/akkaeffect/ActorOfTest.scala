@@ -179,7 +179,7 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
         state <- Ref[F].of(0)
       } yield Receive[Call[F, Any, Any]] { call =>
         call.msg match {
-          case a: GetAndInc =>
+          case a: GetAndInc @unchecked =>
             for {
               _ <- shift
               _ <- a.delay

@@ -29,10 +29,6 @@ object Probe {
     actorRefOf: ActorRefOf[F],
   ): Resource[F, Probe[F]] = {
 
-    final case class Watch(actorRef: ActorRef)
-
-    final case class Terminated(actorRef: ActorRef)
-
     type Unsubscribe = Boolean
 
     type Listener = Envelope[Any] => F[Unsubscribe]
@@ -125,4 +121,8 @@ object Probe {
       }
     }
   }
+
+  final private case class Watch(actorRef: ActorRef)
+
+  final private case class Terminated(actorRef: ActorRef)
 }

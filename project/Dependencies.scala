@@ -2,14 +2,21 @@ import sbt._
 
 object Dependencies {
 
-  val scalatest                   = "org.scalatest"         %% "scalatest"                 % "3.2.19"
-  val `cats-helper`               = "com.evolutiongaming"   %% "cats-helper"               % "3.12.0"
-  val retry                       = "com.evolutiongaming"   %% "retry"                     % "3.1.0"
-  val `akka-persistence-inmemory` = "com.github.dnvriend"   %% "akka-persistence-inmemory" % "2.5.15.2"
-  val `kind-projector`            = "org.typelevel"          % "kind-projector"            % "0.13.3"
-  val pureconfig                  = "com.github.pureconfig" %% "pureconfig"                % "0.17.8"
-  val smetrics                    = "com.evolutiongaming"   %% "smetrics"                  % "2.3.2"
-  val sstream                     = "com.evolutiongaming"   %% "sstream"                   % "1.1.0"
+  val scalatest        = "org.scalatest"       %% "scalatest"      % "3.2.19"
+  val `cats-helper`    = "com.evolutiongaming" %% "cats-helper"    % "3.12.0"
+  val retry            = "com.evolutiongaming" %% "retry"          % "3.1.0"
+  val `kind-projector` = "org.typelevel"        % "kind-projector" % "0.13.3"
+  val smetrics         = "com.evolutiongaming" %% "smetrics"       % "2.3.2"
+  val sstream          = "com.evolutiongaming" %% "sstream"        % "1.1.0"
+
+  object Pureconfig {
+    private val version = "0.17.8"
+    val Pureconfig      = "com.github.pureconfig" %% "pureconfig" % version
+    object Scala3 {
+      val Core    = "com.github.pureconfig" %% "pureconfig-core"           % version
+      val Generic = "com.github.pureconfig" %% "pureconfig-generic-scala3" % version
+    }
+  }
 
   object Cats {
     private val version = "2.13.0"
@@ -22,15 +29,17 @@ object Dependencies {
   }
 
   object Akka {
-    private val version     = "2.6.21"
-    val actor               = "com.typesafe.akka" %% "akka-actor"             % version
-    val testkit             = "com.typesafe.akka" %% "akka-testkit"           % version
-    val stream              = "com.typesafe.akka" %% "akka-stream"            % version
-    val persistence         = "com.typesafe.akka" %% "akka-persistence"       % version
-    val `persistence-query` = "com.typesafe.akka" %% "akka-persistence-query" % version
-    val cluster             = "com.typesafe.akka" %% "akka-cluster"           % version
-    val `cluster-sharding`  = "com.typesafe.akka" %% "akka-cluster-sharding"  % version
-    val slf4j               = "com.typesafe.akka" %% "akka-slf4j"             % version
+    private val version       = "2.6.21"
+    val actor                 = "com.typesafe.akka" %% "akka-actor"               % version
+    val testkit               = "com.typesafe.akka" %% "akka-testkit"             % version
+    val stream                = "com.typesafe.akka" %% "akka-stream"              % version
+    val persistence           = "com.typesafe.akka" %% "akka-persistence"         % version
+    val `persistence-query`   = "com.typesafe.akka" %% "akka-persistence-query"   % version
+    val `persistence-testkit` = "com.typesafe.akka" %% "akka-persistence-testkit" % version
+    val cluster               = "com.typesafe.akka" %% "akka-cluster"             % version
+    val `cluster-sharding`    = "com.typesafe.akka" %% "akka-cluster-sharding"    % version
+    val `cluster-typed`       = "com.typesafe.akka" %% "akka-cluster-typed"       % version
+    val slf4j                 = "com.typesafe.akka" %% "akka-slf4j"               % version
   }
 
   object Logback {

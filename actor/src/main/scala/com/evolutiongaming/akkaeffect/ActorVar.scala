@@ -117,9 +117,9 @@ private[akkaeffect] object ActorVar {
 
     final case class Update[A](value: A) extends Directive[A]
 
-    final case object Ignore extends Directive[Nothing]
+    case object Ignore extends Directive[Nothing]
 
-    final case object Stop extends Directive[Nothing]
+    case object Stop extends Directive[Nothing]
 
     implicit class DirectiveOps[A](val self: Directive[A]) extends AnyVal {
 

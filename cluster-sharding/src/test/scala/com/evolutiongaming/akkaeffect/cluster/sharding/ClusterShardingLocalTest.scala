@@ -19,11 +19,11 @@ import scala.concurrent.duration.*
 
 class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matchers {
 
+  private case class ShardedMsg(id: String, msg: Int)
+
   test("clusterShardingLocal") {
 
     case object HandOffStopMsg
-
-    case class ShardedMsg(id: String, msg: Int)
 
     val actorRefOf = ActorRefOf.fromActorRefFactory[IO](actorSystem)
 

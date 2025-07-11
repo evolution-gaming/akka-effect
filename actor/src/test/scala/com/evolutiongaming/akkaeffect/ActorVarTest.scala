@@ -23,8 +23,8 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
     sealed trait Action
 
     object Action {
-      final case object Allocated                                  extends Action
-      final case object Released                                   extends Action
+      case object Allocated                                        extends Action
+      case object Released                                         extends Action
       final case class Updated(before: Int, after: Directive[Int]) extends Action
       final case class Released(state: Int)                        extends Action
     }

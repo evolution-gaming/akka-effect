@@ -127,5 +127,5 @@ object CounterSpec {
     case object Stop extends Msg
   }
 
-  final case object PostStop
+  case object PostStop
 }

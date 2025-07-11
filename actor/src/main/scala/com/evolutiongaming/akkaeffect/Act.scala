@@ -63,9 +63,9 @@ private[akkaeffect] object Act {
       apply(tell)
     }
 
-    def apply[F[_]: Async](tell: Any => Unit): Adapter[F] = {
+    private case class Msg(f: () => Unit)
 
-      case class Msg(f: () => Unit)
+    def apply[F[_]: Async](tell: Any => Unit): Adapter[F] =
 
       new Adapter[F] { self =>
         private val selfOpt = self.some
@@ -128,6 +128,5 @@ private[akkaeffect] object Act {
           finally threadLocal.set(None)
         }
       }
-    }
   }
 }

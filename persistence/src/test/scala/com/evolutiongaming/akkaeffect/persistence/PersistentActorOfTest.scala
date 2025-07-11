@@ -82,8 +82,8 @@ class PersistentActorOfTest extends AsyncFunSuite with ActorSuite with Matchers 
     sealed trait Cmd
 
     object Cmd {
-      final case object Inc                               extends Cmd
-      final case object Stop                              extends Cmd
+      case object Inc                                     extends Cmd
+      case object Stop                                    extends Cmd
       final case class WithCtx[A](f: ActorCtx[F] => F[A]) extends Cmd
     }
 
