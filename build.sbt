@@ -45,9 +45,6 @@ lazy val commonSettings = Seq(
     if3 = Nil,
   ),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
-  // TEMPORARY disable mima checks for new Scala 3 modules
-  versionCheck / skip       := scalaVersion.value == "3.3.6",
-  versionPolicyCheck / skip := scalaVersion.value == "3.3.6",
 )
 
 val alias =
@@ -226,10 +223,7 @@ def crossSettings[T](scalaVersion: String, if3: T, if2: T): T =
 
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
   // add mima check exceptions here, like:
-  ProblemFilters.exclude[MissingClassProblem](
-    "com.evolutiongaming.akkaeffect.cluster.sharding.ClusterShardingLocal$RegionMsg$2$Rebalance$",
-  ),
-  ProblemFilters.exclude[MissingClassProblem](
-    "com.evolutiongaming.akkaeffect.cluster.sharding.ClusterShardingLocal$RegionMsg$2$State$",
-  ),
+//  ProblemFilters.exclude[MissingClassProblem](
+//    "com.evolutiongaming.akkaeffect.cluster.sharding.ClusterShardingLocal$RegionMsg$2$Rebalance$",
+//  ),
 )
