@@ -267,9 +267,9 @@ object ClusterShardingLocal {
 
   private case class ShardingMsg(f: ActorContext => Unit)
 
-  sealed trait RegionMsg
+  private sealed trait RegionMsg
 
-  object RegionMsg {
+  private object RegionMsg {
 
     case object Rebalance extends RegionMsg
     case object State     extends RegionMsg
