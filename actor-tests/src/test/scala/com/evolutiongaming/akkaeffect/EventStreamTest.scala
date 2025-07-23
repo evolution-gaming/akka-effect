@@ -23,7 +23,7 @@ class EventStreamTest extends AsyncFunSuite with ActorSuite with Matchers {
     for {
       deferred <- Deferred[F, Event]
       onEvent   = (event: Event) => deferred.complete(event).void
-      actual <- eventStream.subscribe(onEvent).use { _ =>
+      actual   <- eventStream.subscribe(onEvent).use { _ =>
         eventStream
           .publish(Event(0))
           .productR(deferred.get)

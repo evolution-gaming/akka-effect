@@ -46,7 +46,7 @@ object Probe {
             val envelope = Envelope(msg, a.from)
 
             for {
-              listeners <- listenersRef.get
+              listeners   <- listenersRef.get
               unsubscribe <- listeners.foldLeft(List.empty[Listener].pure[F]) { (listeners, listener) =>
                 for {
                   listeners   <- listeners

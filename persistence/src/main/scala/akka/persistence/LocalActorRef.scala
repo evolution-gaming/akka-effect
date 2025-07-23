@@ -108,9 +108,9 @@ private[persistence] object LocalActorRef {
           */
         def failOnTimeout(delay: Delay): F[Either[Delay, Unit]] =
           for {
-            _     <- F.sleep(delay)
-            state <- state.get
-            now   <- F.monotonic
+            _      <- F.sleep(delay)
+            state  <- state.get
+            now    <- F.monotonic
             result <-
               if (state.updated + timeout < now) defer.complete(timeoutException.asLeft) as ().asRight[Delay]
               else (state.updated + timeout - now).asLeft[Unit].pure[F]

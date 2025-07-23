@@ -165,7 +165,7 @@ object ClusterSharding {
           _ <- log.info(allocate(d))
         } yield {
           val (a1, r) = a
-          val r1 = for {
+          val r1      = for {
             d <- MeasureDuration[F].start
             a <- r
             d <- d

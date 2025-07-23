@@ -246,7 +246,7 @@ object ClusterShardingLocal {
 
           def shardRegion(typeName: TypeName): F[ActorRef] =
             for {
-              regions <- regionRefs.get
+              regions   <- regionRefs.get
               regionRef <- regions
                 .get(typeName)
                 .liftTo[F](new IllegalStateException(s"Region $typeName was not found"))

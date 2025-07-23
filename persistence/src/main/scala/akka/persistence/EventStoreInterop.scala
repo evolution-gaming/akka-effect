@@ -48,8 +48,8 @@ object EventStoreInterop {
     eventSourcedId: EventSourcedId,
   ): F[EventStore[F, Any]] =
     for {
-      log <- LogOf.log[F, EventStoreInterop.type]
-      log <- log.prefixed(eventSourcedId.value).pure[F]
+      log        <- LogOf.log[F, EventStoreInterop.type]
+      log        <- log.prefixed(eventSourcedId.value).pure[F]
       journaller <- Sync[F].delay {
         ActorEffect.fromActor {
           persistence.journalFor(journalPluginId)
@@ -145,7 +145,7 @@ object EventStoreInterop {
         }
 
         for {
-          actor <- actor
+          actor  <- actor
           request = JournalProtocol.ReplayMessages(
             fromSequenceNr = fromSeqNr,
             toSequenceNr = SeqNr.Max,
@@ -189,7 +189,7 @@ object EventStoreInterop {
           case (state, JournalProtocol.WriteMessagesSuccessful) => state.asLeft[SeqNr].pure[F]
 
           case (state, JournalProtocol.WriteMessageSuccess(persistent, _)) =>
-            val seqNr = persistent.sequenceNr max state.maxSeqNr
+            val seqNr  = persistent.sequenceNr max state.maxSeqNr
             val result =
               if (state.writes == 1) seqNr.asRight[State]
               else State(state.writes - 1, seqNr).asLeft[SeqNr]

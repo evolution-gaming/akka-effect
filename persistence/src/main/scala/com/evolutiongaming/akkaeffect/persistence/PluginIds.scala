@@ -25,7 +25,7 @@ object PluginIds {
       self match {
         case PluginIds(None, None)       => pluginIds
         case PluginIds(Some(_), Some(_)) => self
-        case _ =>
+        case _                           =>
           val pluginIds1 = pluginIds
           PluginIds(
             journal = self.journal orElse pluginIds1.journal,
