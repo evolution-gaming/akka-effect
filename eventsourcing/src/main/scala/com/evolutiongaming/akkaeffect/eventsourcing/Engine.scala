@@ -386,10 +386,11 @@ object Engine {
                                 // persist events if [[close]] allow
                                 seqNr <- close(append(change.events) <* eff.set(state1)).attempt
                                 // create {{{ effect: F[Unit] }}} job
-                                effect = for {
-                                  a <- directive.effect(seqNr).attempt
-                                  _ <- reply.complete(a)
-                                } yield {}
+                                effect =
+                                  for {
+                                    a <- directive.effect(seqNr).attempt
+                                    _ <- reply.complete(a)
+                                  } yield {}
                                 // enqueue {{{ effect: F[Unit] }}} as `Key.effect`
                                 _ <- queue(Key.effect.some)(effect)
                               } yield {}

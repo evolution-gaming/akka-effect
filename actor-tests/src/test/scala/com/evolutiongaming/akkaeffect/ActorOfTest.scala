@@ -539,23 +539,24 @@ class ActorOfTest extends AsyncFunSuite with ActorSuite with Matchers {
       receiveOf  <- receiveOf(terminated, stopped.complete(()).void)
         .convert[Any, Any, Boolean](_.castM[F, Msg], (_: Any).pure[F], _.pure[F])
         .pure[F]
-      result = for {
-        actorEffect <- ActorEffect.of(actorRefOf, receiveOf)
-        actorRef0   <- actorRefOf(TestActors.blackholeProps)
-        actorRef1   <- actorRefOf(TestActors.blackholeProps)
-        result      <- Resource.eval {
-          for {
-            _ <- actorEffect.ask(Msg.Watch(actorRef0), timeout)
-            _ <- actorEffect.ask(Msg.Unwatch(actorRef0), timeout).flatten
-            _ <- Sync[F].delay(actorSystem.stop(actorRef0))
-            _ <- actorEffect.ask(Msg.Watch(actorRef1), timeout).flatten
-            _ <- Sync[F].delay(actorSystem.stop(actorRef1))
-            _ <- stopped.get
-            a <- terminated.get
-            _  = a shouldEqual actorRef1
-          } yield {}
-        }
-      } yield result
+      result =
+        for {
+          actorEffect <- ActorEffect.of(actorRefOf, receiveOf)
+          actorRef0   <- actorRefOf(TestActors.blackholeProps)
+          actorRef1   <- actorRefOf(TestActors.blackholeProps)
+          result      <- Resource.eval {
+            for {
+              _ <- actorEffect.ask(Msg.Watch(actorRef0), timeout)
+              _ <- actorEffect.ask(Msg.Unwatch(actorRef0), timeout).flatten
+              _ <- Sync[F].delay(actorSystem.stop(actorRef0))
+              _ <- actorEffect.ask(Msg.Watch(actorRef1), timeout).flatten
+              _ <- Sync[F].delay(actorSystem.stop(actorRef1))
+              _ <- stopped.get
+              a <- terminated.get
+              _  = a shouldEqual actorRef1
+            } yield {}
+          }
+        } yield result
       result <- result.use(_.pure[F])
     } yield result
   }
