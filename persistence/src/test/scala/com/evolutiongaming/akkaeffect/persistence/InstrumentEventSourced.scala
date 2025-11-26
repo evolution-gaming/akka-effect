@@ -63,20 +63,22 @@ object InstrumentEventSourced {
                   _     <- record(Action.AppendEvents(events))
                   seqNr <- journaller.append(events)
                   _     <- record(Action.AppendEventsOuter)
-                } yield for {
-                  seqNr <- seqNr
-                  _     <- record(Action.AppendEventsInner(seqNr))
-                } yield seqNr
+                } yield
+                  for {
+                    seqNr <- seqNr
+                    _     <- record(Action.AppendEventsInner(seqNr))
+                  } yield seqNr
 
               def deleteTo = (seqNr: SeqNr) =>
                 for {
                   _ <- record(Action.DeleteEventsTo(seqNr))
                   a <- journaller.deleteTo(seqNr)
                   _ <- record(Action.DeleteEventsToOuter)
-                } yield for {
-                  a <- a
-                  _ <- record(Action.DeleteEventsToInner)
-                } yield a
+                } yield
+                  for {
+                    a <- a
+                    _ <- record(Action.DeleteEventsToInner)
+                  } yield a
             }
 
             val snapshotter1 = new Instrument with Snapshotter[F, S] {
@@ -86,30 +88,33 @@ object InstrumentEventSourced {
                   _ <- record(Action.SaveSnapshot(seqNr, snapshot))
                   a <- snapshotter.save(seqNr, snapshot)
                   _ <- record(Action.SaveSnapshotOuter)
-                } yield for {
-                  a <- a
-                  _ <- record(Action.SaveSnapshotInner)
-                } yield a
+                } yield
+                  for {
+                    a <- a
+                    _ <- record(Action.SaveSnapshotInner)
+                  } yield a
 
               def delete(seqNr: SeqNr) =
                 for {
                   _ <- record(Action.DeleteSnapshot(seqNr))
                   a <- snapshotter.delete(seqNr)
                   _ <- record(Action.DeleteSnapshotOuter)
-                } yield for {
-                  a <- a
-                  _ <- record(Action.DeleteSnapshotInner)
-                } yield a
+                } yield
+                  for {
+                    a <- a
+                    _ <- record(Action.DeleteSnapshotInner)
+                  } yield a
 
               def delete(criteria: SnapshotSelectionCriteria) =
                 for {
                   _ <- record(Action.DeleteSnapshots(criteria))
                   a <- snapshotter.delete(criteria)
                   _ <- record(Action.DeleteSnapshotsOuter)
-                } yield for {
-                  a <- a
-                  _ <- record(Action.DeleteSnapshotsInner)
-                } yield a
+                } yield
+                  for {
+                    a <- a
+                    _ <- record(Action.DeleteSnapshotsInner)
+                  } yield a
             }
 
             for {

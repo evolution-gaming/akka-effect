@@ -55,11 +55,12 @@ class ClusterShardingTest extends AsyncFunSuite with ActorSuite with Matchers {
         new LeastShardAllocationStrategy(1, 1),
         HandOffStopMessage,
       )
-    } yield for {
-      a <- probe.expect[Unit]
-      _ <- IO(shardRegion.tell((), probe.actorEffect.toUnsafe))
-      a <- a
-    } yield a.msg
+    } yield
+      for {
+        a <- probe.expect[Unit]
+        _ <- IO(shardRegion.tell((), probe.actorEffect.toUnsafe))
+        a <- a
+      } yield a.msg
     result
       .use(identity)
       .run()

@@ -95,9 +95,10 @@ class CounterSpec extends AsyncFunSuite with ActorSuite with Matchers {
           val expect = (n: Int) =>
             for {
               a <- probe.expect[Int]
-            } yield for {
-              a <- a
-            } yield a.msg shouldEqual n
+            } yield
+              for {
+                a <- a
+              } yield a.msg shouldEqual n
           for {
             a <- expect(1)
             _ <- inc

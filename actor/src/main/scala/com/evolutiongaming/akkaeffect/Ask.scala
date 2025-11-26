@@ -99,19 +99,21 @@ object Ask {
       for {
         a <- af(msg)
         b <- self(a, timeout, sender)
-      } yield for {
-        b <- b
-        b <- bf(b)
-      } yield b
+      } yield
+        for {
+          b <- b
+          b <- bf(b)
+        } yield b
     }
 
     def narrow[A1 <: A, B1](f: B => F[B1])(implicit F: FlatMap[F]): Ask[F, A1, B1] = { (msg, timeout, sender) =>
       for {
         b <- self(msg, timeout, sender)
-      } yield for {
-        b <- b
-        b <- f(b)
-      } yield b
+      } yield
+        for {
+          b <- b
+          b <- f(b)
+        } yield b
     }
   }
 

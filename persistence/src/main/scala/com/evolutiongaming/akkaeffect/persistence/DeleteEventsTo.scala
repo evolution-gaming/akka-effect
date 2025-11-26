@@ -59,11 +59,12 @@ object DeleteEventsTo {
           for {
             d <- MeasureDuration[F].start
             r <- self(seqNr)
-          } yield for {
-            r <- r
-            d <- d
-            _ <- log.info(s"delete events to $seqNr in ${d.toMillis}ms")
-          } yield r
+          } yield
+            for {
+              r <- r
+              d <- d
+              _ <- log.info(s"delete events to $seqNr in ${d.toMillis}ms")
+            } yield r
       }
 
     def withFail(fail: Fail[F])(implicit
