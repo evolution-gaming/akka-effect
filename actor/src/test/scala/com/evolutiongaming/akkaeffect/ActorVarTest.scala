@@ -80,12 +80,13 @@ class ActorVarTest extends AsyncFunSuite with Matchers {
           actorVar.receive { state0 =>
             for {
               _ <- actions.add(Action.Updated(state0, state))
-            } yield for {
-              state <- state
-            } yield {
-              val release = actions.add(Action.Released(state))
-              Releasable(state, release.some)
-            }
+            } yield
+              for {
+                state <- state
+              } yield {
+                val release = actions.add(Action.Released(state))
+                Releasable(state, release.some)
+              }
           }
         }
       _       <- GenSpawn[F].cede

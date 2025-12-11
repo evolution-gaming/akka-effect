@@ -137,11 +137,12 @@ object Append {
       for {
         d <- MeasureDuration[F].start
         r <- self(events)
-      } yield for {
-        r <- r
-        d <- d
-        _ <- log.debug(s"append ${events.size} events in ${d.toMillis}ms")
-      } yield r
+      } yield
+        for {
+          r <- r
+          d <- d
+          _ <- log.debug(s"append ${events.size} events in ${d.toMillis}ms")
+        } yield r
 
     def withFail(fail: Fail[F])(implicit F: MonadThrowable[F]): Append[F, A] = { events =>
       fail.adapt(s"failed to append $events")(self(events))

@@ -252,10 +252,11 @@ object Engine {
               d <- Deferred[F, Either[Throwable, A]]
               f <- loadOf(load, d).start
               _ <- offer(f)
-            } yield for {
-              a <- d.get
-              a <- a.liftTo[F]
-            } yield a
+            } yield
+              for {
+                a <- d.get
+                a <- a.liftTo[F]
+              } yield a
         }
       }
       engine <- fenced(engine)
@@ -312,10 +313,11 @@ object Engine {
           fv <- load.start // fork `load` stage to allow multiple independent executions
           fu  = execute(fv.joinWithNever, d)
           _  <- queue(Key.validate.some)(fu)
-        } yield for {
-          e <- d.get
-          a <- e.liftTo[F]
-        } yield a
+        } yield
+          for {
+            e <- d.get
+            a <- e.liftTo[F]
+          } yield a
 
       /** Execute `load` with respect to:
         *   1. failure on `load` or `validate` will be propagated to user 2. stopped Engine will not persist any events

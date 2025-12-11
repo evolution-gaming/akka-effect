@@ -99,31 +99,34 @@ object Snapshotter {
           for {
             d <- MeasureDuration[F].start
             r <- self.save(seqNr, snapshot)
-          } yield for {
-            r <- r
-            d <- d
-            _ <- log.info(s"save snapshot at $seqNr in ${d.toMillis}ms")
-          } yield r
+          } yield
+            for {
+              r <- r
+              d <- d
+              _ <- log.info(s"save snapshot at $seqNr in ${d.toMillis}ms")
+            } yield r
 
         def delete(seqNr: SeqNr) =
           for {
             d <- MeasureDuration[F].start
             r <- self.delete(seqNr)
-          } yield for {
-            r <- r
-            d <- d
-            _ <- log.info(s"delete snapshot at $seqNr in ${d.toMillis}ms")
-          } yield r
+          } yield
+            for {
+              r <- r
+              d <- d
+              _ <- log.info(s"delete snapshot at $seqNr in ${d.toMillis}ms")
+            } yield r
 
         def delete(criteria: SnapshotSelectionCriteria) =
           for {
             d <- MeasureDuration[F].start
             r <- self.delete(criteria)
-          } yield for {
-            r <- r
-            d <- d
-            _ <- log.info(s"delete snapshots for $criteria in ${d.toMillis}ms")
-          } yield r
+          } yield
+            for {
+              r <- r
+              d <- d
+              _ <- log.info(s"delete snapshots for $criteria in ${d.toMillis}ms")
+            } yield r
       }
 
     def withFail(fail: Fail[F])(implicit

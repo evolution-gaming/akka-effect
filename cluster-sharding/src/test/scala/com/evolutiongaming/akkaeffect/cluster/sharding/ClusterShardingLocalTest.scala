@@ -83,25 +83,26 @@ class ClusterShardingLocalTest extends AsyncFunSuite with ActorSuite with Matche
       )
 
       actorEffect = ActorEffect.fromActor[IO](actorRef)
-    } yield for {
-      a <- probe.expect[Int]
-      b <- actorEffect.ask(ShardedMsg("id", 0), 1.second)
-      a <- a
-      _ <- IO(a.msg shouldEqual 0)
-      _ <- IO(a.from.tell(a.msg.toString, ActorRef.noSender))
-      b <- b
-      _ <- IO(b shouldEqual "0")
-      a <- probe.expect[HandOffStopMsg.type]
-      _ <- clusterShardingLocal.rebalance
-      a <- a
-      _ <- IO(a.msg shouldEqual HandOffStopMsg)
-      r <- clusterShardingLocal.clusterSharding.regions
-      _ <- IO(r shouldEqual Set(typeName))
-      s <- clusterShardingLocal.clusterSharding.shards(r.head)
-      _ <- IO(s shouldEqual Set(ShardState("1", Set.empty)))
-      r <- clusterShardingLocal.clusterSharding.shardRegion(typeName)
-      _ <- IO(r shouldEqual actorRef)
-    } yield {}
+    } yield
+      for {
+        a <- probe.expect[Int]
+        b <- actorEffect.ask(ShardedMsg("id", 0), 1.second)
+        a <- a
+        _ <- IO(a.msg shouldEqual 0)
+        _ <- IO(a.from.tell(a.msg.toString, ActorRef.noSender))
+        b <- b
+        _ <- IO(b shouldEqual "0")
+        a <- probe.expect[HandOffStopMsg.type]
+        _ <- clusterShardingLocal.rebalance
+        a <- a
+        _ <- IO(a.msg shouldEqual HandOffStopMsg)
+        r <- clusterShardingLocal.clusterSharding.regions
+        _ <- IO(r shouldEqual Set(typeName))
+        s <- clusterShardingLocal.clusterSharding.shards(r.head)
+        _ <- IO(s shouldEqual Set(ShardState("1", Set.empty)))
+        r <- clusterShardingLocal.clusterSharding.shardRegion(typeName)
+        _ <- IO(r shouldEqual actorRef)
+      } yield {}
 
     result
       .use(identity)
