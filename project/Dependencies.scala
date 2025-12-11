@@ -6,7 +6,7 @@ object Dependencies {
   val `cats-helper`    = "com.evolutiongaming" %% "cats-helper"    % "3.12.2"
   val retry            = "com.evolutiongaming" %% "retry"          % "3.1.0"
   val `kind-projector` = "org.typelevel"        % "kind-projector" % "0.13.4"
-  val smetrics         = "com.evolutiongaming" %% "smetrics"       % "2.3.5"
+  val smetrics         = "com.evolutiongaming" %% "smetrics"       % "2.4.0"
   val sstream          = "com.evolutiongaming" %% "sstream"        % "1.1.0"
 
   object Pureconfig {
