@@ -10,7 +10,7 @@ object Dependencies {
   val sstream          = "com.evolutiongaming" %% "sstream"        % "1.1.0"
 
   object Pureconfig {
-    private val version = "0.17.9"
+    private val version = "0.17.10"
     val Pureconfig      = "com.github.pureconfig" %% "pureconfig" % version
     object Scala3 {
       val Core    = "com.github.pureconfig" %% "pureconfig-core"           % version
