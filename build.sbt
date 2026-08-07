@@ -36,6 +36,9 @@ lazy val commonSettings = Seq(
       "-explain-types",
     ),
   ),
+  // When sbt-scalac-opts-plugin enables `-Wnonunit-statement` it flags ScalaTest's
+  // `x shouldEqual y` used as a non-final statement; too noisy to fix across specs right now.
+  Test / scalacOptions -= "-Wnonunit-statement",
   // Under sbt 2 the compile cache can skip re-creating scoverage's data directory after `clean`.
   // When a module's instrumented code runs inside another module's forked test JVM (before that
   // module's own tests, if any, have run), scoverage.Invoker then crashes writing measurements to
