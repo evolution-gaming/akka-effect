@@ -32,15 +32,24 @@ jobs:
       - name: setup SBT
         uses: sbt/setup-sbt@v1
 
-      - name: Check code formatting
-        run: sbt check
-
+      # The coverage build must run before anything else compiles: sbt 2 does not key its compile
+      # cache on scoverage's instrumentation, so a plain compile done first gets reused here and
+      # silently yields an empty coverage report.
       - name: build ${{ matrix.scala }}
-        run: sbt ++${{ matrix.scala }} clean coverage test
+        run: sbt "++${{ matrix.scala }}; clean; coverage; testFull; coverageAggregate"
+
+      - name: check code ${{ matrix.scala }}
+        run: sbt "++${{ matrix.scala }}; check"
+
+      - name: locate coverage report
+        id: coverage
+        if: success()
+        run: echo "file=$(find . -path '*/coverage-report/cobertura.xml' | head -1)" >> "$GITHUB_OUTPUT"
 
       - name: test coverage
         if: success()
-        env:
-          COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_FLAG_NAME: Scala ${{ matrix.scala }}
-        run: sbt ++${{ matrix.scala }} coverageReport coverageAggregate coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          file: ${{ steps.coverage.outputs.file }}
+          format: cobertura
+          flag-name: Scala ${{ matrix.scala }}
