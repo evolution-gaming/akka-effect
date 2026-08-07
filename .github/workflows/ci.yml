@@ -19,6 +19,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # sbt-dynver needs tags, otherwise the version is 0.0.0, versionPolicyCheck has no
+          # previous version to compare against, and the binary compatibility check does nothing.
+          fetch-depth: 0
 
       - uses: coursier/cache-action@v6
 
@@ -31,16 +35,28 @@ jobs:
 
       - name: setup SBT
         uses: sbt/setup-sbt@v1
+        with:
+          # sbt 2's disk cache is restored across runs and is not keyed on scoverage's
+          # instrumentation, so a cached compile would be reused without re-emitting coverage data.
+          disk-cache: false
 
-      - name: Check code formatting
-        run: sbt check
-
+      # The coverage build must also run before anything else compiles, for the same reason: a plain
+      # compile done first gets reused here and silently yields an empty coverage report.
       - name: build ${{ matrix.scala }}
-        run: sbt ++${{ matrix.scala }} clean coverage test
+        run: sbt "++${{ matrix.scala }}; clean; coverage; testFull; coverageAggregate"
+
+      - name: check code ${{ matrix.scala }}
+        run: sbt "++${{ matrix.scala }}; check"
+
+      - name: locate coverage report
+        id: coverage
+        if: success()
+        run: echo "file=$(find . -path '*/coverage-report/cobertura.xml' | head -1)" >> "$GITHUB_OUTPUT"
 
       - name: test coverage
         if: success()
-        env:
-          COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_FLAG_NAME: Scala ${{ matrix.scala }}
-        run: sbt ++${{ matrix.scala }} coverageReport coverageAggregate coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          file: ${{ steps.coverage.outputs.file }}
+          format: cobertura
+          flag-name: Scala ${{ matrix.scala }}

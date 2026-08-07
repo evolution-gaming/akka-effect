@@ -140,7 +140,7 @@ object ClusterShardingLocal {
 
                 case RegionMsg.Rebalance =>
                   rebalancing = true
-                  context.system.scheduler.scheduleOnce(1.second, self, Unstash)
+                  val _ = context.system.scheduler.scheduleOnce(1.second, self, Unstash)
                   allocationStrategy
                     .rebalance(allocation(), Set.empty)
                     .onComplete { _ =>

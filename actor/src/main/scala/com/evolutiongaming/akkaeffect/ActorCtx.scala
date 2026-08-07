@@ -86,9 +86,9 @@ object ActorCtx {
 
       def actorRefFactory: ActorRefFactory = actorContext
 
-      def watch[A](actorRef: ActorRef, msg: A) = act { actorContext.watchWith(actorRef, msg); () }
+      def watch[A](actorRef: ActorRef, msg: A) = act { val _ = actorContext.watchWith(actorRef, msg) }
 
-      def unwatch(actorRef: ActorRef) = act { actorContext.unwatch(actorRef); () }
+      def unwatch(actorRef: ActorRef) = act { val _ = actorContext.unwatch(actorRef) }
 
       def stop = act(actorContext.stop(actorContext.self))
     }
@@ -112,9 +112,9 @@ object ActorCtx {
 
       def actorRefFactory: ActorRefFactory = actorContext
 
-      def watch[A](actorRef: ActorRef, msg: A) = Sync[F].delay { actorContext.watchWith(actorRef, msg); () }
+      def watch[A](actorRef: ActorRef, msg: A) = Sync[F].delay { val _ = actorContext.watchWith(actorRef, msg) }
 
-      def unwatch(actorRef: ActorRef) = Sync[F].delay { actorContext.unwatch(actorRef); () }
+      def unwatch(actorRef: ActorRef) = Sync[F].delay { val _ = actorContext.unwatch(actorRef) }
 
       def stop = Sync[F].delay(actorContext.stop(actorContext.self))
     }

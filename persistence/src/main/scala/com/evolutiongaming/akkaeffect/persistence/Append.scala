@@ -108,8 +108,7 @@ object Append {
           }
 
           val onError: OnError[A] = { (error: Throwable, _: A, _: SeqNr) =>
-            fail(ref, error.pure[F]).toFuture
-            ()
+            val _ = fail(ref, error.pure[F]).toFuture
           }
         }
       }
