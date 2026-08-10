@@ -66,7 +66,7 @@ object ActorOf {
 
       override def postStop(): Unit = {
         act.value.postStop()
-        act.sync {
+        val _ = act.sync {
           actorVar.postStop().toFuture
         }
         super.postStop()

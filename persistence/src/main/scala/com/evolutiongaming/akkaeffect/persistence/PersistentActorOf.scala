@@ -144,7 +144,7 @@ object PersistentActorOf {
 
       override def postStop() = {
         val seqNr = lastSeqNr()
-        act.sync {
+        val _     = act.sync {
           val result = for {
             _ <- persistence.postStop(seqNr)
             _ <- release
