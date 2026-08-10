@@ -4,8 +4,8 @@ import com.typesafe.tools.mima.core.{MissingClassProblem, ProblemFilters}
 lazy val commonSettings = Seq(
   organization         := "com.evolutiongaming",
   organizationName     := "Evolution",
-  organizationHomepage := Some(url("http://evolution.com")),
-  homepage             := Some(url("http://github.com/evolution-gaming/akka-effect")),
+  organizationHomepage := Some(uri("http://evolution.com")),
+  homepage             := Some(uri("http://github.com/evolution-gaming/akka-effect")),
   startYear            := Some(2019),
   crossScalaVersions   := Seq("2.13.18", "3.3.8"),
   scalaVersion         := crossScalaVersions.value.head,
@@ -36,9 +36,6 @@ lazy val commonSettings = Seq(
       "-explain-types",
     ),
   ),
-  // When sbt-scalac-opts-plugin enables `-Wnonunit-statement` it flags ScalaTest's
-  // `x shouldEqual y` used as a non-final statement; too noisy to fix across specs right now.
-  Test / scalacOptions -= "-Wnonunit-statement",
   // Under sbt 2 the compile cache can skip re-creating scoverage's data directory after `clean`.
   // When a module's instrumented code runs inside another module's forked test JVM (before that
   // module's own tests, if any, have run), scoverage.Invoker then crashes writing measurements to
@@ -55,17 +52,17 @@ lazy val commonSettings = Seq(
   versionScheme          := Some("semver-spec"),
   libraryDependencies ++= crossSettings(
     scalaVersion = scalaVersion.value,
-    if2 = Seq(compilerPlugin(`kind-projector` cross CrossVersion.full)),
+    if2 = Seq(compilerPlugin(`kind-projector`.cross(CrossVersion.full))),
     if3 = Nil,
   ),
-  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
+  licenses := Seq(("MIT", uri("https://opensource.org/licenses/MIT"))),
 )
 
 val alias =
   addCommandAlias("build", "+all compile testFull") ++
-    addCommandAlias("fmt", "+all scalafmtAll scalafmtSbt") ++
+    addCommandAlias("fmt", "+all scalafmtRepo") ++
     // `check` is called with `+` in release workflow
-    addCommandAlias("check", "all versionPolicyCheck Compile/doc scalafmtCheckAll scalafmtSbtCheck")
+    addCommandAlias("check", "all versionPolicyCheck Compile/doc scalafmtCheckRepo")
 
 lazy val root = project
   .in(file("."))
