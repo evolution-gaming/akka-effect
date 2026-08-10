@@ -28,16 +28,14 @@ object Terminated {
             new Actor {
 
               override def preStart() = {
-                context.watch(actorRef)
-                ()
+                val _ = context.watch(actorRef)
               }
 
               def receive = {
                 case akka.actor.Terminated(`actorRef`) =>
-                  deferred
+                  val _ = deferred
                     .complete(())
                     .toFuture
-                  ()
               }
             }
 

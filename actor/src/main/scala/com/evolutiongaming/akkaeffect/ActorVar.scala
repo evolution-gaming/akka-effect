@@ -48,7 +48,7 @@ private[akkaeffect] object ActorVar {
     val serially = Serially[F, Option[State]](none)
 
     def update(f: Option[State] => F[Option[State]]): Unit = {
-      serially.apply { state =>
+      val _ = serially.apply { state =>
         val result = for {
           a <- f(state)
           _ <- a match {
@@ -64,7 +64,6 @@ private[akkaeffect] object ActorVar {
           } yield a
         }
       }.toFuture
-      ()
     }
 
     new ActorVar[F, A] {
