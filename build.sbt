@@ -58,8 +58,7 @@ lazy val commonSettings = Seq(
   licenses := Seq(("MIT", uri("https://opensource.org/licenses/MIT"))),
   versionPolicyIgnored ++= Seq(
     // add libraries here that are known to be binary compatible, like:
-    // TODO remove after next release, this project doesn't use doobie module
-    "com.evolutiongaming" %% "smetrics",
+//    "com.evolutiongaming" %% "smetrics",
   ),
 )
 
