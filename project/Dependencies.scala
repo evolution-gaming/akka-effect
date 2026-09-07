@@ -49,7 +49,7 @@ object Dependencies {
   }
 
   object Slf4j {
-    private val version    = "2.0.18"
+    private val version    = "2.0.19"
     val api                = "org.slf4j" % "slf4j-api"        % version
     val `log4j-over-slf4j` = "org.slf4j" % "log4j-over-slf4j" % version
   }
