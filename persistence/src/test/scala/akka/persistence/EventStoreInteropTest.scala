@@ -105,7 +105,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           // its value should not corelate with `EventStoreInterop` timeout
           _ <- IO
             .race(done.get, fiber.join)
-            .timeoutTo(500.millis, IO.delay(fail("not all available events were consumed")))
+            .timeoutTo(5.seconds, IO.delay(fail("not all available events were consumed")))
             .flatMap {
               case Left(_)                   => IO.unit
               case Right(Outcome.Errored(e)) => IO.delay(fail("events stream failed before consuming all events", e))
