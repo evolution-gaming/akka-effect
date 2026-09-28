@@ -2,7 +2,7 @@ package akka.persistence
 
 import akka.persistence.journal.AsyncWriteJournal
 import cats.effect.unsafe.implicits.global
-import cats.effect.{Deferred, IO}
+import cats.effect.{Deferred, IO, Outcome}
 import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, EventStore, Events, SeqNr}
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
@@ -90,7 +90,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           permit <- DelayedPersistence.permit(quarter)
           stream <- store.events(SeqNr.Min)
           done   <- IO.deferred[Unit]
-          _      <- stream
+          fiber  <- stream
             .foldWhileM(1L) {
               case (`half`, _)    => done.complete {} as ().asRight[Long]
               case (`quarter`, _) => permit.inc(quarter) as (quarter + 1L).asLeft[Unit]
@@ -103,7 +103,14 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
 
           // the timeout used only to fail the test if events cannot be consumed
           // its value should not corelate with `EventStoreInterop` timeout
-          _ <- done.get.timeoutTo(500.millis, IO.delay(fail("not all available events were consumed")))
+          _ <- IO
+            .race(done.get, fiber.join)
+            .timeoutTo(500.millis, IO.delay(fail("not all available events were consumed")))
+            .flatMap {
+              case Left(_)                   => IO.unit
+              case Right(Outcome.Errored(e)) => IO.delay(fail("events stream failed before consuming all events", e))
+              case Right(outcome)            => IO.delay(fail(s"events stream terminated unexpectedly: $outcome"))
+            }
 
           // recover events if persistence does not delayed
           _      <- DelayedPersistence.permit(n.toInt)
