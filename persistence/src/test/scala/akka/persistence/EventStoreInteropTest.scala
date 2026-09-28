@@ -13,7 +13,6 @@ import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.TimeoutException
 import javax.naming.OperationNotSupportedException
-import scala.collection.immutable.Seq
 import scala.concurrent.Future
 import scala.concurrent.duration.*
 import scala.util.Try
@@ -102,7 +101,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
             .start
 
           // the timeout used only to fail the test if events cannot be consumed
-          // its value should not corelate with `EventStoreInterop` timeout
+          // its value should not correlate with `EventStoreInterop` timeout
           _ <- IO
             .race(done.get, fiber.join)
             .timeoutTo(5.seconds, IO.delay(fail("not all available events were consumed")))
@@ -112,7 +111,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
               case Right(outcome)            => IO.delay(fail(s"events stream terminated unexpectedly: $outcome"))
             }
 
-          // recover events if persistence does not delayed
+          // recover events if persistence does not delay
           _      <- DelayedPersistence.permit(n.toInt)
           stream <- store.events(SeqNr.Min)
           events <- stream.toList
@@ -312,7 +311,7 @@ object DelayedPersistence {
     object Issued                                  extends Type
     case class Awaiting(await: Deferred[IO, Unit]) extends Type
 
-    val never = unsafe(0)
+    val never: Permit = unsafe(0)
 
     def unsafe(n: Int): Permit = new Permit {
 
@@ -359,7 +358,7 @@ object DelayedPersistence {
 class DelayedPersistence extends AsyncWriteJournal {
 
   import DelayedPersistence.*
-  import scala.concurrent.ExecutionContext.Implicits.{global => ec}
+  import scala.concurrent.ExecutionContext.Implicits.global as ec
 
   private val state = AtomicRef[Map[String, Vector[PersistentRepr]]](Map.empty)
 
