@@ -68,8 +68,14 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           List.range(0L, n).map(n => EventStore.Event(s"event_$n", n))
 
         for {
-          // persist n events
-          store <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
+          // persist n events with capacity to buffer them all
+          store <- EventStoreInterop[IO](
+            persistence = Persistence(system),
+            timeout = 1.second,
+            capacity = n.toInt,
+            journalPluginId = pluginId,
+            eventSourcedId = persistenceId,
+          )
           seqNr <- store.save(Events.fromList(events).get).flatten
           _      = seqNr shouldEqual maxSeqNr
 
