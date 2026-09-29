@@ -2,7 +2,7 @@ package akka.persistence
 
 import akka.persistence.journal.AsyncWriteJournal
 import cats.effect.unsafe.implicits.global
-import cats.effect.{Deferred, IO}
+import cats.effect.{Deferred, IO, Outcome}
 import cats.syntax.all.*
 import com.evolutiongaming.akkaeffect.persistence.{EventSourcedId, EventStore, Events, SeqNr}
 import com.evolutiongaming.akkaeffect.testkit.TestActorSystem
@@ -13,7 +13,6 @@ import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.TimeoutException
 import javax.naming.OperationNotSupportedException
-import scala.collection.immutable.Seq
 import scala.concurrent.Future
 import scala.concurrent.duration.*
 import scala.util.Try
@@ -68,8 +67,14 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           List.range(0L, n).map(n => EventStore.Event(s"event_$n", n))
 
         for {
-          // persist n events
-          store <- EventStoreInterop[IO](Persistence(system), 1.second, 100, pluginId, persistenceId)
+          // persist n events with capacity to buffer them all
+          store <- EventStoreInterop[IO](
+            persistence = Persistence(system),
+            timeout = 1.second,
+            capacity = n.toInt,
+            journalPluginId = pluginId,
+            eventSourcedId = persistenceId,
+          )
           seqNr <- store.save(Events.fromList(events).get).flatten
           _      = seqNr shouldEqual maxSeqNr
 
@@ -84,7 +89,7 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
           permit <- DelayedPersistence.permit(quarter)
           stream <- store.events(SeqNr.Min)
           done   <- IO.deferred[Unit]
-          _      <- stream
+          fiber  <- stream
             .foldWhileM(1L) {
               case (`half`, _)    => done.complete {} as ().asRight[Long]
               case (`quarter`, _) => permit.inc(quarter) as (quarter + 1L).asLeft[Unit]
@@ -96,10 +101,17 @@ class EventStoreInteropTest extends AnyFunSuite with Matchers {
             .start
 
           // the timeout used only to fail the test if events cannot be consumed
-          // its value should not corelate with `EventStoreInterop` timeout
-          _ <- done.get.timeoutTo(500.millis, IO.delay(fail("not all available events were consumed")))
+          // its value should not correlate with `EventStoreInterop` timeout
+          _ <- IO
+            .race(done.get, fiber.join)
+            .timeoutTo(5.seconds, IO.delay(fail("not all available events were consumed")))
+            .flatMap {
+              case Left(_)                   => IO.unit
+              case Right(Outcome.Errored(e)) => IO.delay(fail("events stream failed before consuming all events", e))
+              case Right(outcome)            => IO.delay(fail(s"events stream terminated unexpectedly: $outcome"))
+            }
 
-          // recover events if persistence does not delayed
+          // recover events if persistence does not delay
           _      <- DelayedPersistence.permit(n.toInt)
           stream <- store.events(SeqNr.Min)
           events <- stream.toList
@@ -299,7 +311,7 @@ object DelayedPersistence {
     object Issued                                  extends Type
     case class Awaiting(await: Deferred[IO, Unit]) extends Type
 
-    val never = unsafe(0)
+    val never: Permit = unsafe(0)
 
     def unsafe(n: Int): Permit = new Permit {
 
@@ -346,7 +358,7 @@ object DelayedPersistence {
 class DelayedPersistence extends AsyncWriteJournal {
 
   import DelayedPersistence.*
-  import scala.concurrent.ExecutionContext.Implicits.{global => ec}
+  import scala.concurrent.ExecutionContext.Implicits.global as ec
 
   private val state = AtomicRef[Map[String, Vector[PersistentRepr]]](Map.empty)
 
