@@ -15,7 +15,7 @@ import java.time.Instant
 import scala.concurrent.duration.*
 
 class JournalKeeperTest extends AsyncFunSuite with Matchers {
-  import JournalKeeperTest._
+  import JournalKeeperTest.*
 
   test("save snapshot on startup") {
     `save snapshot on startup`[IO].run()
@@ -82,13 +82,10 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `save snapshot on startup`[F[_]: Async]: F[Unit] = {
-
-    type S = F[Unit]
-
     val config = JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis)
 
     for {
-      actions <- Actions.of[F, S]
+      actions <- Actions.of[F]
       metadata = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
       _       <- journalKeeperOf(4, ().pure[F], metadata.some, config, actions)
       // wait for post-save "delete previous snapshot" effect to finish
@@ -98,15 +95,12 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `save snapshot every n events`[F[_]: Async]: F[Unit] = {
-
-    type S = F[Unit]
-
     val config =
       JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis, deleteOldSnapshots = false)
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       journalKeeper <- journalKeeperOf(0, ().pure[F], none, config, actions)
       _             <- journalKeeper.eventsSaved(1, ().pure[F])
       _             <- journalKeeper.eventsSaved(2, ().pure[F])
@@ -121,16 +115,13 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `not save snapshots in parallel`[F[_]: Async]: F[Unit] = {
-
-    type S = F[Unit]
-
     val config =
       JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis, deleteOldSnapshots = false)
 
     for {
       deferred0     <- Deferred[F, Unit]
       deferred1     <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       journalKeeper <- journalKeeperOf(0, ().pure[F], none, config, actions)
       _             <- journalKeeper.eventsSaved(1, ().pure[F])
       _             <- journalKeeper.eventsSaved(2, deferred0.get)
@@ -146,15 +137,12 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `save snapshot after batch of events saved`[F[_]: Async]: F[Unit] = {
-
-    type S = F[Unit]
-
     val config =
       JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis, deleteOldSnapshots = false)
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       journalKeeper <- journalKeeperOf(0, ().pure[F], none, config, actions)
       _             <- journalKeeper.eventsSaved(100, deferred.complete(()).void)
       _             <- deferred.get
@@ -164,14 +152,11 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `save snapshot and delete previous`[F[_]: Async]: F[Unit] = {
-
-    type S = F[Unit]
-
     val config = JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis)
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
       journalKeeper <- journalKeeperOf(4, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.eventsSaved(6, deferred.complete(()).void)
@@ -182,14 +167,12 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `track snapshots saved externally`[F[_]: Async]: F[Unit] = {
-    type S = F[Unit]
-
     val config =
       JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis, deleteOldSnapshots = false)
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
       journalKeeper <- journalKeeperOf(2, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.snapshotter.save(3, ().pure[F]).flatten
@@ -202,17 +185,14 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `not delete snapshot twice`[F[_]: Async]: F[Unit] = {
-
-    type S = F[Unit]
-
     val config = JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis)
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
       journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
-      _             <- journalKeeper.snapshotter.delete(2).flatten
+      _             <- journalKeeper.snapshotter.delete(2L).flatten
       _             <- journalKeeper.eventsSaved(4, ().pure[F])
       _             <- journalKeeper.eventsSaved(6, deferred.complete(()).void)
       _             <- deferred.get
@@ -222,14 +202,11 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `not delete snapshots twice`[F[_]: Async]: F[Unit] = {
-
-    type S = F[Unit]
-
     val config = JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis)
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
       journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
       criteria       = SnapshotSelectionCriteria(maxSequenceNr = 3)
@@ -244,14 +221,11 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `not delete snapshots twice when selected by timestamp`[F[_]: Async]: F[Unit] = {
-
-    type S = F[Unit]
-
     val config = JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis)
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(1000))
       journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
       criteria       = SnapshotSelectionCriteria(maxTimestamp = 1000)
@@ -266,14 +240,11 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `delete previous snapshot if not selected by criteria`[F[_]: Async]: F[Unit] = {
-
-    type S = F[Unit]
-
     val config = JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis)
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(1000))
       journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
       criteria       = SnapshotSelectionCriteria(maxSequenceNr = 3, maxTimestamp = 999)
@@ -288,9 +259,6 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `delete old events`[F[_]: Async]: F[Unit] = {
-
-    type S = F[Unit]
-
     val config = JournalKeeper.Config(
       saveSnapshotPerEvents = 2,
       saveSnapshotCooldown = 0.millis,
@@ -300,7 +268,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
       journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.eventsSaved(4, ().pure[F])
@@ -312,8 +280,6 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `track events deleted externally`[F[_]: Async]: F[Unit] = {
-    type S = F[Unit]
-
     val config = JournalKeeper.Config(
       saveSnapshotPerEvents = 2,
       saveSnapshotCooldown = 0.millis,
@@ -324,7 +290,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
     for {
       deferred0     <- Deferred[F, Unit]
       deferred1     <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
       journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
       _             <- journalKeeper.journaller.deleteTo(3).flatten
@@ -345,15 +311,13 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `ignore not yet saved previous snapshot if next is available`[F[_]: Async]: F[Unit] = {
-    type S = F[Unit]
-
     val config =
       JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis, deleteOldSnapshots = false)
 
     for {
       deferred0     <- Deferred[F, Unit]
       deferred1     <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       journalKeeper <- journalKeeperOf(0, ().pure[F], none, config, actions)
       _             <- journalKeeper.eventsSaved(2, deferred0.get)
       _             <- journalKeeper.eventsSaved(4, ().pure[F])
@@ -395,7 +359,7 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       journalKeeper <- journalKeeperOf(0, ().pure[F], actions)
       _             <- journalKeeper.eventsSaved(4, ().pure[F])
       _             <- journalKeeper.eventsSaved(5, deferred.complete(()).void)
@@ -406,14 +370,12 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `maintain cooldown between snapshots`[F[_]: Async]: F[Unit] = {
-    type S = F[Unit]
-
     val config =
       JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 100.millis, deleteOldSnapshots = false)
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       timestamp     <- Clock[F].instant
       metadata       = SnapshotMetadata(seqNr = 2, timestamp = timestamp)
       journalKeeper <- journalKeeperOf(2, ().pure[F], metadata.some, config, actions)
@@ -430,16 +392,14 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
   }
 
   private def `delay the very first snapshot`[F[_]: Async]: F[Unit] = {
-    type S = F[Unit]
-
     val config =
       JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 100.millis, deleteOldSnapshots = false)
 
     for {
       deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
+      actions       <- Actions.of[F]
       journalKeeper <- journalKeeperOf(0, ().pure[F], none, config, actions)
-      _             <- journalKeeper.eventsSaved(2, ().pure[F])
+      _             <- journalKeeper.eventsSaved(2, ().pure[F]) // don't save snapshot because of `cooldown`
       _             <- Temporal[F].sleep(config.saveSnapshotCooldown)
       _             <- journalKeeper.eventsSaved(4, deferred.complete(()).void)
       _             <- deferred.get
@@ -460,15 +420,15 @@ object JournalKeeperTest {
 
   object Actions {
 
-    def of[F[_]: Sync, A]: F[Actions[F]] =
+    def of[F[_]: Sync]: F[Actions[F]] =
       Ref[F]
         .of(List.empty[Action])
         .map { ref =>
           new Actions[F] {
 
-            def add(a: Action) = ref.update(a :: _)
+            def add(a: Action): F[Unit] = ref.update(a :: _)
 
-            def get = ref.get.map(_.reverse)
+            def get: F[List[Action]] = ref.get.map(_.reverse)
           }
         }
   }
@@ -486,19 +446,19 @@ object JournalKeeperTest {
     actions: Actions[F],
   ): Snapshotter[F, F[A]] = new Snapshotter[F, F[A]] {
 
-    def save(seqNr: SeqNr, snapshot: F[A]) =
+    def save(seqNr: SeqNr, snapshot: F[A]): F[F[Instant]] =
       for {
         timestamp <- Clock[F].instant
         _         <- actions.add(Action.SaveSnapshot(seqNr))
         _         <- snapshot
       } yield timestamp.pure[F]
 
-    def delete(seqNr: SeqNr) =
+    def delete(seqNr: SeqNr): F[F[Unit]] =
       actions
         .add(Action.DeleteSnapshot(seqNr))
         .map(_.pure[F])
 
-    def delete(criteria: SnapshotSelectionCriteria) =
+    def delete(criteria: SnapshotSelectionCriteria): F[F[Unit]] =
       actions
         .add(Action.DeleteSnapshots(criteria))
         .map(_.pure[F])

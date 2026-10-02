@@ -13,6 +13,7 @@ import com.evolutiongaming.catshelper.Log
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
+import java.time.Instant
 import scala.concurrent.duration.*
 
 trait JournalKeeper[F[_], Sn, St] {
@@ -57,8 +58,11 @@ object JournalKeeper {
   }
 
   /** JournalKeeper is responsible for
-    *   1. taking snapshots according to config 2. deleting previous snapshots 3. deleting events prior snapshot Does
-    *      not take more than one snapshot at a time, useful for loaded entities
+    *   1. taking snapshots according to config
+    *   1. deleting previous snapshots
+    *   1. deleting events prior snapshot
+    *
+    * Does not take more than one snapshot at a time, useful for loaded entities.
     *
     * @tparam Sn
     *   snapshot
@@ -91,17 +95,29 @@ object JournalKeeper {
     }
 
     trait Check {
+
+      /** Checks if snapshot saving is due. Have to pass 2 rules:
+        *   - at least `Config.saveSnapshotPerEvents` events have to be generated since last snapshot or since start of
+        *     aggregate
+        *   - at least duration of `Config.saveSnapshotCooldown` has elapsed since previous snapshot was saved or since
+        *     aggregate was recovered (from events or freshy created)
+        *
+        * @return
+        *   - `true` if snapshot should be saved
+        *   - `false` if snapshot saving should not be done
+        */
       def apply(last: Option[SnapshotMetadata], now: Long, candidate: Candidate[St]): Boolean
     }
 
     object Check {
       def apply(recovered: Long): Check = { (last: Option[SnapshotMetadata], now: Long, candidate: Candidate[St]) =>
-        def cooldownCheck = {
-          val timestamp = last.fold(recovered)(_.timestamp.toEpochMilli)
-          timestamp + config.saveSnapshotCooldown.toMillis <= now
+        def cooldownCheck: Boolean = {
+          val previousSnapshotSavedAt = last.fold(recovered)(_.timestamp.toEpochMilli)
+          previousSnapshotSavedAt + config.saveSnapshotCooldown.toMillis <= now
         }
 
-        def seqNrCheck = candidate.seqNr - last.fold(0L)(_.seqNr) >= config.saveSnapshotPerEvents
+        def seqNrCheck: Boolean =
+          candidate.seqNr - last.fold(0L)(_.seqNr) >= config.saveSnapshotPerEvents
 
         seqNrCheck && cooldownCheck
       }
@@ -113,7 +129,7 @@ object JournalKeeper {
 
     def saveAndDelete(ctx: Ctx, snapshot: Sn, deletedTo: Ref[F, Option[SeqNr]]): F[SnapshotMetadata] = {
 
-      def deleteOldSnapshots: F[Unit] =
+      def deleteOldSnapshots(): F[Unit] =
         if (config.deleteOldSnapshots) {
           ctx.prev
             .foldMapM { prev =>
@@ -130,7 +146,7 @@ object JournalKeeper {
           ().pure[F]
         }
 
-      def deleteOldEvents: F[Unit] =
+      def deleteOldEvents(): F[Unit] =
         if (config.deleteOldEvents) {
           ctx.prev
             .foldMapM { prev =>
@@ -160,8 +176,8 @@ object JournalKeeper {
 
       for {
         a <- snapshotter0.save(ctx.candidate.seqNr, snapshot).flatten
-        _ <- deleteOldSnapshots
-        _ <- deleteOldEvents
+        _ <- deleteOldSnapshots()
+        _ <- deleteOldEvents()
       } yield SnapshotMetadata(ctx.candidate.seqNr, a)
     }
 
@@ -235,27 +251,29 @@ object JournalKeeper {
       _   <- f(ref)
     } yield new JournalKeeper[F, Sn, St] {
 
-      def eventsSaved(seqNr: SeqNr, state: St) = {
+      def eventsSaved(seqNr: SeqNr, state: St): F[Unit] = {
         val candidate = Candidate(seqNr, state)
         for {
           timestamp <- Clock[F].millis
           result    <- ref.modify {
             case s: S.Idle =>
-              val meta = s.last
-              if (check(meta, timestamp, candidate)) {
+              val meta             = s.last
+              val mustSaveSnapshot = check(meta, timestamp, candidate)
+              if (mustSaveSnapshot) {
                 (S.saving(none), save(ref, Ctx(candidate, meta)))
               } else {
                 (s, ().pure[F])
               }
             case s: S.Saving =>
-              val s1 = if (s.candidate.forall(_ <= candidate)) s.copy(candidate = candidate.some) else s
+              val newCandidateIsNewer = s.candidate.forall(_ <= candidate)
+              val s1                  = if (newCandidateIsNewer) s.copy(candidate = candidate.some) else s
               (s1, ().pure[F])
           }
           result <- result
         } yield result
       }
 
-      val journaller = { (seqNr: SeqNr) =>
+      val journaller: Journaller[F] = { (seqNr: SeqNr) =>
         journaller0
           .deleteTo(seqNr)
           .flatMap { result =>
@@ -266,9 +284,9 @@ object JournalKeeper {
           }
       }
 
-      val snapshotter = new Snapshotter[F, Sn] {
+      val snapshotter: Snapshotter[F, Sn] = new Snapshotter[F, Sn] {
 
-        def save(seqNr: SeqNr, snapshot: Sn) =
+        def save(seqNr: SeqNr, snapshot: Sn): F[F[Instant]] =
           snapshotter0
             .save(seqNr, snapshot)
             .flatMap { result =>
@@ -285,7 +303,7 @@ object JournalKeeper {
                 .map(_.joinWithNever)
             }
 
-        def delete(seqNr: SeqNr) =
+        def delete(seqNr: SeqNr): F[F[Unit]] =
           snapshotter0
             .delete(seqNr)
             .flatMap { result =>
@@ -300,9 +318,9 @@ object JournalKeeper {
                 .map(_.joinWithNever)
             }
 
-        def delete(criteria: SnapshotSelectionCriteria) = {
+        def delete(criteria: SnapshotSelectionCriteria): F[F[Unit]] = {
 
-          def selected(meta: SnapshotMetadata) =
+          def selected(meta: SnapshotMetadata): Boolean =
             meta.seqNr <= criteria.maxSequenceNr && meta.timestamp.toEpochMilli <= criteria.maxTimestamp
 
           snapshotter0
