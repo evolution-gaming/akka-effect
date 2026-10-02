@@ -303,7 +303,7 @@ object JournalKeeper {
         def delete(criteria: SnapshotSelectionCriteria) = {
 
           def selected(meta: SnapshotMetadata) =
-            meta.seqNr <= criteria.maxSequenceNr && meta.timestamp.toEpochMilli <= criteria.maxSequenceNr
+            meta.seqNr <= criteria.maxSequenceNr && meta.timestamp.toEpochMilli <= criteria.maxTimestamp
 
           snapshotter0
             .delete(criteria)

@@ -49,6 +49,14 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
     `not delete snapshots twice`[IO].run()
   }
 
+  test("not delete snapshots twice when selected by timestamp") {
+    `not delete snapshots twice when selected by timestamp`[IO].run()
+  }
+
+  test("delete previous snapshot if not selected by criteria") {
+    `delete previous snapshot if not selected by criteria`[IO].run()
+  }
+
   test("delete old events") {
     `delete old events`[IO].run()
   }
@@ -232,6 +240,50 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
       actions       <- actions.get
       _              = actions
         .take(3) shouldEqual List(Action.DeleteSnapshots(criteria), Action.SaveSnapshot(4), Action.SaveSnapshot(6))
+    } yield {}
+  }
+
+  private def `not delete snapshots twice when selected by timestamp`[F[_]: Async]: F[Unit] = {
+
+    type S = F[Unit]
+
+    val config = JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis)
+
+    for {
+      deferred      <- Deferred[F, Unit]
+      actions       <- Actions.of[F, S]
+      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(1000))
+      journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
+      criteria       = SnapshotSelectionCriteria(maxTimestamp = 1000)
+      _             <- journalKeeper.snapshotter.delete(criteria).flatten
+      _             <- journalKeeper.eventsSaved(4, ().pure[F])
+      _             <- journalKeeper.eventsSaved(6, deferred.complete(()).void)
+      _             <- deferred.get
+      actions       <- actions.get
+      _              = actions
+        .take(3) shouldEqual List(Action.DeleteSnapshots(criteria), Action.SaveSnapshot(4), Action.SaveSnapshot(6))
+    } yield {}
+  }
+
+  private def `delete previous snapshot if not selected by criteria`[F[_]: Async]: F[Unit] = {
+
+    type S = F[Unit]
+
+    val config = JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis)
+
+    for {
+      deferred      <- Deferred[F, Unit]
+      actions       <- Actions.of[F, S]
+      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(1000))
+      journalKeeper <- journalKeeperOf(3, ().pure[F], metadata.some, config, actions)
+      criteria       = SnapshotSelectionCriteria(maxSequenceNr = 3, maxTimestamp = 999)
+      _             <- journalKeeper.snapshotter.delete(criteria).flatten
+      _             <- journalKeeper.eventsSaved(4, deferred.complete(()).void)
+      _             <- deferred.get
+      // wait for post-save "delete previous snapshot" effect to finish
+      actions <- actions.get.iterateUntil(_.size >= 3)
+      _        = actions
+        .take(3) shouldEqual List(Action.DeleteSnapshots(criteria), Action.SaveSnapshot(4), Action.DeleteSnapshot(2))
     } yield {}
   }
 
