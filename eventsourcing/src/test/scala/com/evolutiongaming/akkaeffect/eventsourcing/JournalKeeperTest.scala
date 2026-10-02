@@ -80,15 +80,12 @@ class JournalKeeperTest extends AsyncFunSuite with Matchers {
     val config = JournalKeeper.Config(saveSnapshotPerEvents = 2, saveSnapshotCooldown = 0.millis)
 
     for {
-      deferred      <- Deferred[F, Unit]
-      actions       <- Actions.of[F, S]
-      metadata       = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
-      journalKeeper <- journalKeeperOf(4, ().pure[F], metadata.some, config, actions)
-      _             <- journalKeeper.eventsSaved(5, ().pure[F])
-      _             <- journalKeeper.eventsSaved(6, deferred.complete(()).void)
-      _             <- deferred.get
-      actions       <- actions.get
-      _              = actions.take(2) shouldEqual List(Action.SaveSnapshot(4), Action.DeleteSnapshot(2))
+      actions <- Actions.of[F, S]
+      metadata = SnapshotMetadata(seqNr = 2, timestamp = Instant.ofEpochMilli(0))
+      _       <- journalKeeperOf(4, ().pure[F], metadata.some, config, actions)
+      // wait for post-save "delete previous snapshot" effect to finish
+      actions <- actions.get.iterateUntil(_.size >= 2)
+      _        = actions.take(2) shouldEqual List(Action.SaveSnapshot(4), Action.DeleteSnapshot(2))
     } yield {}
   }
 
