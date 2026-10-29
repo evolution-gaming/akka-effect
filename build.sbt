@@ -36,7 +36,7 @@ lazy val commonSettings = Seq(
       "-explain-types",
 
       // wait for something similar to: https://github.com/scala/scala3/pull/27028
-      -Wconf:msg=Skipping coverage instrumentation:i"
+      "-Wconf:msg=Skipping coverage instrumentation:i",
     ),
   ),
   // Under sbt 2 the compile cache can skip re-creating scoverage's data directory after `clean`.
