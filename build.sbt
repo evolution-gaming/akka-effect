@@ -7,7 +7,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(uri("http://evolution.com")),
   homepage             := Some(uri("http://github.com/evolution-gaming/akka-effect")),
   startYear            := Some(2019),
-  crossScalaVersions   := Seq("2.13.18", "3.3.8"),
+  crossScalaVersions   := Seq("2.13.18", "3.3.9"),
   scalaVersion         := crossScalaVersions.value.head,
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
@@ -34,6 +34,9 @@ lazy val commonSettings = Seq(
       // improve error messages:
       "-explain",
       "-explain-types",
+
+      // wait for something similar to: https://github.com/scala/scala3/pull/27028
+      "-Wconf:msg=Skipping coverage instrumentation:i",
     ),
   ),
   // Under sbt 2 the compile cache can skip re-creating scoverage's data directory after `clean`.
